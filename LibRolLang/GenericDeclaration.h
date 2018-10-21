@@ -1,5 +1,4 @@
 #pragma once
-#include <vector>
 #include "Serialization.h"
 
 enum ReferenceType

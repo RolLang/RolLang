@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <iostream>
 #include <vector>
+#include <string>
 
 template <typename T>
 struct SimpleSerializer

@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "RuntimeLoader.h"
+#include "InterpreterCommon.h"
 
 class InterpreterStacktracer
 {

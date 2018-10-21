@@ -1,8 +1,8 @@
 #pragma once
+#include <unordered_map>
 #include "InterpreterRuntimeLoader.h"
 #include "InterpreterStacktracer.h"
 #include "InterpreterStack.h"
-#include <unordered_map>
 
 class InterpreterBase
 {
@@ -156,6 +156,7 @@ protected: //Native type registration
 		NT_BOOL,
 		NT_I32,
 		NT_F32,
+		NT_RAWPTR,
 		NT_REF, //not supported yet
 
 		NT_COUNT,
@@ -166,12 +167,15 @@ protected: //Native type registration
 		_nativeTypes[NT_BOOL] = RegisterNativeTypeInternal("Core", "Core.Boolean", 1, 1);
 		_nativeTypes[NT_I32] = RegisterNativeTypeInternal("Core", "Core.Int32", 4, 4);
 		_nativeTypes[NT_F32] = RegisterNativeTypeInternal("Core", "Core.Float", 4, 4);
+		_nativeTypes[NT_RAWPTR] = RegisterNativeTypeInternal("Core", "Core.RawPtr", sizeof(void*), sizeof(void*));
 	}
 
 	template <typename T> struct NativeTypeId { static const int Value = NT_NONE; };
 	template <> struct NativeTypeId<bool> { static const int Value = NT_BOOL; };
 	template <> struct NativeTypeId<std::int32_t> { static const int Value = NT_I32; };
 	template <> struct NativeTypeId<float> { static const int Value = NT_F32; };
+	template <> struct NativeTypeId<void*> { static const int Value = NT_RAWPTR; };
+
 
 public:
 	//Interpreter API part.
@@ -195,6 +199,11 @@ public: //Interpreter API (push & pop)
 		return PushInternal(val);
 	}
 
+	bool Push(void* val)
+	{
+		return PushInternal(val);
+	}
+
 	bool Pop(bool* val)
 	{
 		return PopInternal(val);
@@ -206,6 +215,11 @@ public: //Interpreter API (push & pop)
 	}
 
 	bool Pop(float* val)
+	{
+		return PopInternal(val);
+	}
+
+	bool Pop(void** val)
 	{
 		return PopInternal(val);
 	}

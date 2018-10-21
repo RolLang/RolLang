@@ -1,7 +1,5 @@
 #pragma once
-#include <vector>
 #include "GenericDeclaration.h"
-#include "Serialization.h"
 
 enum Features
 {
@@ -62,16 +60,6 @@ enum Opcodes : unsigned char
 	OP_BRANCHFIN, //Set final handler dest. OPR: relative (unsigned). Stack: -0+0
 
 	OP_OPCOUNT,
-};
-
-enum ErrorClass : unsigned char
-{
-	ERR_UNSPECIFIED,
-	ERR_API, //API argument check, etc.
-	ERR_PROGRAM, //Related with type/function loading. Not recoverable.
-	ERR_USER, //User defined exception.
-	ERR_UNSUPPORT, //Using a feature not supported by the environment.
-	ERR_RUNTIME, //Stack overflow, divide by 0, etc.
 };
 
 enum Intrinsic2Codes

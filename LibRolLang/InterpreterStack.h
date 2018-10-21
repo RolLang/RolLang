@@ -1,5 +1,6 @@
 #pragma once
 #include "RuntimeLoader.h"
+#include "InterpreterCommon.h"
 
 //TODO InterpreterException should be changed to include stacktrace info.
 class InterpreterStack
@@ -19,7 +20,7 @@ public:
 		std::uintptr_t ret = (_top + alignment - 1) / alignment * alignment;
 		if (ret + size > _end)
 		{
-			throw InterpreterException(ERR_RUNTIME, "Stack overflow");
+			throw InterpreterException(ERR_STACKOVERFLOW, "Stack overflow");
 		}
 		_objects.push_back(_top);
 		_typeInfo.push_back(type);

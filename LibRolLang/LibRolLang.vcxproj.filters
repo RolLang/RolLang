@@ -57,14 +57,17 @@
     <ClInclude Include="Spinlock.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
-    <ClInclude Include="Exceptions.h">
-      <Filter>Header Files\Common</Filter>
-    </ClInclude>
     <ClInclude Include="InterpreterBase.h">
       <Filter>Header Files\Interpreter</Filter>
     </ClInclude>
     <ClInclude Include="Interpreter.h">
       <Filter>Header Files\Interpreter</Filter>
+    </ClInclude>
+    <ClInclude Include="InterpreterCommon.h">
+      <Filter>Header Files\Interpreter</Filter>
+    </ClInclude>
+    <ClInclude Include="RuntimeObjects.h">
+      <Filter>Header Files\Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

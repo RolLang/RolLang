@@ -4,91 +4,8 @@
 #include <memory>
 #include <algorithm>
 #include "Assembly.h"
-#include "Exceptions.h"
 #include "Spinlock.h"
-
-class RuntimeLoader;
-struct RuntimeType;
-struct RuntimeFunction;
-
-struct AssemblyList
-{
-	std::vector<Assembly> Assemblies;
-};
-
-struct LoadingArguments
-{
-	std::string Assembly;
-	std::size_t Id;
-	std::vector<RuntimeType*> Arguments;
-
-	bool operator == (const LoadingArguments &b) const
-	{
-		return Assembly == b.Assembly && Id == b.Id && Arguments == b.Arguments;
-	}
-
-	bool operator != (const LoadingArguments &b) const
-	{
-		return !(*this == b);
-	}
-};
-
-struct RuntimeType
-{
-	struct RuntimeFieldInfo
-	{
-		RuntimeType* Type;
-		std::size_t Offset;
-		std::size_t Length;
-	};
-
-	RuntimeLoader* Parent;
-	LoadingArguments Args;
-	std::size_t TypeId;
-
-	TypeStorageMode Storage;
-	std::vector<RuntimeFieldInfo> Fields;
-	std::size_t Alignment;
-	std::size_t Size;
-
-	RuntimeFunction* GCFinalizer;
-	void* StaticPointer;
-
-	std::size_t GetStorageSize()
-	{
-		return Storage == TypeStorageMode::TSM_REF ? sizeof(void*) : Size;
-	}
-
-	std::size_t GetStorageAlignment()
-	{
-		return Storage == TypeStorageMode::TSM_REF ? sizeof(void*) : Alignment;
-	}
-};
-
-struct RuntimeFunctionCode
-{
-	std::string AssemblyName;
-	std::size_t Id;
-	std::vector<unsigned char> Instruction;
-	std::vector<unsigned char> ConstantData;
-	std::vector<FunctionConst> ConstantTable;
-	std::vector<FunctionLocal> LocalVariables;
-};
-
-struct RuntimeFunction
-{
-	RuntimeLoader* Parent;
-	LoadingArguments Args;
-	std::size_t FunctionId;
-
-	std::shared_ptr<RuntimeFunctionCode> Code;
-
-	std::vector<RuntimeType*> ReferencedType;
-	std::vector<RuntimeFunction*> ReferencedFunction;
-
-	RuntimeType* ReturnValue;
-	std::vector<RuntimeType*> Parameters;
-};
+#include "RuntimeObjects.h"
 
 struct RuntimeFunctionCodeStorage
 {
@@ -126,6 +43,17 @@ class RuntimeLoader
 	 * an InternalException, no object will be moved to loaded list and the API fails.
 	 *
 	 */
+
+protected:
+	//Exception thrown internally within RuntimeLoader (and subclasses).
+	class RuntimeLoaderException : public std::runtime_error
+	{
+	public:
+		RuntimeLoaderException(const std::string& msg)
+			: std::runtime_error(msg)
+		{
+		}
+	};
 
 public:
 	RuntimeLoader(AssemblyList assemblies)
@@ -166,12 +94,7 @@ public:
 		std::lock_guard<Spinlock> lock(_loaderLock);
 		try
 		{
-			auto id = FindNativeId(FindAssembly(assemblyName)->NativeTypes, name);
-			if (id == SIZE_MAX)
-			{
-				err = "Native type not found";
-				return nullptr;
-			}
+			auto id = FindNativeIdThrow(FindAssemblyThrow(assemblyName)->NativeTypes, name);
 			return AddNativeTypeInternal(assemblyName, id, size, alignment);
 		}
 		catch (std::exception& ex)
@@ -208,7 +131,7 @@ public:
 
 	std::size_t FindExportType(const std::string& assemblyName, const std::string& n)
 	{
-		auto a = FindAssembly(assemblyName);
+		auto a = FindAssemblyThrow(assemblyName);
 		for (auto& e : a->ExportTypes)
 		{
 			if (e.ExportName == n) return e.InternalId;
@@ -218,7 +141,7 @@ public:
 
 	std::size_t FindExportFunction(const std::string& assemblyName, const std::string& n)
 	{
-		auto a = FindAssembly(assemblyName);
+		auto a = FindAssemblyThrow(assemblyName);
 		for (auto& e : a->ExportFunctions)
 		{
 			if (e.ExportName == n) return e.InternalId;
@@ -277,7 +200,7 @@ private:
 	RuntimeType* AddNativeTypeInternal(const std::string& assemblyName, std::size_t id,
 		std::size_t size, std::size_t alignment)
 	{
-		auto a = FindAssembly(assemblyName);
+		auto a = FindAssemblyThrow(assemblyName);
 		auto& type = a->Types[id];
 		if (type.Generic.Parameters.size())
 		{
@@ -442,6 +365,7 @@ private:
 			t->TypeId = _nextTypeId++;
 			t->Storage = typeTemplate->GCMode;
 			t->StaticPointer = nullptr;
+			t->PointerType = nullptr;
 			RuntimeType* ret = t.get();
 			_loadingRefTypes.push_back(std::move(t));
 			return ret;
@@ -455,6 +379,7 @@ private:
 			t->TypeId = _nextTypeId++;
 			t->Storage = typeTemplate->GCMode;
 			t->StaticPointer = nullptr;
+			t->PointerType = nullptr;
 
 			auto ret = LoadFields(std::move(t), typeTemplate);
 			assert(_loadingTypes.back() == ret);
@@ -657,13 +582,13 @@ private:
 	RuntimeType* LoadDependentTypeImport(const std::string& assembly, std::size_t id,
 		const LoadingArguments& lastArgs, GenericDeclaration& g, std::size_t refListIndex)
 	{
-		auto a = FindAssembly(assembly);
+		auto a = FindAssemblyThrow(assembly);
 		if (id >= a->ImportTypes.size())
 		{
 			throw RuntimeLoaderException("Invalid type reference");
 		}
 		auto i = a->ImportTypes[id];
-		auto a2 = FindAssembly(i.AssemblyName);
+		auto a2 = FindAssemblyThrow(i.AssemblyName);
 		for (auto e : a2->ExportTypes)
 		{
 			if (e.ExportName == i.ImportName)
@@ -736,13 +661,13 @@ private:
 	RuntimeFunction* LoadDependentFunctionImport(const std::string& assembly, std::size_t id,
 		const LoadingArguments& lastArgs, GenericDeclaration& g, std::size_t refListIndex)
 	{
-		auto a = FindAssembly(assembly);
+		auto a = FindAssemblyThrow(assembly);
 		if (id >= a->ImportFunctions.size())
 		{
 			throw RuntimeLoaderException("Invalid function reference");
 		}
 		auto i = a->ImportFunctions[id];
-		auto a2 = FindAssembly(i.AssemblyName);
+		auto a2 = FindAssemblyThrow(i.AssemblyName);
 		for (auto e : a2->ExportFunctions)
 		{
 			if (e.ExportName == i.ImportName)
@@ -755,7 +680,7 @@ private:
 	}
 
 protected:
-	Assembly* FindAssembly(const std::string& name)
+	Assembly* FindAssemblyNoThrow(const std::string& name)
 	{
 		for (auto& a : _assemblies.Assemblies)
 		{
@@ -764,30 +689,20 @@ protected:
 				return &a;
 			}
 		}
-		throw RuntimeLoaderException("Referenced assembly not found");
+		return nullptr;
 	}
 
-	Type* FindTypeTemplate(const std::string& assembly, std::size_t id)
+	Assembly* FindAssemblyThrow(const std::string& name)
 	{
-		auto a = FindAssembly(assembly);
-		if (id >= a->Types.size())
+		auto ret = FindAssemblyNoThrow(name);
+		if (ret == nullptr)
 		{
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException("Referenced assembly not found");
 		}
-		return &a->Types[id];
+		return ret;
 	}
 
-	Function* FindFunctionTemplate(const std::string& assembly, std::size_t id)
-	{
-		auto a = FindAssembly(assembly);
-		if (id >= a->Functions.size())
-		{
-			throw RuntimeLoaderException("Invalid function reference");
-		}
-		return &a->Functions[id];
-	}
-
-	std::size_t FindNativeId(const std::vector<AssemblyExport>& list,
+	std::size_t FindNativeIdNoThrow(const std::vector<AssemblyExport>& list,
 		const std::string name)
 	{
 		for (std::size_t i = 0; i < list.size(); ++i)
@@ -798,6 +713,37 @@ protected:
 			}
 		}
 		return SIZE_MAX;
+	}
+
+	std::size_t FindNativeIdThrow(const std::vector<AssemblyExport>& list,
+		const std::string name)
+	{
+		auto ret = FindNativeIdNoThrow(list, name);
+		if (ret == SIZE_MAX)
+		{
+			throw RuntimeLoaderException("Native object not found");
+		}
+		return ret;
+	}
+
+	Type* FindTypeTemplate(const std::string& assembly, std::size_t id)
+	{
+		auto a = FindAssemblyThrow(assembly);
+		if (id >= a->Types.size())
+		{
+			throw RuntimeLoaderException("Invalid type reference");
+		}
+		return &a->Types[id];
+	}
+
+	Function* FindFunctionTemplate(const std::string& assembly, std::size_t id)
+	{
+		auto a = FindAssemblyThrow(assembly);
+		if (id >= a->Functions.size())
+		{
+			throw RuntimeLoaderException("Invalid function reference");
+		}
+		return &a->Functions[id];
 	}
 
 private:

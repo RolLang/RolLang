@@ -26,7 +26,7 @@ public:
 		if (i == _functionCache.end())
 		{
 			FuncInfo info;
-			if (!_loader->GetFunctionInfoById(id, &info))
+			if (!_loader->TryFindFunctionInfoById(id, &info))
 			{
 				ReturnWithException({}, ERR_API, "Invalid function id");
 				return false;
@@ -44,6 +44,7 @@ private:
 		{
 			_stacktracer.BeginNativeFrame(i.STInfo, i.FunctionPtr);
 		}
+		//TODO still need to ensure no exception thrown
 		auto ret = i.FunctionPtr(this, i.FunctionData);
 		if (i.FunctionData != InterpreterEntry)
 		{
