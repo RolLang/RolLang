@@ -7,22 +7,29 @@
 class InterpreterBase
 {
 public:
-	InterpreterBase(AssemblyList assemblies, NativeFunction interpreterEntry)
-		: _loader(std::make_shared<InterpreterRuntimeLoader>(interpreterEntry, std::move(assemblies)))
+	InterpreterBase(AssemblyList assemblies, Interpreter* i, NativeFunction interpreterEntry)
+		: _loader(std::make_shared<InterpreterRuntimeLoader>(interpreterEntry, std::move(assemblies))),
+			_stack(i)
 	{
 		RegisterNativeTypes();
 	}
 
 protected: //Exception handling
 	//Convert the internal error info to some exception (no need for additional info)
-	void ReturnWithException(StacktraceInfo st, unsigned char code, std::string err)
+	void ReturnWithException(StacktraceInfo st, ErrorClass code, std::string err)
 	{
-		//Set the err obj
+		_lastError = { code, err, st };
 	}
 
 	void ReturnWithException(InterpreterException& ex)
 	{
+		_lastError = ex.CopyData();
+	}
 
+public:
+	InterpreterExceptionData GetLastError()
+	{
+		return _lastError;
 	}
 
 public: //Loader API
@@ -301,6 +308,6 @@ protected:
 	InterpreterStack _stack;
 	InterpreterStacktracer _stacktracer;
 	//TODO GC
-	void* _errorObject; //TODO
+	InterpreterExceptionData _lastError;
 	RuntimeType* _nativeTypes[NT_COUNT];
 };

@@ -38,7 +38,7 @@ public:
 		StacktraceInfo ret;
 		for (auto& f : _stack)
 		{
-			ret.push_back({ f.Function, f.PC ? *f.PC : SIZE_MAX });
+			ret.push_back({ f.Function->Args.ConvertToSymbol(), f.PC ? *f.PC : SIZE_MAX });
 		}
 		return std::move(ret);
 	}

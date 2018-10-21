@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 
 class RuntimeLoader;
 struct RuntimeType;
@@ -8,6 +9,14 @@ struct AssemblyList
 {
 	std::vector<Assembly> Assemblies;
 };
+
+struct LoadingArgumentElement
+{
+	std::string Assembly;
+	std::size_t Id;
+	std::size_t ArgumentCount;
+};
+typedef std::vector<LoadingArgumentElement> RuntimeObjectSymbol;
 
 struct LoadingArguments
 {
@@ -24,6 +33,16 @@ struct LoadingArguments
 	{
 		return !(*this == b);
 	}
+
+	RuntimeObjectSymbol ConvertToSymbol()
+	{
+		RuntimeObjectSymbol ret;
+		AppendToSymbol(ret);
+		return ret;
+	}
+
+private:
+	inline void AppendToSymbol(RuntimeObjectSymbol s);
 };
 
 struct RuntimeType
@@ -60,6 +79,16 @@ struct RuntimeType
 		return Storage == TypeStorageMode::TSM_REF ? sizeof(void*) : Alignment;
 	}
 };
+
+//TODO move RuntimeObjectSymbol to after LoadingArguments
+inline void LoadingArguments::AppendToSymbol(RuntimeObjectSymbol s)
+{
+	s.push_back({ Assembly, Id, Arguments.size() });
+	for (std::size_t i = 0; i < Arguments.size(); ++i)
+	{
+		Arguments[i]->Args.AppendToSymbol(s);
+	}
+}
 
 struct RuntimeFunctionCode
 {

@@ -6,7 +6,7 @@
 class InterpreterStack
 {
 public:
-	InterpreterStack(std::size_t size = 1024 * 4 * 4)
+	InterpreterStack(Interpreter* i, std::size_t size = 1024 * 4 * 4)
 	{
 		_data = std::make_unique<char[]>(size);
 		_top = (std::uintptr_t)_data.get();
@@ -20,7 +20,7 @@ public:
 		std::uintptr_t ret = (_top + alignment - 1) / alignment * alignment;
 		if (ret + size > _end)
 		{
-			throw InterpreterException(ERR_STACKOVERFLOW, "Stack overflow");
+			throw InterpreterException(_interpreter, ERR_STACKOVERFLOW, "Stack overflow");
 		}
 		_objects.push_back(_top);
 		_typeInfo.push_back(type);
@@ -32,7 +32,7 @@ public:
 	{
 		if (_objects.size() == 0)
 		{
-			throw InterpreterException(ERR_PROGRAM, "Stack empty");
+			throw InterpreterException(_interpreter, ERR_PROGRAM, "Stack empty");
 		}
 		assert(_top - _objects.back() >= _typeInfo.back()->GetStorageSize());
 		
@@ -51,7 +51,7 @@ public:
 	{
 		if (size > _objects.size())
 		{
-			throw InterpreterException(ERR_PROGRAM, "Invalid stack size");
+			throw InterpreterException(_interpreter, ERR_PROGRAM, "Invalid stack size");
 		}
 		auto n = _objects.size() - size;
 		auto t = _top;
@@ -79,7 +79,7 @@ public:
 	{
 		if (pos >= _typeInfo.size())
 		{
-			throw InterpreterException(ERR_PROGRAM, "Invalid stack index");
+			throw InterpreterException(_interpreter, ERR_PROGRAM, "Invalid stack index");
 		}
 		return _typeInfo[_typeInfo.size() - 1 - pos];
 	}
@@ -88,7 +88,7 @@ public:
 	{
 		if (pos >= _typeInfo.size())
 		{
-			throw InterpreterException(ERR_PROGRAM, "Invalid stack index");
+			throw InterpreterException(_interpreter, ERR_PROGRAM, "Invalid stack index");
 		}
 		auto index = _objects.size() - 1 - pos;
 		auto alignment = _typeInfo[index]->GetStorageAlignment();
@@ -101,7 +101,7 @@ public:
 	{
 		if (pos >= _typeInfo.size())
 		{
-			throw InterpreterException(ERR_PROGRAM, "Invalid stack index");
+			throw InterpreterException(_interpreter, ERR_PROGRAM, "Invalid stack index");
 		}
 		return _typeInfo[pos];
 	}
@@ -110,7 +110,7 @@ public:
 	{
 		if (pos >= _typeInfo.size())
 		{
-			throw InterpreterException(ERR_PROGRAM, "Invalid stack index");
+			throw InterpreterException(_interpreter, ERR_PROGRAM, "Invalid stack index");
 		}
 		auto alignment = _typeInfo[pos]->GetStorageAlignment();
 		auto top = _objects[pos];
@@ -119,6 +119,7 @@ public:
 	}
 
 private:
+	Interpreter* _interpreter;
 	std::unique_ptr<char[]> _data;
 	std::uintptr_t _top;
 	std::uintptr_t _end;

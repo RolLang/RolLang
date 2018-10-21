@@ -6,7 +6,7 @@ class Interpreter : public InterpreterBase
 	using FuncInfo = InterpreterRuntimeLoader::InterpreterRuntimeFunctionInfo;
 
 public:
-	Interpreter(AssemblyList assemblies) : InterpreterBase(assemblies, InterpreterEntry)
+	Interpreter(AssemblyList assemblies) : InterpreterBase(assemblies, this, InterpreterEntry)
 	{
 	}
 
@@ -55,4 +55,10 @@ private:
 
 private:
 	std::unordered_map<std::size_t, FuncInfo> _functionCache;
+
+private:
+	friend inline StacktraceInfo GetStacktraceInfo(Interpreter* i)
+	{
+		return i->_stacktracer.GetStacktrace();
+	}
 };
