@@ -61,6 +61,8 @@ public:
 	{
 	}
 
+	virtual ~RuntimeLoader() {}
+
 public:
 	RuntimeType* GetType(const LoadingArguments& args, std::string& err)
 	{

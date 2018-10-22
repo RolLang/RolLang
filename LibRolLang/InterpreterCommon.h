@@ -9,6 +9,7 @@ enum ErrorClass : unsigned char
 
 	//Following err classes should be mapped to managed system-defined exception types.
 	ERR_PROGRAM, //Related with type/function loading. Not recoverable.
+	ERR_INST, //Caused by an ERR instruction.
 	ERR_UNSUPPORT, //Using a feature not supported by the environment.
 	ERR_STACKOVERFLOW, //Thrown by InterpreterStack when managed data stack is full.
 };

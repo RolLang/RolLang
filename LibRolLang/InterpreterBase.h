@@ -6,6 +6,9 @@
 
 class InterpreterBase
 {
+protected:
+	using FuncInfo = InterpreterRuntimeLoader::InterpreterRuntimeFunctionInfo;
+
 public:
 	InterpreterBase(AssemblyList assemblies, Interpreter* i, NativeFunction interpreterEntry)
 		: _loader(std::make_shared<InterpreterRuntimeLoader>(interpreterEntry, std::move(assemblies))),
@@ -13,6 +16,8 @@ public:
 	{
 		RegisterNativeTypes();
 	}
+
+	virtual ~InterpreterBase() {}
 
 protected: //Exception handling
 	//Convert the internal error info to some exception (no need for additional info)
@@ -303,11 +308,68 @@ public: //Interpreter API (dup & pop without result)
 		}
 	}
 
+protected: //native/managed code switching. Related to GC pause.
+	//TODO do we need to throw from the destructor?
+
+	struct CallingFrameNN
+	{
+		CallingFrameNN(InterpreterBase* i, FuncInfo f) : _i(i)
+		{
+			_i->_stacktracer.BeginNativeFrame(f.STInfo, f.FunctionPtr);
+		}
+		~CallingFrameNN()
+		{
+			_i->_stacktracer.EndNativeFrame();
+		}
+	private:
+		InterpreterBase* const _i;
+	};
+
+	struct CallingFrameNM
+	{
+		CallingFrameNM(InterpreterBase* i, RuntimeFunction* f) : _i(i)
+		{
+			_i->_stacktracer.BeginFrameInterpreted(f);
+		}
+		~CallingFrameNM()
+		{
+			_i->_stacktracer.EndFrameInterpreted();
+		}
+	private:
+		InterpreterBase* const _i;
+	};
+
+	struct CallingFrameMN
+	{
+		CallingFrameMN(InterpreterBase* i, FuncInfo f) : _i(i)
+		{
+			_i->_stacktracer.BeginNativeFrame(f.STInfo, f.FunctionPtr);
+		}
+		~CallingFrameMN()
+		{
+			_i->_stacktracer.EndNativeFrame();
+		}
+	private:
+		InterpreterBase* const _i;
+	};
+
+	//TODO add to all API that affects GC
+	void PauseCheckAPI()
+	{
+
+	}
+
+	void PauseCheckInterpreter()
+	{
+
+	}
+
 protected:
 	std::shared_ptr<InterpreterRuntimeLoader> _loader;
 	InterpreterStack _stack;
 	InterpreterStacktracer _stacktracer;
 	//TODO GC
 	InterpreterExceptionData _lastError;
+	//TODO custom exception object
 	RuntimeType* _nativeTypes[NT_COUNT];
 };

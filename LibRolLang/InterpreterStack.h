@@ -2,7 +2,6 @@
 #include "RuntimeLoader.h"
 #include "InterpreterCommon.h"
 
-//TODO InterpreterException should be changed to include stacktrace info.
 class InterpreterStack
 {
 public:
@@ -30,7 +29,7 @@ public:
 
 	void Pop()
 	{
-		if (_objects.size() == 0)
+		if (_objects.size() <= _popLimit)
 		{
 			throw InterpreterException(_interpreter, ERR_PROGRAM, "Stack empty");
 		}
@@ -47,9 +46,14 @@ public:
 		return _objects.size();
 	}
 
+	void LimitSize(std::size_t l)
+	{
+		_popLimit = l;
+	}
+
 	void PopToSize(std::size_t size)
 	{
-		if (size > _objects.size())
+		if (size < _popLimit || size > _objects.size())
 		{
 			throw InterpreterException(_interpreter, ERR_PROGRAM, "Invalid stack size");
 		}
@@ -125,4 +129,5 @@ private:
 	std::uintptr_t _end;
 	std::vector<uintptr_t> _objects;
 	std::vector<RuntimeType*> _typeInfo;
+	std::size_t _popLimit;
 };
