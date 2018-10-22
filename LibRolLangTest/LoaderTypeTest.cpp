@@ -1,9 +1,6 @@
 #include "stdafx.h"
-#include "CppUnitTest.h"
 #include "../LibRolLang/RuntimeLoader.h"
 #include "TestAssemblyListBuilder.h"
-
-using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace LibRolLangTest
 {

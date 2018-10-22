@@ -12,6 +12,7 @@ private:
 	static bool InterpreterEntry(Interpreter* i, void* data)
 	{
 		RuntimeFunction* f = (RuntimeFunction*)data;
+		//TODO check argument number and type
 		try
 		{
 			auto nextPos = i->ExecuteNormal(f, 0, f->Code->Instruction.size());

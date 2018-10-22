@@ -313,16 +313,19 @@ protected: //native/managed code switching. Related to GC pause.
 
 	struct CallingFrameNN
 	{
-		CallingFrameNN(InterpreterBase* i, FuncInfo f) : _i(i)
+		CallingFrameNN(InterpreterBase* i, FuncInfo f) : _i(i), _f(i->_stack.GetLimitSize())
 		{
 			_i->_stacktracer.BeginNativeFrame(f.STInfo, f.FunctionPtr);
+			_i->_stack.SetLimitSize(_i->_stack.GetSize() - f.STInfo->Parameters.size());
 		}
 		~CallingFrameNN()
 		{
+			_i->_stack.SetLimitSize(_f);
 			_i->_stacktracer.EndNativeFrame();
 		}
 	private:
 		InterpreterBase* const _i;
+		std::size_t const _f;
 	};
 
 	struct CallingFrameNM
@@ -341,16 +344,19 @@ protected: //native/managed code switching. Related to GC pause.
 
 	struct CallingFrameMN
 	{
-		CallingFrameMN(InterpreterBase* i, FuncInfo f) : _i(i)
+		CallingFrameMN(InterpreterBase* i, FuncInfo f) : _i(i), _f(i->_stack.GetLimitSize())
 		{
 			_i->_stacktracer.BeginNativeFrame(f.STInfo, f.FunctionPtr);
+			_i->_stack.SetLimitSize(_i->_stack.GetSize() - f.STInfo->Parameters.size());
 		}
 		~CallingFrameMN()
 		{
+			_i->_stack.SetLimitSize(_f);
 			_i->_stacktracer.EndNativeFrame();
 		}
 	private:
 		InterpreterBase* const _i;
+		std::size_t const _f;
 	};
 
 	//TODO add to all API that affects GC

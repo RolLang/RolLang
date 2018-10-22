@@ -46,9 +46,14 @@ public:
 		return _objects.size();
 	}
 
-	void LimitSize(std::size_t l)
+	void SetLimitSize(std::size_t l)
 	{
 		_popLimit = l;
+	}
+
+	std::size_t GetLimitSize()
+	{
+		return _popLimit;
 	}
 
 	void PopToSize(std::size_t size)
@@ -129,5 +134,5 @@ private:
 	std::uintptr_t _end;
 	std::vector<uintptr_t> _objects;
 	std::vector<RuntimeType*> _typeInfo;
-	std::size_t _popLimit;
+	std::size_t _popLimit = 0;
 };

@@ -1,10 +1,5 @@
 #include "stdafx.h"
-#include "CppUnitTest.h"
 #include "../LibRolLang/Serialization.h"
-#include <vector>
-#include <sstream>
-
-using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace
 {
