@@ -516,6 +516,7 @@ private:
 	void PostLoadType(std::unique_ptr<RuntimeType> type)
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
+		//TODO check function type
 		type->Initializer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Finalizer);
 		type->Finalizer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Finalizer);
 		if (type->Storage == TSM_GLOBAL)

@@ -15,8 +15,8 @@ struct Type
 	TypeStorageMode GCMode;
 	std::vector<std::size_t> Fields;
 
-	std::size_t Initializer;
-	std::size_t Finalizer;
+	std::size_t Initializer; //void(void)
+	std::size_t Finalizer; //void(Pointer<T>)
 };
 FIELD_SERIALIZER_BEGIN(Type)
 	SERIALIZE_FIELD(Generic)

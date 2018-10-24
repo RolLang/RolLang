@@ -45,7 +45,24 @@ private:
 	inline void AppendToSymbol(RuntimeObjectSymbol s);
 };
 
-struct RuntimeType
+struct Initializable
+{
+	std::unique_lock<Spinlock> BeginInit()
+	{
+		std::unique_lock<Spinlock> l(Lock);
+		if (InitFlag)
+		{
+			l.unlock();
+		}
+		return std::move(l);
+	}
+
+private:
+	Spinlock Lock;
+	bool InitFlag;
+};
+
+struct RuntimeType : Initializable
 {
 	struct RuntimeFieldInfo
 	{
@@ -101,7 +118,7 @@ struct RuntimeFunctionCode
 	std::vector<FunctionLocal> LocalVariables;
 };
 
-struct RuntimeFunction
+struct RuntimeFunction : Initializable
 {
 	RuntimeLoader* Parent;
 	LoadingArguments Args;

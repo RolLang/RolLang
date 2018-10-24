@@ -31,6 +31,17 @@ protected: //Exception handling
 		_lastError = ex.CopyData();
 	}
 
+	InterpreterException RethrowLastException()
+	{
+		//TODO handle user exception object?
+		return InterpreterException(_lastError.Stacktrace, _lastError.Error, _lastError.Message);
+	}
+
+	void PushLastException()
+	{
+		//TODO
+	}
+
 public:
 	InterpreterExceptionData GetLastError()
 	{
@@ -329,10 +340,10 @@ protected: //native/managed code switching. Related to GC pause.
 	struct CallingFrameNN
 	{
 		CallingFrameNN(InterpreterBase* i, FuncInfo f)
-			: _i(i), _f(i->_stack.GetLimitSize()), _ret(f.STInfo->ReturnValue)
+			: _i(i), _f(i->_stack.GetLimitSize()), _ret(f.RuntimePtr->ReturnValue)
 		{
-			_i->_stacktracer.BeginNativeFrame(f.STInfo, f.FunctionPtr);
-			_i->_stack.SetLimitSize(_i->_stack.GetSize() - f.STInfo->Parameters.size());
+			_i->_stacktracer.BeginNativeFrame(f.RuntimePtr, f.EntryPtr);
+			_i->_stack.SetLimitSize(_i->_stack.GetSize() - f.RuntimePtr->Parameters.size());
 		}
 		~CallingFrameNN()
 		{
@@ -371,10 +382,10 @@ protected: //native/managed code switching. Related to GC pause.
 	struct CallingFrameMN
 	{
 		CallingFrameMN(InterpreterBase* i, FuncInfo f)
-			: _i(i), _f(i->_stack.GetLimitSize()), _ret(f.STInfo->ReturnValue)
+			: _i(i), _f(i->_stack.GetLimitSize()), _ret(f.RuntimePtr->ReturnValue)
 		{
-			_i->_stacktracer.BeginNativeFrame(f.STInfo, f.FunctionPtr);
-			_i->_stack.SetLimitSize(_i->_stack.GetSize() - f.STInfo->Parameters.size());
+			_i->_stacktracer.BeginNativeFrame(f.RuntimePtr, f.EntryPtr);
+			_i->_stack.SetLimitSize(_i->_stack.GetSize() - f.RuntimePtr->Parameters.size());
 		}
 		~CallingFrameMN()
 		{
@@ -395,6 +406,8 @@ protected: //native/managed code switching. Related to GC pause.
 		std::size_t const _f;
 		bool const _ret;
 	};
+
+protected:
 
 	//TODO add to all API that affects GC
 	void PauseCheckAPI()

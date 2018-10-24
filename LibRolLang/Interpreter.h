@@ -58,6 +58,7 @@ private:
 			}
 			try
 			{
+				PushLastException();
 				auto nextPosCatch = ExecuteNormal(f, catchPos, finPos);
 				assert(_stack.GetLimitSize() == stackLimit);
 				//Exception successfully processed. We make nextPos = catchPos to continue.
@@ -196,11 +197,12 @@ private:
 				assert(opr < f->ReferencedFunction.size());
 				auto callee = f->ReferencedFunction[opr];
 				assert(callee);
+				CheckInitFunction(callee);
 				FuncInfo calleeInfo;
 				auto suc = _loader->TryFindFunctionInfoById(callee->FunctionId, &calleeInfo);
 				assert(suc);
 				assert(argStart + callee->Parameters.size() <= _stack.GetSize());
-				if (calleeInfo.FunctionPtr == InterpreterEntry)
+				if (calleeInfo.EntryPtr == InterpreterEntry)
 				{
 					//enter new frame
 					_stacktracer.SetReturnAddress(pc, argStart);
@@ -218,7 +220,10 @@ private:
 				}
 				else
 				{
-					ManagedCall(calleeInfo);
+					if (!ManagedCall(calleeInfo))
+					{
+						throw RethrowLastException();
+					}
 				}
 				break;
 			}
@@ -271,11 +276,12 @@ private:
 	//Used by Call API
 	bool APICall(const FuncInfo& i)
 	{
+		CheckInitFunction(i.RuntimePtr);
 		//TODO assert not in managed code
-		if (i.FunctionPtr == InterpreterEntry)
+		if (i.EntryPtr == InterpreterEntry)
 		{
-			CallingFrameNM frame(this, i.STInfo);
-			return i.FunctionPtr(this, i.FunctionData);
+			CallingFrameNM frame(this, i.RuntimePtr);
+			return i.EntryPtr(this, i.Data);
 		}
 		else
 		{
@@ -288,17 +294,56 @@ private:
 	bool ManagedCall(const FuncInfo& i)
 	{
 		//TODO assert in managed code
-		assert(i.FunctionData != InterpreterEntry);
+		assert(i.EntryPtr != InterpreterEntry);
 		CallingFrameMN frame(this, i);
 		return DoCallNative(i);
 	}
 
 	bool DoCallNative(const FuncInfo& i)
 	{
-		//TODO still need to ensure no exception thrown
-		return i.FunctionPtr(this, i.FunctionData);
+		try
+		{
+			return i.EntryPtr(this, i.Data);
+		}
+		catch (...)
+		{
+			ReturnWithException(_stacktracer.GetStacktrace(), ERR_PROGRAM, "Exception caught in native function");
+			return false;
+		}
 	}
 
+private:
+	void CheckInitFunction(RuntimeFunction* f)
+	{
+		auto g = f->BeginInit();
+		if (g)
+		{
+			for (auto t : f->ReferencedType)
+			{
+				if (t) CheckInitType(t);
+			}
+		}
+	}
+
+	void CheckInitType(RuntimeType* t)
+	{
+		auto g = t->BeginInit();
+		if (g)
+		{
+			auto initializer = t->Initializer;
+			if (initializer)
+			{
+				assert(initializer->Parameters.size() == 0);
+				assert(initializer->ReturnValue == nullptr);
+
+				auto ret = Call(initializer->FunctionId);
+				if (!ret)
+				{
+					throw InterpreterException(this, ERR_PROGRAM, "Type fails to initialize");
+				}
+			}
+		}
+	}
 private:
 	std::unordered_map<std::size_t, FuncInfo> _functionCache;
 

@@ -27,9 +27,9 @@ public:
 
 	struct InterpreterRuntimeFunctionInfo
 	{
-		NativeFunction FunctionPtr;
-		void* FunctionData;
-		RuntimeFunction* STInfo;
+		NativeFunction EntryPtr;
+		void* Data;
+		RuntimeFunction* RuntimePtr;
 	};
 
 private:
@@ -84,8 +84,8 @@ protected:
 	virtual void OnFunctionLoaded(RuntimeFunction* func) override
 	{
 		InterpreterRuntimeFunctionInfo info;
-		info.STInfo = func;
-		info.FunctionPtr = nullptr;
+		info.RuntimePtr = func;
+		info.EntryPtr = nullptr;
 		for (auto& n : _nativeFunctions)
 		{
 			if (func->Args.Assembly == n.AssemblyName && func->Args.Id == n.Id)
@@ -94,15 +94,15 @@ protected:
 				{
 					throw RuntimeLoaderException("Invalid native function.");
 				}
-				info.FunctionPtr = n.FunctionPtr;
-				info.FunctionData = n.Data;
+				info.EntryPtr = n.FunctionPtr;
+				info.Data = n.Data;
 				break;
 			}
 		}
-		if (info.FunctionPtr == nullptr)
+		if (info.EntryPtr == nullptr)
 		{
-			info.FunctionPtr = _interpreterWrapper;
-			info.FunctionData = func;
+			info.EntryPtr = _interpreterWrapper;
+			info.Data = func;
 		}
 		if (func->FunctionId >= _interpreterFuncInfo.size())
 		{
@@ -157,7 +157,7 @@ public:
 			return false;
 		}
 		auto& info = _interpreterFuncInfo[id];
-		if (info.FunctionPtr == nullptr)
+		if (info.EntryPtr == nullptr)
 		{
 			return false;
 		}
