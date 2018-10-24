@@ -37,7 +37,6 @@ struct RuntimeFunctionCodeStorage
 	be loaded in there.
 
 */
-//TODO visit function again before using and init global types in its reference list
 
 class RuntimeLoader
 {
@@ -572,7 +571,7 @@ private:
 	{
 		if (type->Args.Assembly == "Core" && type->Args.Id == _pointerTypeId)
 		{
-			//check value type
+			assert(type->Storage == TSM_VALUE);
 			assert(type->Args.Arguments.size() == 1);
 			auto elementType = type->Args.Arguments[0];
 			assert(elementType->PointerType == nullptr);
@@ -608,6 +607,7 @@ private:
 private:
 	void FindPointerTypeId()
 	{
+		_pointerTypeId = SIZE_MAX;
 		auto a = FindAssemblyNoThrow("Core");
 		if (a != nullptr)
 		{
@@ -615,14 +615,24 @@ private:
 			{
 				if (e.ExportName == "Core.Pointer")
 				{
+					if (e.InternalId >= a->Types.size() ||
+						!CheckPointerTypeTemplate(&a->Types[e.InternalId]))
+					{
+						//This is actually an error, but we don't want to throw in ctor.
+						//Let's wait for the type loading to fail.
+						return;
+					}
 					_pointerTypeId = e.InternalId;
 					return;
 				}
 			}
 		}
-		//This is actually an error, but we don't want to throw in ctor.
-		//Let's wait for the type loading to fail.
-		_pointerTypeId = SIZE_MAX;
+	}
+
+	bool CheckPointerTypeTemplate(Type* t)
+	{
+		if (t->Generic.Parameters.size() != 1) return false;
+		if (t->GCMode != TSM_VALUE) return false;
 	}
 
 public:

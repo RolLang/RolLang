@@ -83,8 +83,6 @@ struct RuntimeType : Initializable
 	RuntimeFunction* Initializer;
 	RuntimeFunction* Finalizer;
 	void* StaticPointer;
-
-	//For runtime system to quickly find pointer type. Not used by Loader.
 	RuntimeType* PointerType;
 
 	std::size_t GetStorageSize()
