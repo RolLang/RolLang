@@ -22,7 +22,6 @@ public:
 	InterpreterRuntimeLoader(NativeFunction interpreterWrapper, AssemblyList assemblies)
 		: RuntimeLoader(std::move(assemblies)), _interpreterWrapper(interpreterWrapper)
 	{
-		FindPointerTypeId();
 	}
 
 	struct InterpreterRuntimeFunctionInfo
@@ -32,53 +31,9 @@ public:
 		RuntimeFunction* RuntimePtr;
 	};
 
-private:
-	void FindPointerTypeId()
-	{
-		auto a = FindAssemblyNoThrow("Core");
-		if (a != nullptr)
-		{
-			for (auto& e : a->ExportTypes)
-			{
-				if (e.ExportName == "Core.Pointer")
-				{
-					_pointerTypeId = e.InternalId;
-					return;
-				}
-			}
-		}
-		//This is actually an error, but we don't want to throw in ctor.
-		//Let's wait for the type loading to fail.
-		_pointerTypeId = SIZE_MAX;
-	}
-
-public:
-	RuntimeType* LoadPointerType(RuntimeType* t, std::string& err)
-	{
-		assert(t->PointerType == nullptr);
-		LoadingArguments args;
-		args.Assembly = "Core";
-		args.Id = _pointerTypeId;
-		args.Arguments.push_back(t);
-		return GetType(args, err);
-	}
-
-	//TODO maybe cache result in RuntimeType
-	bool IsPointerType(RuntimeType* t)
-	{
-		return t->Args.Assembly == "Core" && t->Args.Id == _pointerTypeId;
-	}
-
 protected:
 	virtual void OnTypeLoaded(RuntimeType* type) override
 	{
-		if (type->Args.Assembly == "Core" && type->Args.Id == _pointerTypeId)
-		{
-			assert(type->Args.Arguments.size() == 1);
-			auto elementType = type->Args.Arguments[0];
-			assert(elementType->PointerType == nullptr);
-			elementType->PointerType = type;
-		}
 	}
 
 	virtual void OnFunctionLoaded(RuntimeFunction* func) override
@@ -170,5 +125,4 @@ private:
 	std::vector<NativeFunctionDeclaration> _nativeFunctions;
 	std::vector<InterpreterRuntimeFunctionInfo> _interpreterFuncInfo;
 	std::vector<std::unique_ptr<NativeWrapperData>> _nativeWrapperData;
-	std::size_t _pointerTypeId;
 };

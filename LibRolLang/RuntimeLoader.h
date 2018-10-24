@@ -86,6 +86,7 @@ public:
 	RuntimeLoader(AssemblyList assemblies)
 		: _assemblies(std::move(assemblies))
 	{
+		FindPointerTypeId();
 	}
 
 	virtual ~RuntimeLoader() {}
@@ -286,10 +287,12 @@ private:
 	{
 		for (auto& t : _finishedLoadingTypes)
 		{
+			FinalCheckType(t.get());
 			OnTypeLoaded(t.get());
 		}
 		for (auto& f : _finishedLoadingFunctions)
 		{
+			FinalCheckFunction(f.get());
 			OnFunctionLoaded(f.get());
 		}
 		while (_finishedLoadingTypes.size() > 0)
@@ -451,6 +454,9 @@ private:
 			}
 		}
 
+		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
+		CheckGenericArguments(funcTemplate->Generic, args);
+
 		auto f = std::make_unique<RuntimeFunction>();
 		auto ret = f.get();
 		_loadingFunctions.push_back(std::move(f));
@@ -458,9 +464,6 @@ private:
 		ret->Parent = this;
 		ret->FunctionId = _nextFunctionId++;
 		ret->Code = GetCode(args.Assembly, args.Id);
-
-		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
-		CheckGenericArguments(funcTemplate->Generic, args);
 		return ret;
 	}
 
@@ -516,9 +519,22 @@ private:
 	void PostLoadType(std::unique_ptr<RuntimeType> type)
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
-		//TODO check function type
 		type->Initializer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Finalizer);
 		type->Finalizer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Finalizer);
+		if (type->Storage != TSM_GLOBAL)
+		{
+			if (type->Initializer != nullptr)
+			{
+				throw RuntimeLoaderException("Only global type can have initializer");
+			}
+		}
+		if (type->Storage != TSM_REF)
+		{
+			if (type->Finalizer != nullptr)
+			{
+				throw RuntimeLoaderException("Only reference type can have finalizer");
+			}
+		}
 		if (type->Storage == TSM_GLOBAL)
 		{
 			std::size_t alignment = type->GetStorageAlignment();
@@ -550,6 +566,80 @@ private:
 		}
 		auto ptr = func.get();
 		_finishedLoadingFunctions.emplace_back(std::move(func));
+	}
+
+	void FinalCheckType(RuntimeType* type)
+	{
+		if (type->Args.Assembly == "Core" && type->Args.Id == _pointerTypeId)
+		{
+			//check value type
+			assert(type->Args.Arguments.size() == 1);
+			auto elementType = type->Args.Arguments[0];
+			assert(elementType->PointerType == nullptr);
+			elementType->PointerType = type;
+		}
+		if (type->Initializer != nullptr)
+		{
+			if (type->Initializer->ReturnValue != nullptr ||
+				type->Initializer->Parameters.size() != 0)
+			{
+				throw RuntimeLoaderException("Invalid initializer");
+			}
+		}
+		if (type->Finalizer != nullptr)
+		{
+			if (type->Finalizer->ReturnValue != nullptr ||
+				type->Finalizer->Parameters.size() != 1)
+			{
+				throw RuntimeLoaderException("Invalid finalizer");
+			}
+			auto ptr = type->Finalizer->Parameters[0];
+			if (!IsPointerType(ptr) || ptr->Args.Arguments[0] != type)
+			{
+				throw RuntimeLoaderException("Invalid finalizer");
+			}
+		}
+	}
+
+	void FinalCheckFunction(RuntimeFunction* func)
+	{
+	}
+
+private:
+	void FindPointerTypeId()
+	{
+		auto a = FindAssemblyNoThrow("Core");
+		if (a != nullptr)
+		{
+			for (auto& e : a->ExportTypes)
+			{
+				if (e.ExportName == "Core.Pointer")
+				{
+					_pointerTypeId = e.InternalId;
+					return;
+				}
+			}
+		}
+		//This is actually an error, but we don't want to throw in ctor.
+		//Let's wait for the type loading to fail.
+		_pointerTypeId = SIZE_MAX;
+	}
+
+public:
+	RuntimeType* LoadPointerType(RuntimeType* t, std::string& err)
+	{
+		assert(t->PointerType == nullptr);
+		LoadingArguments args;
+		args.Assembly = "Core";
+		args.Id = _pointerTypeId;
+		args.Arguments.push_back(t);
+		return GetType(args, err);
+	}
+
+	//TODO maybe cache result in RuntimeType
+	bool IsPointerType(RuntimeType* t)
+	{
+		return t->Args.Assembly == "Core" && t->Args.Id == _pointerTypeId;
 	}
 
 protected:
@@ -877,4 +967,5 @@ private:
 	std::vector<std::unique_ptr<RuntimeFunction>> _finishedLoadingFunctions;
 
 	std::uint32_t _nextFunctionId = 1, _nextTypeId = 1;
+	std::size_t _pointerTypeId;
 };
