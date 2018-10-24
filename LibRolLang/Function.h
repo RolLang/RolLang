@@ -25,7 +25,7 @@ enum Opcodes : unsigned char
 	OP_NOP, //No-op. Stack: -0+0
 	//Level 1
 	OP_ERR, //Raise error. OPR: 0. Stack: -0+0
-	OP_ERROBJ, //Raise error with exception object. OPR: error code. Stack: -1+0
+	OP_ERROBJ, //Raise error with exception object. OPR: 0. Stack: -1+0
 
 	//Level 1
 	OP_ARG, //Load arg ptr. OPR: index. Stack: -0+1
@@ -33,7 +33,7 @@ enum Opcodes : unsigned char
 	//Level 1
 	OP_CONST, //Load constant ptr. OPR: index. Stack: -0+1
 	OP_GLOBAL, //Load global ptr. OPR: type. Stack: -0+1
-	OP_VTAB, //Load the vtab ptr (stored in object). OPR: 0. Stack: -1+1
+	OP_VTAB, //Load the field ptr of vtab (stored in object). OPR: field. Stack: -1+1
 
 	//Level 1
 	OP_LOAD, //Pop ptr (stack) and push data. Stack: -1+1
@@ -45,10 +45,10 @@ enum Opcodes : unsigned char
 	OP_POP, //Pop items from stack. OPR: number to pop. Stack: -x+0
 
 	OP_INTRINSIC1, //1-operand calculation. OPR: code. Stack: -1+1
-	OP_INTRINSIC2, //2-operand calculation for ints. OPR: code. Stack: -2+1
+	OP_INTRINSIC2, //2-operand calculation. OPR: code. Stack: -2+1
 
-	OP_INITTYPE, //Call static initializer of a TSM_Global type. OPR: type. Stack: -0+0
 	OP_ALLOC, //Allocate memory and push ptr. OPR: type. Stack: -0+1
+	OP_ALLOCN, //Allocate array with given element type and count. OPR: type. Stack: -1+1
 	OP_MEMINIT, //Init memory to zeros. Stack: -1+0
 
 	//TODO need one to throw if OP_CONVREF fails.
@@ -62,7 +62,7 @@ enum Opcodes : unsigned char
 
 	//Level 1
 	OP_CALL, //Call function by id. OPR: function. Stack: -x+1?
-	OP_CALLPTR, //Call function by managed ptr. OPR: number of args. Stack: -x+1?
+	OP_CALLPTR, //Call function by managed ptr. OPR: number of args/function type?. Stack: -x+1?
 	
 	OP_BRANCH_F, //Pop condition and if true, jump forward. OPR: relative (unsigned). Stack: -1+0
 	OP_BRANCH_B, //Pop condition and if true, jump backward. OPR: relative (unsigned). Stack: -1+0
@@ -72,6 +72,7 @@ enum Opcodes : unsigned char
 	OP_BRANCHERR, //Set error handler dest. OPR: 1 or 4 byte address x 3. Stack: -0+0
 	              //Following bytes (length depending on OPR): catch start, finally start, finally end.
 
+	OP_PREFIX_RESERVED, //Reserved for prefix (memory access order, exception options, etc)
 	OP_OPCOUNT,
 };
 

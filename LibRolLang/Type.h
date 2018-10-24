@@ -14,12 +14,14 @@ struct Type
 
 	TypeStorageMode GCMode;
 	std::vector<std::size_t> Fields;
-	//TODO type initializer for Global types.
-	std::size_t OnFinalize; //function id
+
+	std::size_t Initializer;
+	std::size_t Finalizer;
 };
 FIELD_SERIALIZER_BEGIN(Type)
 	SERIALIZE_FIELD(Generic)
 	SERIALIZE_FIELD(GCMode)
 	SERIALIZE_FIELD(Fields)
-	SERIALIZE_FIELD(OnFinalize)
+	SERIALIZE_FIELD(Initializer)
+	SERIALIZE_FIELD(Finalizer)
 FIELD_SERIALIZER_END()

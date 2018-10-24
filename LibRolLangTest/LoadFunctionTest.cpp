@@ -91,7 +91,7 @@ namespace LibRolLangTest
 		{
 			auto t = builder.BeginType(TSM_VALUE, "Test.Native4");
 			builder.Link(false, true);
-			builder.SetFinalizerEmpty();
+			builder.SetTypeHandlers({}, {});
 			builder.EndType();
 
 			builder.BeginFunction("Test.TestFunc1");
@@ -119,7 +119,7 @@ namespace LibRolLangTest
 
 			builder.BeginType(TSM_REF, "Test.TestType1", t1);
 			builder.Link(false, false);
-			builder.SetFinalizer(f1);
+			builder.SetTypeHandlers({}, f1);
 			builder.EndType();
 
 			builder.BeginFunction("Test.TestFunc2");
@@ -133,7 +133,7 @@ namespace LibRolLangTest
 			auto f2 = LoadFunction(loader, "Test", "Test.TestFunc2", false);
 			auto t1 = f2->ReturnValue;
 			Assert::IsNotNull(t1);
-			auto f1 = t1->GCFinalizer;
+			auto f1 = t1->Finalizer;
 			Assert::IsNotNull(f1);
 
 			CheckFunctionBasic(loader, f1);

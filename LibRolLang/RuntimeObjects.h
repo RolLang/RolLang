@@ -63,7 +63,8 @@ struct RuntimeType
 	std::size_t Alignment;
 	std::size_t Size;
 
-	RuntimeFunction* GCFinalizer;
+	RuntimeFunction* Initializer;
+	RuntimeFunction* Finalizer;
 	void* StaticPointer;
 
 	//For runtime system to quickly find pointer type. Not used by Loader.

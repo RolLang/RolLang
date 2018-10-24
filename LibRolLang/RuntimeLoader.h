@@ -26,7 +26,7 @@ struct RuntimeFunctionCodeStorage
 	4. Each class assign a global type for vtab. It will be automatically
 	   included in the RuntimeObject layout. The type of functions are checked
 	   when loading to match the base class.
-	5. Allow pointer to a global storage type.
+	-. Allow pointer to a global storage type.
 	6. Native type for managed function only with generic.
 		Maybe we need to have a RefParam<T> type besides Pointer<T> to indicate
 		it's a ref parameter (so we can do some optimization/transformation).
@@ -37,6 +37,7 @@ struct RuntimeFunctionCodeStorage
 	be loaded in there.
 
 */
+//TODO visit function again before using and init global types in its reference list
 
 class RuntimeLoader
 {
@@ -238,13 +239,21 @@ private:
 		{
 			throw RuntimeLoaderException("Internal type can only be value type");
 		}
-		if (type.OnFinalize >= type.Generic.Functions.size())
+		if (type.Finalizer >= type.Generic.Functions.size())
 		{
 			throw RuntimeLoaderException("Invalid function reference");
 		}
-		if (type.Generic.Functions[type.OnFinalize].Type != REF_EMPTY)
+		if (type.Generic.Functions[type.Finalizer].Type != REF_EMPTY)
 		{
-			throw RuntimeLoaderException("Internal type cannot have Finalizer");
+			throw RuntimeLoaderException("Internal type cannot have finalizer");
+		}
+		if (type.Initializer >= type.Generic.Functions.size())
+		{
+			throw RuntimeLoaderException("Invalid function reference");
+		}
+		if (type.Generic.Functions[type.Initializer].Type != REF_EMPTY)
+		{
+			throw RuntimeLoaderException("Internal type cannot have initializer");
 		}
 		auto rt = std::make_unique<RuntimeType>();
 		rt->Parent = this;
@@ -254,7 +263,8 @@ private:
 		rt->Storage = TSM_VALUE;
 		rt->Size = size;
 		rt->Alignment = alignment;
-		rt->GCFinalizer = nullptr;
+		rt->Initializer = nullptr;
+		rt->Finalizer = nullptr;
 		rt->StaticPointer = nullptr;
 
 		auto ret = rt.get();
@@ -506,7 +516,8 @@ private:
 	void PostLoadType(std::unique_ptr<RuntimeType> type)
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
-		type->GCFinalizer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->OnFinalize);
+		type->Initializer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Finalizer);
+		type->Finalizer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Finalizer);
 		if (type->Storage == TSM_GLOBAL)
 		{
 			std::size_t alignment = type->GetStorageAlignment();

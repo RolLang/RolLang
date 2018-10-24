@@ -119,17 +119,11 @@ namespace
 			_assembly.Types[_currentType].Fields.push_back(id);
 		}
 
-		void SetFinalizer(const FunctionReference& f)
+		void SetTypeHandlers(const FunctionReference& initializer, const FunctionReference& finalizer)
 		{
 			auto& t = _assembly.Types[_currentType];
-			t.OnFinalize = WriteFunctionRef(t.Generic, f);
-		}
-
-		void SetFinalizerEmpty()
-		{
-			FunctionReference f;
-			f.Type = FR_EMPTY;
-			SetFinalizer(f);
+			t.Finalizer = WriteFunctionRef(t.Generic, finalizer);
+			t.Initializer = WriteFunctionRef(t.Generic, initializer);
 		}
 
 		void EndType()
@@ -274,6 +268,7 @@ namespace
 			{
 				return WriteTypeRef(_assembly.Functions[_currentFunction].Generic, t);
 			}
+			return SIZE_MAX;
 		}
 
 		std::size_t AddFunctionRef(const FunctionReference& f)
@@ -286,6 +281,7 @@ namespace
 			{
 				return WriteFunctionRef(_assembly.Functions[_currentFunction].Generic, f);
 			}
+			return SIZE_MAX;
 		}
 
 	public:
@@ -293,18 +289,18 @@ namespace
 		{
 			auto tInt32 = BeginType(TSM_VALUE, "Core.Int32");
 			Link(true, true);
-			SetFinalizerEmpty();
+			SetTypeHandlers({}, {});
 			EndType();
 
 			auto tRawPtr = BeginType(TSM_VALUE, "Core.RawPtr");
 			Link(true, true);
-			SetFinalizerEmpty();
+			SetTypeHandlers({}, {});
 			EndType();
 
 			auto tPtr = BeginType(TSM_VALUE, "Core.Pointer");
 			AddGenericParameter();
 			Link(true, false);
-			SetFinalizerEmpty();
+			SetTypeHandlers({}, {});
 			AddField(tRawPtr);
 			EndType();
 

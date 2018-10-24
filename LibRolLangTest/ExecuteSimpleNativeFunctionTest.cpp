@@ -23,7 +23,7 @@ namespace LibRolLangTest
 
 			auto t = builder.BeginType(TSM_VALUE, "Core.Int32");
 			builder.Link(true, true);
-			builder.SetFinalizerEmpty();
+			builder.SetTypeHandlers({}, {});
 			builder.EndType();
 
 			builder.BeginFunction("Core.AddInt32");
