@@ -152,7 +152,7 @@ private:
 				assert(opr < code->ConstantTable.size());
 				auto& k = code->ConstantTable[opr];
 				assert(k.Offset < code->ConstantData.size());
-				assert(k.Offset + k.Length < code->ConstantData.size());
+				assert(k.Offset + k.Length <= code->ConstantData.size());
 				assert(k.TypeId < f->ReferencedType.size());
 				assert(k.Length == f->ReferencedType[k.TypeId]->GetStorageSize());
 

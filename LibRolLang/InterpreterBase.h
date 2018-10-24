@@ -328,7 +328,8 @@ protected: //native/managed code switching. Related to GC pause.
 
 	struct CallingFrameNN
 	{
-		CallingFrameNN(InterpreterBase* i, FuncInfo f) : _i(i), _f(i->_stack.GetLimitSize())
+		CallingFrameNN(InterpreterBase* i, FuncInfo f)
+			: _i(i), _f(i->_stack.GetLimitSize()), _ret(f.STInfo->ReturnValue)
 		{
 			_i->_stacktracer.BeginNativeFrame(f.STInfo, f.FunctionPtr);
 			_i->_stack.SetLimitSize(_i->_stack.GetSize() - f.STInfo->Parameters.size());
@@ -336,12 +337,21 @@ protected: //native/managed code switching. Related to GC pause.
 		~CallingFrameNN()
 		{
 			//TODO check return value
+			if (_ret)
+			{
+				_i->_stack.PopToSizeReturn(_i->_stack.GetLimitSize());
+			}
+			else
+			{
+				_i->_stack.PopToSize(_i->_stack.GetLimitSize());
+			}
 			_i->_stack.SetLimitSize(_f);
 			_i->_stacktracer.EndNativeFrame();
 		}
 	private:
 		InterpreterBase* const _i;
 		std::size_t const _f;
+		bool const _ret;
 	};
 
 	struct CallingFrameNM
@@ -360,7 +370,8 @@ protected: //native/managed code switching. Related to GC pause.
 
 	struct CallingFrameMN
 	{
-		CallingFrameMN(InterpreterBase* i, FuncInfo f) : _i(i), _f(i->_stack.GetLimitSize())
+		CallingFrameMN(InterpreterBase* i, FuncInfo f)
+			: _i(i), _f(i->_stack.GetLimitSize()), _ret(f.STInfo->ReturnValue)
 		{
 			_i->_stacktracer.BeginNativeFrame(f.STInfo, f.FunctionPtr);
 			_i->_stack.SetLimitSize(_i->_stack.GetSize() - f.STInfo->Parameters.size());
@@ -368,12 +379,21 @@ protected: //native/managed code switching. Related to GC pause.
 		~CallingFrameMN()
 		{
 			//TODO check return value
+			if (_ret)
+			{
+				_i->_stack.PopToSizeReturn(_i->_stack.GetLimitSize());
+			}
+			else
+			{
+				_i->_stack.PopToSize(_i->_stack.GetLimitSize());
+			}
 			_i->_stack.SetLimitSize(_f);
 			_i->_stacktracer.EndNativeFrame();
 		}
 	private:
 		InterpreterBase* const _i;
 		std::size_t const _f;
+		bool const _ret;
 	};
 
 	//TODO add to all API that affects GC

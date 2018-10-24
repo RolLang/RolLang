@@ -264,27 +264,27 @@ namespace
 			_currentName = "";
 		}
 
-		void AddTypeRef(const TypeReference& t)
+		std::size_t  AddTypeRef(const TypeReference& t)
 		{
 			if (_currentType != SIZE_MAX)
 			{
-				WriteTypeRef(_assembly.Types[_currentType].Generic, t);
+				return WriteTypeRef(_assembly.Types[_currentType].Generic, t);
 			}
 			else if (_currentFunction != SIZE_MAX)
 			{
-				WriteTypeRef(_assembly.Functions[_currentFunction].Generic, t);
+				return WriteTypeRef(_assembly.Functions[_currentFunction].Generic, t);
 			}
 		}
 
-		void AddFunctionRef(const FunctionReference& f)
+		std::size_t AddFunctionRef(const FunctionReference& f)
 		{
 			if (_currentType != SIZE_MAX)
 			{
-				WriteFunctionRef(_assembly.Types[_currentType].Generic, f);
+				return WriteFunctionRef(_assembly.Types[_currentType].Generic, f);
 			}
 			else if (_currentFunction != SIZE_MAX)
 			{
-				WriteFunctionRef(_assembly.Functions[_currentFunction].Generic, f);
+				return WriteFunctionRef(_assembly.Functions[_currentFunction].Generic, f);
 			}
 		}
 
