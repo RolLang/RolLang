@@ -1,6 +1,4 @@
 #include "stdafx.h"
-#include "../LibRolLang/Interpreter.h"
-#include "TestAssemblyListBuilder.h"
 
 namespace LibRolLangTest
 {

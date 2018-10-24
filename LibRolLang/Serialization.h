@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cassert>
 
 template <typename T>
 struct SimpleSerializer
@@ -28,6 +29,25 @@ struct Serializer
 template <typename T>
 struct Serializer<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> : SimpleSerializer<T>
 {
+};
+static_assert(sizeof(std::size_t) >= 4, "Invalid size of std::size_t");
+
+template <>
+struct Serializer<std::size_t>
+{
+	static void Read(std::istream& s, std::size_t& val)
+	{
+		std::uint32_t v;
+		SimpleSerializer<std::uint32_t>::Read(s, v);
+		val = v;
+	}
+
+	static void Write(std::ostream& s, const std::size_t& val)
+	{
+		assert(val <= 0xFFFFFFFF);
+		std::uint32_t v = (std::uint32_t)val;
+		SimpleSerializer<std::uint32_t>::Write(s, v);
+	}
 };
 
 template <typename T>

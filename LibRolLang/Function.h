@@ -1,7 +1,7 @@
 #pragma once
 #include "GenericDeclaration.h"
 
-enum Features
+enum Features : unsigned char
 {
 	//All others
 	F_BASIC,
@@ -33,7 +33,7 @@ enum Opcodes : unsigned char
 	//Level 1
 	OP_CONST, //Load constant ptr. OPR: index. Stack: -0+1
 	OP_GLOBAL, //Load global ptr. OPR: type. Stack: -0+1
-	OP_VTAB, //Load the field ptr of vtab (stored in object). OPR: field. Stack: -1+1
+	OP_VTAB, //Load the ptr of vtab (stored in object). OPR: 0. Stack: -1+1
 
 	//Level 1
 	OP_LOAD, //Pop ptr (stack) and push data. Stack: -1+1
@@ -49,7 +49,7 @@ enum Opcodes : unsigned char
 
 	OP_ALLOC, //Allocate memory and push ptr. OPR: type. Stack: -0+1
 	OP_ALLOCN, //Allocate array with given element type and count. OPR: type. Stack: -1+1
-	OP_MEMINIT, //Init memory to zeros. Stack: -1+0
+	OP_MEMINIT, //Init memory to zeros. OPR: 0. Stack: -1+0
 
 	//TODO need one to throw if OP_CONVREF fails.
 	OP_CONVREF, //Convert reference type. OPR: type. Stack: -1+1
@@ -57,17 +57,17 @@ enum Opcodes : unsigned char
 	OP_CONVPTR, //Conversion involving a pointer type. OPR: type. Stack: -1+1
 
 	OP_SIZEOF, //Push size of type. OPR: type. Stack: -0+1
-	OP_FIELD, //Pop ptr on stack and push field ptr. OPR: field index. Stack: -1+1
+	OP_FIELD, //Pop ptr on stack and push field ptr. OPR: const table index that contains field id. Stack: -1+1
 	OP_FUNCPTR, //Push function managed ptr. OPR: function. Stack: -0+1
 
 	//Level 1
 	OP_CALL, //Call function by id. OPR: function. Stack: -x+1?
-	OP_CALLPTR, //Call function by managed ptr. OPR: number of args/function type?. Stack: -x+1?
+	OP_CALLPTR, //Call function by managed ptr. OPR: function type. Stack: -x+1?
 	
 	OP_BRANCH_F, //Pop condition and if true, jump forward. OPR: relative (unsigned). Stack: -1+0
 	OP_BRANCH_B, //Pop condition and if true, jump backward. OPR: relative (unsigned). Stack: -1+0
 	//Level 1
-	OP_RET, //Return to caller. Stack: -1?+0
+	OP_RET, //Return to caller. OPR: 0. Stack: -1?+0
 
 	OP_BRANCHERR, //Set error handler dest. OPR: 1 or 4 byte address x 3. Stack: -0+0
 	              //Following bytes (length depending on OPR): catch start, finally start, finally end.
@@ -78,7 +78,7 @@ enum Opcodes : unsigned char
 
 static_assert(OP_OPCOUNT <= 32, "Opcode too long");
 
-enum Intrinsic2Codes
+enum Intrinsic2Codes : unsigned char
 {
 	I2_ADD,
 };

@@ -1,7 +1,7 @@
 #pragma once
 #include "Serialization.h"
 
-enum ReferenceType
+enum ReferenceType : unsigned char
 {
 	REF_EMPTY,
 	REF_CLONE,

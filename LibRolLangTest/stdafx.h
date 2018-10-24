@@ -7,3 +7,6 @@
 #include <sstream>
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
+
+#include "../LibRolLang/Interpreter.h"
+#include "TestAssemblyListBuilder.h"

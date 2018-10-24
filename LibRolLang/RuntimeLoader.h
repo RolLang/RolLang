@@ -19,8 +19,8 @@ struct RuntimeFunctionCodeStorage
 	1. Base class is constructed after the construction of derived type but
 	   must be loaded (up to LoadFields) before. This avoids the need to check
 	   cyclic base class separately. Interface can be loaded later. 
-	2. Abstract generic class can have a 'base' argument
-		abstract class Animal<base T> ...
+	2. Abstract generic class can have a 'derived' argument
+		abstract class Animal<derived T> ...
 		This is a front-end feature. We don't need to care too much here...
 	3. Virtual function call is done through a pointer to global storage.
 	4. Each class assign a global type for vtab. It will be automatically
@@ -35,6 +35,43 @@ struct RuntimeFunctionCodeStorage
 
 	Remember to put check of _loadingTypes to LoadFields. The base class should alse
 	be loaded in there.
+
+*/
+//TODO Allow value type to implement interface?
+
+//Roadmap
+//TODO Export/import uint32 constants (for field ids)
+//TODO Base type in template
+//TODO Interface type in template
+//TODO Load base type (layout, vtab load, check, etc)
+//TODO RuntimeObject implementation
+//TODO Interface implementation
+//TODO Instructions
+
+//Note: vtab will be copied from StaticPointer for each type using it, after initializer is executed. 
+//Further modification will not have any effect.
+//First 32 bit in interface vtab is the offset, which is not included in the TSM_GLOBAL type layout,
+//but is automatically added. Field (function/const) id counts from the next (first) field.
+
+/*
+
+----------------------------------------------
+Common Header <- Class/base class Ptr
+----------------------------------------------
+Virtual Table Ptr
+	Base virtual function 1
+Base Interface A Table Ptr <- Interface A Ptr
+	This offset
+	Function A1 dest
+Base Field A
+Base Field B
+----------------------------------------------
+Interface B Table Ptr <- Interface B Ptr
+	This offset
+	Function B1 dest
+Field C
+Field D
+----------------------------------------------
 
 */
 

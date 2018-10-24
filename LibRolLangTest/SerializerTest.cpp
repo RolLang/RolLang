@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include "../LibRolLang/Serialization.h"
 
 namespace
 {

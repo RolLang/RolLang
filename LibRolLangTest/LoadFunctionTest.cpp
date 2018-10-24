@@ -1,6 +1,4 @@
 #include "stdafx.h"
-#include "../LibRolLang/RuntimeLoader.h"
-#include "TestAssemblyListBuilder.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 

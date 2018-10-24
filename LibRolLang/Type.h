@@ -1,7 +1,7 @@
 #pragma once
 #include "GenericDeclaration.h"
 
-enum TypeStorageMode
+enum TypeStorageMode : unsigned char
 {
 	TSM_GLOBAL,
 	TSM_VALUE,
