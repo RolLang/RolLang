@@ -31,7 +31,10 @@
     <ClCompile Include="LoadFunctionTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ExecuteNativeFunctionTest.cpp">
+    <ClCompile Include="ExecuteSimpleProgramTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ExecuteSimpleNativeFunctionTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

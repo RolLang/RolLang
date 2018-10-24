@@ -63,6 +63,12 @@ public:
 		return GetType(args, err);
 	}
 
+	//TODO maybe cache result in RuntimeType
+	bool IsPointerType(RuntimeType* t)
+	{
+		return t->Args.Assembly == "Core" && t->Args.Id == _pointerTypeId;
+	}
+
 protected:
 	virtual void OnTypeLoaded(RuntimeType* type) override
 	{

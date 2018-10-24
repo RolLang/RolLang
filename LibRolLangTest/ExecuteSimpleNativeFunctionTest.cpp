@@ -4,7 +4,7 @@
 
 namespace LibRolLangTest
 {
-	TEST_CLASS(ExecuteNativeFunctionTest)
+	TEST_CLASS(ExecuteSimpleNativeFunctionTest)
 	{
 		static bool AddInt32(Interpreter* i, void* data)
 		{

@@ -161,6 +161,21 @@ protected:
 		return true;
 	}
 
+	RuntimeType* GetPointerType(RuntimeType* type)
+	{
+		if (type->PointerType != nullptr)
+		{
+			return type->PointerType;
+		}
+		std::string err;
+		auto ret = _loader->LoadPointerType(type, err);
+		if (ret == nullptr)
+		{
+			throw InterpreterException(_stacktracer.GetStacktrace(), ERR_PROGRAM, err);
+		}
+		return ret;
+	}
+
 protected: //Native type registration
 	enum NativeTypes : int
 	{
@@ -320,6 +335,7 @@ protected: //native/managed code switching. Related to GC pause.
 		}
 		~CallingFrameNN()
 		{
+			//TODO check return value
 			_i->_stack.SetLimitSize(_f);
 			_i->_stacktracer.EndNativeFrame();
 		}
@@ -351,6 +367,7 @@ protected: //native/managed code switching. Related to GC pause.
 		}
 		~CallingFrameMN()
 		{
+			//TODO check return value
 			_i->_stack.SetLimitSize(_f);
 			_i->_stacktracer.EndNativeFrame();
 		}

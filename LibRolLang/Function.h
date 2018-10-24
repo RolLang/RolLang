@@ -13,6 +13,10 @@ enum Features
 	F_RAWPOINTER,
 };
 
+//TODO
+//Do we need switch?
+//Do we need filter (exception handling)?
+
 //high 5 bits: Opcodes. low 3 bits: OPR.
 //if OPR >= 6, additional bytes are taken. 6: 4 more bytes. 7: 1 more bytes.
 enum Opcodes : unsigned char
@@ -29,6 +33,7 @@ enum Opcodes : unsigned char
 	//Level 1
 	OP_CONST, //Load constant ptr. OPR: index. Stack: -0+1
 	OP_GLOBAL, //Load global ptr. OPR: type. Stack: -0+1
+	OP_VTAB, //Load the vtab ptr (stored in object). OPR: 0. Stack: -1+1
 
 	//Level 1
 	OP_LOAD, //Pop ptr (stack) and push data. Stack: -1+1
@@ -54,12 +59,10 @@ enum Opcodes : unsigned char
 	OP_SIZEOF, //Push size of type. OPR: type. Stack: -0+1
 	OP_FIELD, //Pop ptr on stack and push field ptr. OPR: field index. Stack: -1+1
 	OP_FUNCPTR, //Push function managed ptr. OPR: function. Stack: -0+1
-	OP_FUNCNATIVE, //Pop managed ptr and push native ptr. Stack: -1+1
 
 	//Level 1
 	OP_CALL, //Call function by id. OPR: function. Stack: -x+1?
 	OP_CALLPTR, //Call function by managed ptr. OPR: number of args. Stack: -x+1?
-	OP_CALLNATIVE, //Call function by native ptr. OPR: number of args Stack: -x+1?
 	
 	OP_BRANCH_F, //Pop condition and if true, jump forward. OPR: relative (unsigned). Stack: -1+0
 	OP_BRANCH_B, //Pop condition and if true, jump backward. OPR: relative (unsigned). Stack: -1+0

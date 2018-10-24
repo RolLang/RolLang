@@ -9,13 +9,14 @@ class InterpreterStacktracer
 	{
 		RuntimeFunction* Function;
 		std::size_t PC;
+		std::size_t StackBase;
 		NativeFunction Native;
 	};
 
 public:
 	void BeginFrameInterpreted(RuntimeFunction* func)
 	{
-		_stack.push_back({ func, 0, nullptr });
+		_stack.push_back({ func, 0, 0, nullptr });
 	}
 
 	void EndFrameInterpreted()
@@ -25,7 +26,7 @@ public:
 
 	void BeginNativeFrame(RuntimeFunction* func, NativeFunction n)
 	{
-		_stack.push_back({ func, SIZE_MAX, n });
+		_stack.push_back({ func, SIZE_MAX, 0, n });
 	}
 
 	void EndNativeFrame()
@@ -33,15 +34,17 @@ public:
 		_stack.pop_back();
 	}
 
-	void SetReturnAddress(std::size_t pc)
+	void SetReturnAddress(std::size_t pc, std::size_t stack)
 	{
 		_stack[_stack.size() - 1].PC = pc;
+		_stack[_stack.size() - 1].StackBase = stack;
 	}
 
-	void GetReturnAddress(RuntimeFunction** f, std::size_t* pc)
+	void GetReturnAddress(RuntimeFunction** f, std::size_t* pc, std::size_t* stack)
 	{
 		*f = _stack.back().Function;
 		*pc = _stack.back().PC;
+		*stack = _stack.back().StackBase;
 	}
 
 	StacktraceInfo GetStacktrace()

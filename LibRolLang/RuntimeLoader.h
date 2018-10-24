@@ -12,6 +12,32 @@ struct RuntimeFunctionCodeStorage
 	std::vector<std::shared_ptr<RuntimeFunctionCode>> Data;
 };
 
+//TODO support base class (including virtual function support)
+/*
+
+	Basic ideas:
+	1. Base class is constructed after the construction of derived type but
+	   must be loaded (up to LoadFields) before. This avoids the need to check
+	   cyclic base class separately. Interface can be loaded later. 
+	2. Abstract generic class can have a 'base' argument
+		abstract class Animal<base T> ...
+		This is a front-end feature. We don't need to care too much here...
+	3. Virtual function call is done through a pointer to global storage.
+	4. Each class assign a global type for vtab. It will be automatically
+	   included in the RuntimeObject layout. The type of functions are checked
+	   when loading to match the base class.
+	5. Allow pointer to a global storage type.
+	6. Native type for managed function only with generic.
+		Maybe we need to have a RefParam<T> type besides Pointer<T> to indicate
+		it's a ref parameter (so we can do some optimization/transformation).
+	7. Unmanaged function pointer don't need to be wrapped to function type.
+	   Delegate like C# should be fine. Managed function type is only internal use.
+
+	Remember to put check of _loadingTypes to LoadFields. The base class should alse
+	be loaded in there.
+
+*/
+
 class RuntimeLoader
 {
 	/*
@@ -348,6 +374,7 @@ private:
 				return t.get();
 			}
 		}
+		//TODO no need to check here. Move to LoadFields
 		for (auto& t : _loadingTypes)
 		{
 			if (t->Args == args)
@@ -771,6 +798,13 @@ private:
 		ret->ConstantData = f->ConstantData;
 		ret->ConstantTable = f->ConstantTable;
 		ret->LocalVariables = f->Locals;
+
+		//Append some nop at the end
+		for (int i = 0; i < 16; ++i)
+		{
+			ret->Instruction.push_back(OP_NOP);
+		}
+
 		_codeStorage.Data.push_back(ret);
 		return std::move(ret);
 	}

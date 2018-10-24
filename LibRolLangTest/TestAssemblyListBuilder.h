@@ -212,6 +212,52 @@ namespace
 			}
 		}
 
+		void AddInstruction(Opcodes opcode, std::uint32_t operand)
+		{
+			auto& list = _assembly.Functions[_currentFunction].Instruction;
+			unsigned char ch = opcode << 3;
+			if (operand <= 5)
+			{
+				list.push_back(ch | (unsigned char)operand);
+			}
+			else if (operand <= 255)
+			{
+				list.push_back(ch | 7);
+				list.push_back((unsigned char)operand);
+			}
+			else
+			{
+				list.push_back(ch | 6);
+				list.push_back((unsigned char)(operand >> 24));
+				operand &= 0xFFFFFFu;
+				list.push_back((unsigned char)(operand >> 16));
+				operand &= 0xFFFFu;
+				list.push_back((unsigned char)(operand >> 8));
+				list.push_back((unsigned char)(operand & 0xFFu));
+			}
+		}
+
+		template <typename T>
+		std::size_t AddFunctionConstant(const TypeReference& type, const T& val)
+		{
+			auto typeId = WriteTypeRef(_assembly.Functions[_currentFunction].Generic, type);
+			unsigned char* ptr = (unsigned char*)&val;
+			auto& f = _assembly.Functions[_currentFunction];
+			auto offset = f.ConstantData.size();
+			auto ret = f.ConstantTable.size();
+			f.ConstantData.insert(f.ConstantData.end(), ptr, ptr + sizeof(T));
+			f.ConstantTable.push_back({ offset, sizeof(T), typeId });
+			return ret;
+		}
+
+		std::size_t AddFunctionLocal(const TypeReference& type)
+		{
+			auto typeId = WriteTypeRef(_assembly.Functions[_currentFunction].Generic, type);
+			auto ret = _assembly.Functions[_currentFunction].Locals.size();
+			_assembly.Functions[_currentFunction].Locals.push_back({ typeId });
+			return ret;
+		}
+
 		void EndFunction()
 		{
 			_currentFunction = SIZE_MAX;
@@ -240,6 +286,31 @@ namespace
 			{
 				WriteFunctionRef(_assembly.Functions[_currentFunction].Generic, f);
 			}
+		}
+
+	public:
+		void WriteCoreCommon(TypeReference* i32, TypeReference* rptr, TypeReference* ptr)
+		{
+			auto tInt32 = BeginType(TSM_VALUE, "Core.Int32");
+			Link(true, true);
+			SetFinalizerEmpty();
+			EndType();
+
+			auto tRawPtr = BeginType(TSM_VALUE, "Core.RawPtr");
+			Link(true, true);
+			SetFinalizerEmpty();
+			EndType();
+
+			auto tPtr = BeginType(TSM_VALUE, "Core.Pointer");
+			AddGenericParameter();
+			Link(true, false);
+			SetFinalizerEmpty();
+			AddField(tRawPtr);
+			EndType();
+
+			if (i32) *i32 = tInt32;
+			if (rptr) *rptr = tRawPtr;
+			if (ptr) *ptr = tPtr;
 		}
 		
 	public:
