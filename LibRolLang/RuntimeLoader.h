@@ -386,14 +386,6 @@ private:
 				return t.get();
 			}
 		}
-		//TODO no need to check here. Move to LoadFields
-		for (auto& t : _loadingTypes)
-		{
-			if (t->Args == args)
-			{
-				throw RuntimeLoaderException("Cyclic type dependence");
-			}
-		}
 
 		auto typeTemplate = FindTypeTemplate(args.Assembly, args.Id);
 		CheckGenericArguments(typeTemplate->Generic, args);
@@ -414,18 +406,13 @@ private:
 		else
 		{
 			auto t = std::make_unique<RuntimeType>();
-			_loadingTypes.push_back(t.get());
 			t->Parent = this;
 			t->Args = args;
 			t->TypeId = _nextTypeId++;
 			t->Storage = typeTemplate->GCMode;
 			t->StaticPointer = nullptr;
 			t->PointerType = nullptr;
-
-			auto ret = LoadFields(std::move(t), typeTemplate);
-			assert(_loadingTypes.back() == ret);
-			_loadingTypes.pop_back();
-			return ret;
+			return LoadFields(std::move(t), typeTemplate);
 		}
 	}
 
@@ -468,6 +455,15 @@ private:
 
 	RuntimeType* LoadFields(std::unique_ptr<RuntimeType> type, Type* typeTemplate)
 	{
+		for (auto t : _loadingTypes)
+		{
+			if (t->Args == type->Args)
+			{
+				throw RuntimeLoaderException("Cyclic type dependence");
+			}
+		}
+		_loadingTypes.push_back(type.get());
+
 		Type* tt = typeTemplate;
 		if (tt == nullptr)
 		{
@@ -512,13 +508,17 @@ private:
 		type->Alignment = totalAlignment;
 		auto ret = type.get();
 		_postLoadingTypes.emplace_back(std::move(type));
+
+		assert(_loadingTypes.back() == ret);
+		_loadingTypes.pop_back();
+
 		return ret;
 	}
 
 	void PostLoadType(std::unique_ptr<RuntimeType> type)
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
-		type->Initializer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Finalizer);
+		type->Initializer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Initializer);
 		type->Finalizer = LoadRefFunction(type->Args, typeTemplate->Generic, typeTemplate->Finalizer);
 		if (type->Storage != TSM_GLOBAL)
 		{
@@ -592,8 +592,7 @@ private:
 			{
 				throw RuntimeLoaderException("Invalid finalizer");
 			}
-			auto ptr = type->Finalizer->Parameters[0];
-			if (!IsPointerType(ptr) || ptr->Args.Arguments[0] != type)
+			if (type->Finalizer->Parameters[0] != type)
 			{
 				throw RuntimeLoaderException("Invalid finalizer");
 			}
@@ -633,6 +632,7 @@ private:
 	{
 		if (t->Generic.Parameters.size() != 1) return false;
 		if (t->GCMode != TSM_VALUE) return false;
+		return true;
 	}
 
 public:

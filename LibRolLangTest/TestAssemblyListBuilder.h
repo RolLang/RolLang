@@ -122,8 +122,8 @@ namespace
 		void SetTypeHandlers(const FunctionReference& initializer, const FunctionReference& finalizer)
 		{
 			auto& t = _assembly.Types[_currentType];
-			t.Finalizer = WriteFunctionRef(t.Generic, finalizer);
 			t.Initializer = WriteFunctionRef(t.Generic, initializer);
+			t.Finalizer = WriteFunctionRef(t.Generic, finalizer);
 		}
 
 		void EndType()
