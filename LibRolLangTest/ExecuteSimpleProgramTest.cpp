@@ -23,7 +23,7 @@ namespace LibRolLangTest
 			builder.WriteCoreCommon(&tInt32, nullptr, nullptr);
 
 			builder.BeginFunction("Core.EchoInt32");
-			builder.Link(true, true);
+			builder.Link(true, false);
 			builder.Signature(tInt32, { tInt32 });
 			builder.AddInstruction(OP_ARG, 0);
 			builder.AddInstruction(OP_LOAD, 0);
@@ -60,7 +60,7 @@ namespace LibRolLangTest
 
 			builder.BeginFunction("Core.Add100");
 			auto funcAddId = builder.AddFunctionRef(funcAdd);
-			builder.Link(true, true);
+			builder.Link(true, false);
 			builder.Signature(tInt32, { tInt32 });
 			auto constantId = builder.AddFunctionConstant(tInt32, 100);
 			builder.AddInstruction(OP_ARG, 0);

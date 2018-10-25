@@ -40,12 +40,11 @@ struct RuntimeFunctionCodeStorage
 //TODO Allow value type to implement interface?
 
 //Roadmap
-//TODO Export/import uint32 constants (for field ids)
 //TODO Base type in template
 //TODO Interface type in template
 //TODO Load base type (layout, vtab load, check, etc)
 //TODO RuntimeObject implementation
-//TODO Interface implementation
+//TODO Interface implementation (also for value type?)
 //TODO Instructions
 
 //Note: vtab will be copied from StaticPointer for each type using it, after initializer is executed. 
@@ -213,6 +212,16 @@ public:
 			if (e.ExportName == n) return e.InternalId;
 		}
 		return SIZE_MAX;
+	}
+
+	std::size_t FindExportConstant(const std::string& assemblyName, const std::string& n)
+	{
+		auto a = FindAssemblyThrow(assemblyName);
+		for (auto& e : a->ExportConstants)
+		{
+			if (e.ExportName == n) return e.InternalId;
+		}
+		throw RuntimeLoaderException("Constant export not found");
 	}
 
 private:
@@ -952,6 +961,31 @@ private:
 		for (int i = 0; i < 16; ++i)
 		{
 			ret->Instruction.push_back(OP_NOP);
+		}
+
+		//Process import constant
+		auto assembly = FindAssemblyThrow(a);
+		for (auto& k : ret->ConstantTable)
+		{
+			if (k.Length == 0)
+			{
+				auto kid = k.Offset;
+				if (kid >= assembly->ImportConstants.size())
+				{
+					throw RuntimeLoaderException("Invalid constant import reference");
+				}
+				auto info = assembly->ImportConstants[kid];
+				if (info.GenericParameters != 0)
+				{
+					throw RuntimeLoaderException("Invalid constant import");
+				}
+				auto value = (std::uint32_t)FindExportConstant(info.AssemblyName, info.ImportName);
+				auto offset = ret->ConstantData.size();
+				auto pValue = (unsigned char*)&value;
+				ret->ConstantData.insert(ret->ConstantData.end(), pValue, pValue + 4);
+				k.Length = 4;
+				k.Offset = offset;
+			}
 		}
 
 		_codeStorage.Data.push_back(ret);

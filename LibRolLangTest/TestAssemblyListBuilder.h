@@ -48,6 +48,18 @@ namespace
 			_currentType = _currentFunction = SIZE_MAX;
 		}
 
+		void ExportConstant(const std::string& name, std::uint32_t val)
+		{
+			_assembly.ExportConstants.push_back({ val, name });
+		}
+
+		std::size_t ImportConstant(const std::string& a, const std::string& n)
+		{
+			auto ret = _assembly.ImportConstants.size();
+			_assembly.ImportConstants.push_back({ a, n, 0 });
+			return ret;
+		}
+
 		void EndAssembly()
 		{
 			_assemblies.emplace_back(std::move(_assembly));
@@ -241,6 +253,15 @@ namespace
 			auto ret = f.ConstantTable.size();
 			f.ConstantData.insert(f.ConstantData.end(), ptr, ptr + sizeof(T));
 			f.ConstantTable.push_back({ offset, sizeof(T), typeId });
+			return ret;
+		}
+
+		std::size_t AddFunctionImportConstant(const TypeReference& type, std::size_t id)
+		{
+			auto typeId = WriteTypeRef(_assembly.Functions[_currentFunction].Generic, type);
+			auto& f = _assembly.Functions[_currentFunction];
+			auto ret = f.ConstantTable.size();
+			f.ConstantTable.push_back({ id, 0, typeId });
 			return ret;
 		}
 

@@ -2,6 +2,8 @@
 #include "Type.h"
 #include "Function.h"
 
+//TODO check whether we use SIZE_MAX as special value
+
 struct AssemblyImport
 {
 	std::string AssemblyName;
@@ -31,6 +33,8 @@ struct Assembly
 	std::vector<AssemblyExport> ExportFunctions, ExportTypes;
 	std::vector<AssemblyImport> ImportFunctions, ImportTypes;
 	std::vector<AssemblyExport> NativeFunctions, NativeTypes;
+	std::vector<AssemblyExport> ExportConstants;
+	std::vector<AssemblyImport> ImportConstants;
 	std::vector<Function> Functions;
 	std::vector<Type> Types;
 };
@@ -42,6 +46,8 @@ FIELD_SERIALIZER_BEGIN(Assembly)
 	SERIALIZE_FIELD(ImportTypes)
 	SERIALIZE_FIELD(NativeFunctions)
 	SERIALIZE_FIELD(NativeTypes)
+	SERIALIZE_FIELD(ExportConstants)
+	SERIALIZE_FIELD(ImportConstants)
 	SERIALIZE_FIELD(Functions)
 	SERIALIZE_FIELD(Types)
 FIELD_SERIALIZER_END()

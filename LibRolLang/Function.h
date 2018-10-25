@@ -86,7 +86,7 @@ enum Intrinsic2Codes : unsigned char
 struct FunctionConst
 {
 	std::size_t Offset;
-	std::size_t Length;
+	std::size_t Length; //Length 0 -> import const Offset=index
 	std::size_t TypeId;
 };
 FIELD_SERIALIZER_BEGIN(FunctionConst)

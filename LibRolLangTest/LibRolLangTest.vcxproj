@@ -158,6 +158,7 @@
   <ItemGroup>
     <ClCompile Include="ExecuteSimpleNativeFunctionTest.cpp" />
     <ClCompile Include="ExecuteSimpleProgramTest.cpp" />
+    <ClCompile Include="ImportTest.cpp" />
     <ClCompile Include="LoaderTypeTest.cpp" />
     <ClCompile Include="LoadFunctionTest.cpp" />
     <ClCompile Include="stdafx.cpp">
