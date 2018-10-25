@@ -344,6 +344,7 @@ private:
 			}
 		}
 	}
+	
 private:
 	std::unordered_map<std::size_t, FuncInfo> _functionCache;
 

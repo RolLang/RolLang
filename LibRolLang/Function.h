@@ -16,6 +16,7 @@ enum Features : unsigned char
 //TODO
 //Do we need switch?
 //Do we need filter (exception handling)?
+//Remove OP_ERR?
 
 //high 5 bits: Opcodes. low 3 bits: OPR.
 //if OPR >= 6, additional bytes are taken. 6: 4 more bytes. 7: 1 more bytes.
@@ -69,7 +70,7 @@ enum Opcodes : unsigned char
 	//Level 1
 	OP_RET, //Return to caller. OPR: 0. Stack: -1?+0
 
-	OP_BRANCHERR, //Set error handler dest. OPR: 1 or 4 byte address x 3. Stack: -0+0
+	OP_BRANCH_ERR, //Set error handler dest. OPR: 1 or 4 byte address x 3. Stack: -0+0
 	              //Following bytes (length depending on OPR): catch start, finally start, finally end.
 
 	OP_PREFIX_RESERVED, //Reserved for prefix (memory access order, exception options, etc)

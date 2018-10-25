@@ -130,3 +130,8 @@ struct RuntimeFunction : Initializable
 	RuntimeType* ReturnValue;
 	std::vector<RuntimeType*> Parameters;
 };
+
+struct RuntimeFunctionCodeStorage
+{
+	std::vector<std::shared_ptr<RuntimeFunctionCode>> Data;
+};

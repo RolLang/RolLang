@@ -7,11 +7,6 @@
 #include "Spinlock.h"
 #include "RuntimeObjects.h"
 
-struct RuntimeFunctionCodeStorage
-{
-	std::vector<std::shared_ptr<RuntimeFunctionCode>> Data;
-};
-
 //TODO support base class (including virtual function support)
 /*
 
@@ -41,6 +36,8 @@ struct RuntimeFunctionCodeStorage
 
 //Roadmap
 //TODO Base type in template
+//TODO Limit maximum number in _loadingTypes and _loadingFunctions
+//	(to avoid A<T> : A<B<T>>)
 //TODO Interface type in template
 //TODO Load base type (layout, vtab load, check, etc)
 //TODO RuntimeObject implementation
@@ -86,11 +83,8 @@ class RuntimeLoader
 	 * 4. (After all finished.) MoveFinishedObjects. Then move to _loadedTypes.
 	 *
 	 * Each value type will undergo the following stages:
-	 * 1. LoadTypeInternal.
-	 * 1.1. Put into _loadingTypes stack to avoid cyclic dependence.
-	 * 1.2. LoadFields. Then move to _postLoadingTypes.
-	 * 1.3. Remove from _loadingTypes stack.
-	 * 1.4. Pointer available.
+	 * 1. LoadTypeInternal -> LoadFields.
+	 *    Then move to _postLoadingTypes. Pointer available.
 	 * 2. PostLoadType. Then move to _finishedLoadingTypes.
 	 * 3. (After all finished.) MoveFinishedObjects. Then move to _loadedTypes.
 	 *
@@ -470,6 +464,13 @@ private:
 				return t.get();
 			}
 		}
+		for (auto t : _loadingTypes)
+		{
+			if (t->Args == args)
+			{
+				return t;
+			}
+		}
 
 		auto typeTemplate = FindTypeTemplate(args.Assembly, args.Id);
 		CheckGenericArguments(typeTemplate->Generic, args);
@@ -537,14 +538,28 @@ private:
 		return ret;
 	}
 
+	bool TypeIsInLoading(RuntimeType* t)
+	{
+		for (auto i : _loadingTypes)
+		{
+			if (i == t) return true;
+		}
+		return false;
+	}
+
 	RuntimeType* LoadFields(std::unique_ptr<RuntimeType> type, Type* typeTemplate)
 	{
 		for (auto t : _loadingTypes)
 		{
+			assert(!(t->Args == type->Args));
+#if 0
 			if (t->Args == type->Args)
 			{
+				//Actually this never fires, because we can get an existing 
+				//pointer from _loadingType, but the size will be 0 (checked below).
 				throw RuntimeLoaderException("Cyclic type dependence");
 			}
+#endif
 		}
 		_loadingTypes.push_back(type.get());
 
@@ -561,6 +576,11 @@ private:
 			{
 				//Only goes here if REF_EMPTY is specified.
 				throw RuntimeLoaderException("Invalid field type");
+			}
+			if (fieldType->Storage == TSM_VALUE && fieldType->Size == 0)
+			{
+				assert(TypeIsInLoading(fieldType));
+				throw RuntimeLoaderException("Cyclic type dependence");
 			}
 			fields.push_back(fieldType);
 		}
