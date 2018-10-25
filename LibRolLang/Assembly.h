@@ -2,8 +2,6 @@
 #include "Type.h"
 #include "Function.h"
 
-//TODO check whether we use SIZE_MAX as special value
-
 struct AssemblyImport
 {
 	std::string AssemblyName;

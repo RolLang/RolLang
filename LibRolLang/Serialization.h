@@ -40,6 +40,7 @@ struct Serializer<std::size_t>
 		std::uint32_t v;
 		SimpleSerializer<std::uint32_t>::Read(s, v);
 		val = v;
+		if (v == 0xFFFFFFFF) val = SIZE_MAX;
 	}
 
 	static void Write(std::ostream& s, const std::size_t& val)
