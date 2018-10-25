@@ -53,8 +53,12 @@ public: //Loader API
 		const std::vector<std::uint32_t>& genericArgs)
 	{
 		LoadingArguments args;
-		args.Assembly = assemblyName;
-		args.Id = _loader->FindExportType(assemblyName, exportName);
+		AssemblyImport importInfo = { assemblyName, exportName, genericArgs.size() };
+		if (!_loader->FindExportType(importInfo, args))
+		{
+			ReturnWithException({}, ERR_PROGRAM, "Export type not found");
+			return SIZE_MAX;
+		}
 		for (auto i : genericArgs)
 		{
 			args.Arguments.push_back(_loader->GetTypeById(i));
@@ -73,9 +77,8 @@ public: //Loader API
 		const std::vector<std::uint32_t>& genericArgs)
 	{
 		LoadingArguments args;
-		args.Assembly = assemblyName;
-		args.Id = _loader->FindExportFunction(assemblyName, exportName);
-		if (args.Id == SIZE_MAX)
+		AssemblyImport importInfo = { assemblyName, exportName, genericArgs.size() };
+		if (!_loader->FindExportFunction(importInfo, args))
 		{
 			ReturnWithException({}, ERR_PROGRAM, "Export function not found");
 			return SIZE_MAX;

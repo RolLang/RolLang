@@ -15,8 +15,7 @@ namespace LibRolLangTest
 			std::vector<RuntimeType*> args, bool shouldFail)
 		{
 			LoadingArguments la;
-			la.Assembly = a;
-			la.Id = loader->FindExportFunction(a, n);
+			loader->FindExportFunction({ a, n, args.size() }, la);
 			la.Arguments = args;
 			std::string err;
 			auto ret = loader->GetFunction(la, err);

@@ -10,11 +10,10 @@ namespace LibRolLangTest
 	private:
 		static RuntimeType* LoadType(RuntimeLoader* loader,
 			const std::string& a, const std::string& n,
-			std::vector<RuntimeType*>args, bool shouldFail)
+			std::vector<RuntimeType*> args, bool shouldFail)
 		{
 			LoadingArguments la;
-			la.Assembly = a;
-			la.Id = loader->FindExportType(a, n);
+			loader->FindExportType({ a, n, args.size() }, la);
 			la.Arguments = args;
 			std::string err;
 			auto ret = loader->GetType(la, err);

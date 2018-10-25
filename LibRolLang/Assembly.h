@@ -16,7 +16,9 @@ FIELD_SERIALIZER_END()
 
 struct AssemblyExport
 {
-	//TODO only for export, when id > size, it points to the import table to allow redirecting
+	//For type and function, when id > size,
+	//it points to the import table to allow redirecting.
+	//Constant cannot be redirected.
 	std::size_t InternalId;
 	std::string ExportName;
 };

@@ -194,32 +194,70 @@ public:
 		return _loadedFunctions[id].get();
 	}
 
-	std::size_t FindExportType(const std::string& assemblyName, const std::string& n)
+	bool FindExportType(const AssemblyImport& args, LoadingArguments& result)
 	{
-		auto a = FindAssemblyThrow(assemblyName);
+		auto a = FindAssemblyThrow(args.AssemblyName);
 		for (auto& e : a->ExportTypes)
 		{
-			if (e.ExportName == n) return e.InternalId;
+			if (e.ExportName == args.ImportName)
+			{
+				if (e.InternalId >= a->Types.size())
+				{
+					auto importId = e.InternalId - a->Types.size();
+					if (importId >= a->ImportTypes.size())
+					{
+						return false;
+					}
+					return FindExportType(a->ImportTypes[importId], result);
+				}
+				if (args.GenericParameters != SIZE_MAX &&
+					a->Types[e.InternalId].Generic.Parameters.size() != args.GenericParameters)
+				{
+					return false;
+				}
+				result.Assembly = args.AssemblyName;
+				result.Id = e.InternalId;
+				return true;
+			}
 		}
-		return SIZE_MAX;
+		return false;
 	}
 
-	std::size_t FindExportFunction(const std::string& assemblyName, const std::string& n)
+	bool FindExportFunction(const AssemblyImport& args, LoadingArguments& result)
 	{
-		auto a = FindAssemblyThrow(assemblyName);
+		auto a = FindAssemblyThrow(args.AssemblyName);
 		for (auto& e : a->ExportFunctions)
 		{
-			if (e.ExportName == n) return e.InternalId;
+			if (e.ExportName == args.ImportName)
+			{
+				if (e.InternalId >= a->Functions.size())
+				{
+					auto importId = e.InternalId - a->Functions.size();
+					if (importId >= a->ImportFunctions.size())
+					{
+						return false;
+					}
+					return FindExportFunction(a->ImportFunctions[importId], result);
+				}
+				if (args.GenericParameters != SIZE_MAX &&
+					a->Functions[e.InternalId].Generic.Parameters.size() != args.GenericParameters)
+				{
+					return false;
+				}
+				result.Assembly = args.AssemblyName;
+				result.Id = e.InternalId;
+				return true;
+			}
 		}
-		return SIZE_MAX;
+		return false;
 	}
 
-	std::size_t FindExportConstant(const std::string& assemblyName, const std::string& n)
+	std::uint32_t FindExportConstant(const std::string& assemblyName, const std::string& n)
 	{
 		auto a = FindAssemblyThrow(assemblyName);
 		for (auto& e : a->ExportConstants)
 		{
-			if (e.ExportName == n) return e.InternalId;
+			if (e.ExportName == n) return (std::uint32_t)e.InternalId;
 		}
 		throw RuntimeLoaderException("Constant export not found");
 	}
@@ -775,16 +813,13 @@ private:
 			throw RuntimeLoaderException("Invalid type reference");
 		}
 		auto i = a->ImportTypes[id];
-		auto a2 = FindAssemblyThrow(i.AssemblyName);
-		for (auto e : a2->ExportTypes)
+		LoadingArguments la;
+		if (!FindExportType(i, la))
 		{
-			if (e.ExportName == i.ImportName)
-			{
-				return LoadDependentType(i.AssemblyName, e.InternalId,
-					lastArgs, g, refListIndex, i.GenericParameters);
-			}
+			throw RuntimeLoaderException("Import type not found");
 		}
-		throw RuntimeLoaderException("Import type not found");
+		return LoadDependentType(la.Assembly, la.Id, lastArgs, g,
+			refListIndex, i.GenericParameters);
 	}
 
 	RuntimeFunction* LoadRefFunction(const LoadingArguments& args,
@@ -854,16 +889,13 @@ private:
 			throw RuntimeLoaderException("Invalid function reference");
 		}
 		auto i = a->ImportFunctions[id];
-		auto a2 = FindAssemblyThrow(i.AssemblyName);
-		for (auto e : a2->ExportFunctions)
+		LoadingArguments la;
+		if (!FindExportFunction(i, la))
 		{
-			if (e.ExportName == i.ImportName)
-			{
-				return LoadDependentFunction(i.AssemblyName, e.InternalId,
-					lastArgs, g, refListIndex, i.GenericParameters);
-			}
+			throw RuntimeLoaderException("Import function not found");
 		}
-		throw RuntimeLoaderException("Import function not found");
+		return LoadDependentFunction(la.Assembly, la.Id, lastArgs, g,
+			refListIndex, i.GenericParameters);
 	}
 
 protected:
@@ -979,7 +1011,7 @@ private:
 				{
 					throw RuntimeLoaderException("Invalid constant import");
 				}
-				auto value = (std::uint32_t)FindExportConstant(info.AssemblyName, info.ImportName);
+				auto value = FindExportConstant(info.AssemblyName, info.ImportName);
 				auto offset = ret->ConstantData.size();
 				auto pValue = (unsigned char*)&value;
 				ret->ConstantData.insert(ret->ConstantData.end(), pValue, pValue + 4);
