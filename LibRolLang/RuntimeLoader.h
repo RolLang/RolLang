@@ -131,8 +131,6 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap
-//TODO Limit maximum number in _loadingTypes and _loadingFunctions
-//	(to avoid A<T> : A<B<T>>)
 //TODO Field table in GenericDeclaration
 //TODO Base type in template
 //TODO Load base type (layout, vtab load, check, etc)
@@ -216,8 +214,8 @@ protected:
 	};
 
 public:
-	RuntimeLoader(AssemblyList assemblies)
-		: _assemblies(std::move(assemblies))
+	RuntimeLoader(AssemblyList assemblies, std::size_t loadingLimit = 256)
+		: _assemblies(std::move(assemblies)), _loadingLimit(loadingLimit)
 	{
 		FindPointerTypeId();
 	}
@@ -666,6 +664,10 @@ private:
 #endif
 		}
 		_loadingTypes.push_back(type.get());
+		if (_loadingTypes.size() + _loadingFunctions.size() > _loadingLimit)
+		{
+			throw RuntimeLoaderException("Loading object limit exceeded.");
+		}
 
 		Type* tt = typeTemplate;
 		if (tt == nullptr)
@@ -1199,6 +1201,7 @@ protected:
 
 private:
 	AssemblyList _assemblies;
+	std::size_t _loadingLimit;
 
 	std::vector<std::unique_ptr<RuntimeType>> _loadedTypes;
 	std::vector<std::unique_ptr<RuntimeFunction>> _loadedFunctions;
