@@ -3,13 +3,15 @@
 
 enum ReferenceType : unsigned char
 {
+	//For REF_Assembly and REF_Import, the items after this item is the generic arguments
+
 	REF_EMPTY,
 	REF_CLONE, //refer to another entry in the list. index = index in the same list
 	REF_ASSEMBLY, //index = assembly type/function array index
 	REF_IMPORT, //index = import #
 	REF_ARGUMENT, //index = generic parameter list index
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
-	//For REF_Assembly and REF_Import, the items after this item is the generic arguments
+	REF_SELF, //for type/traits, the type itself
 };
 //Note that for generic function, the generic arguments should use REF_CloneType
 

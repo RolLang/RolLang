@@ -346,6 +346,12 @@ namespace LibRolLangTest
 			builder.Link(true, false);
 			builder.AddField(t3);
 			builder.EndType();
+
+			builder.BeginType(TSM_REF, "Test.CycType4");
+			builder.SetTypeHandlers({}, {});
+			builder.Link(true, false);
+			builder.AddField(builder.SelfType());
+			builder.EndType();
 		}
 
 		static void CheckCyclicType(RuntimeLoader* loader)
@@ -362,6 +368,10 @@ namespace LibRolLangTest
 			auto t3 = LoadType(loader, "Test", "Test.CycType3A", false);
 			CheckReferenceTypeBasic(loader, t3);
 			CheckValueTypeSize(t3, sizeof(void*), sizeof(void*));
+
+			auto t4 = LoadType(loader, "Test", "Test.CycType4", false);
+			CheckReferenceTypeBasic(loader, t4);
+			Assert::AreEqual((std::uintptr_t)t4, (std::uintptr_t)t4->Fields[0].Type);
 		}
 
 	public:

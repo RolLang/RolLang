@@ -131,7 +131,6 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap
-//TODO Allow reference 'self' type in GenericDeclaration
 //TODO Limit maximum number in _loadingTypes and _loadingFunctions
 //	(to avoid A<T> : A<B<T>>)
 //TODO Field table in GenericDeclaration
@@ -676,7 +675,7 @@ private:
 		std::vector<RuntimeType*> fields;
 		for (auto typeId : tt->Fields)
 		{
-			auto fieldType = LoadRefType(type->Args, tt->Generic, typeId);
+			auto fieldType = LoadRefType(type->Args, tt->Generic, typeId, type.get());
 			if (!fieldType)
 			{
 				//Only goes here if REF_EMPTY is specified.
@@ -761,7 +760,7 @@ private:
 		auto funcTemplate = FindFunctionTemplate(func->Args.Assembly, func->Args.Id);
 		for (std::size_t i = 0; i < funcTemplate->Generic.Types.size(); ++i)
 		{
-			func->ReferencedType.push_back(LoadRefType(func->Args, funcTemplate->Generic, i));
+			func->ReferencedType.push_back(LoadRefType(func->Args, funcTemplate->Generic, i, nullptr));
 		}
 		for (std::size_t i = 0; i < funcTemplate->Generic.Functions.size(); ++i)
 		{
@@ -871,7 +870,8 @@ protected:
 	}
 
 private:
-	RuntimeType* LoadRefType(const LoadingArguments& args, GenericDeclaration& g, std::size_t typeId)
+	RuntimeType* LoadRefType(const LoadingArguments& args, GenericDeclaration& g,
+		std::size_t typeId, RuntimeType* selfType)
 	{
 		if (typeId >= g.Types.size())
 		{
@@ -892,15 +892,21 @@ private:
 			type = g.Types[type.Index];
 			goto loadClone;
 		case REF_ASSEMBLY:
-			return LoadDependentType(args.Assembly, type.Index, args, g, typeId);
+			return LoadDependentType(args.Assembly, type.Index, args, g, typeId, SIZE_MAX, selfType);
 		case REF_IMPORT:
-			return LoadDependentTypeImport(args.Assembly, type.Index, args, g, typeId);
+			return LoadDependentTypeImport(args.Assembly, type.Index, args, g, typeId, selfType);
 		case REF_ARGUMENT:
 			if (type.Index >= args.Arguments.size())
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 			return args.Arguments[type.Index];
+		case REF_SELF:
+			if (selfType == nullptr)
+			{
+				throw RuntimeLoaderException("Invalid type reference");
+			}
+			return selfType;
 		case REF_CLONETYPE:
 		default:
 			throw RuntimeLoaderException("Invalid type reference");
@@ -909,7 +915,7 @@ private:
 
 	RuntimeType* LoadDependentType(const std::string& assembly, std::size_t id,
 		const LoadingArguments& lastArgs, GenericDeclaration& g, std::size_t refListIndex,
-		std::size_t checkArgSize = SIZE_MAX)
+		std::size_t checkArgSize, RuntimeType* selfType)
 	{
 		LoadingArguments newArgs;
 		newArgs.Assembly = assembly;
@@ -917,7 +923,7 @@ private:
 		for (std::size_t i = refListIndex + 1; i < g.Types.size(); ++i)
 		{
 			if (g.Types[i].Type == REF_EMPTY) break; //Use REF_Empty as the end of arg list
-			newArgs.Arguments.push_back(LoadRefType(lastArgs, g, i));
+			newArgs.Arguments.push_back(LoadRefType(lastArgs, g, i, selfType));
 		}
 		if (checkArgSize != SIZE_MAX)
 		{
@@ -930,7 +936,8 @@ private:
 	}
 
 	RuntimeType* LoadDependentTypeImport(const std::string& assembly, std::size_t id,
-		const LoadingArguments& lastArgs, GenericDeclaration& g, std::size_t refListIndex)
+		const LoadingArguments& lastArgs, GenericDeclaration& g, std::size_t refListIndex,
+		RuntimeType* selfType)
 	{
 		auto a = FindAssemblyThrow(assembly);
 		if (id >= a->ImportTypes.size())
@@ -944,7 +951,7 @@ private:
 			throw RuntimeLoaderException("Import type not found");
 		}
 		return LoadDependentType(la.Assembly, la.Id, lastArgs, g,
-			refListIndex, i.GenericParameters);
+			refListIndex, i.GenericParameters, selfType);
 	}
 
 	RuntimeFunction* LoadRefFunction(const LoadingArguments& args,
@@ -993,7 +1000,7 @@ private:
 			{
 				throw RuntimeLoaderException("Invalid generic function argument");
 			}
-			newArgs.Arguments.push_back(LoadRefType(lastArgs, g, g.Functions[i].Index));
+			newArgs.Arguments.push_back(LoadRefType(lastArgs, g, g.Functions[i].Index, nullptr));
 		}
 		if (checkArgSize != SIZE_MAX)
 		{

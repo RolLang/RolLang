@@ -15,6 +15,7 @@ namespace
 			TR_TEMPI,
 			TR_INST,
 			TR_INSTI,
+			TR_SELF,
 		};
 
 		enum FunctionReferenceType
@@ -40,6 +41,11 @@ namespace
 			std::size_t Id;
 			std::vector<TypeReference> Arguments;
 		};
+
+		TypeReference SelfType()
+		{
+			return { TR_SELF, 0, {} };
+		}
 
 		void BeginAssembly(const std::string& name)
 		{
@@ -362,6 +368,9 @@ namespace
 			case TR_INSTI:
 				g.Types.push_back({ REF_IMPORT, t.Id });
 				break;
+			case TR_SELF:
+				g.Types.push_back({ REF_SELF, 0 });
+				return ret;
 			default:
 				return SIZE_MAX;
 			}
