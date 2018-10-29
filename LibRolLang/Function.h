@@ -58,10 +58,7 @@ enum Opcodes : unsigned char
 	OP_CONVPTR, //Conversion involving a pointer type. OPR: type. Stack: -1+1
 
 	OP_SIZEOF, //Push size of type. OPR: type. Stack: -0+1
-	//OP_FIELD cannot directly get base field ptr. Convert first.
-	//Use const table to allow change in base type field structure to be compatible.
-	//TODO use a separate table to store field offset import
-	OP_FIELD, //Pop ptr on stack and push field ptr. OPR: const table index that contains field id. Stack: -1+1
+	OP_FIELD, //Pop ptr on stack and push field ptr. OPR: field table index (containing index). Stack: -1+1
 	OP_FUNCPTR, //Push function managed ptr. OPR: function. Stack: -0+1
 
 	//Level 1

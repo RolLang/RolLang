@@ -405,6 +405,20 @@ private:
 		return ret;
 	}
 
+	std::uint32_t LoadImportConstant(Assembly* a, std::size_t index)
+	{
+		if (index >= a->ImportConstants.size())
+		{
+			throw RuntimeLoaderException("Invalid constant import reference");
+		}
+		auto info = a->ImportConstants[index];
+		if (info.GenericParameters != 0)
+		{
+			throw RuntimeLoaderException("Invalid constant import");
+		}
+		return FindExportConstant(info.AssemblyName, info.ImportName);
+	}
+
 private:
 	RuntimeType* AddNativeTypeInternal(const std::string& assemblyName, std::size_t id,
 		std::size_t size, std::size_t alignment)
@@ -576,6 +590,10 @@ private:
 
 		auto typeTemplate = FindTypeTemplate(args.Assembly, args.Id);
 		CheckGenericArguments(typeTemplate->Generic, args);
+		if (typeTemplate->Generic.Fields.size() != 0)
+		{
+			throw RuntimeLoaderException("Type template cannot contain field reference");
+		}
 
 		if (typeTemplate->GCMode == TSM_REF)
 		{
@@ -767,6 +785,11 @@ private:
 		for (std::size_t i = 0; i < funcTemplate->Generic.Functions.size(); ++i)
 		{
 			func->ReferencedFunction.push_back(LoadRefFunction(func->Args, funcTemplate->Generic, i));
+		}
+		auto assembly = FindAssemblyThrow(func->Args.Assembly);
+		for (std::size_t i = 0; i < funcTemplate->Generic.Fields.size(); ++i)
+		{
+			func->ReferencedFields.push_back(LoadImportConstant(assembly, funcTemplate->Generic.Fields[i]));
 		}
 		func->ReturnValue = func->ReferencedType[funcTemplate->ReturnValue.TypeId];
 		for (std::size_t i = 0; i < funcTemplate->Parameters.size(); ++i)
@@ -1136,16 +1159,7 @@ private:
 			if (k.Length == 0)
 			{
 				auto kid = k.Offset;
-				if (kid >= assembly->ImportConstants.size())
-				{
-					throw RuntimeLoaderException("Invalid constant import reference");
-				}
-				auto info = assembly->ImportConstants[kid];
-				if (info.GenericParameters != 0)
-				{
-					throw RuntimeLoaderException("Invalid constant import");
-				}
-				auto value = FindExportConstant(info.AssemblyName, info.ImportName);
+				auto value = LoadImportConstant(assembly, kid);
 				auto offset = ret->ConstantData.size();
 				auto pValue = (unsigned char*)&value;
 				ret->ConstantData.insert(ret->ConstantData.end(), pValue, pValue + 4);

@@ -36,9 +36,12 @@ struct GenericDeclaration
 	std::vector<GenericParameter> Parameters;
 	std::vector<DeclarationReference> Types;
 	std::vector<DeclarationReference> Functions;
+	//Contains index in import constant table. Exported values are field index, not offset.
+	std::vector<std::size_t> Fields;
 };
 FIELD_SERIALIZER_BEGIN(GenericDeclaration)
 	SERIALIZE_FIELD(Parameters)
 	SERIALIZE_FIELD(Types)
 	SERIALIZE_FIELD(Functions)
+	SERIALIZE_FIELD(Fields)
 FIELD_SERIALIZER_END()

@@ -126,6 +126,7 @@ struct RuntimeFunction : Initializable
 
 	std::vector<RuntimeType*> ReferencedType;
 	std::vector<RuntimeFunction*> ReferencedFunction;
+	std::vector<std::size_t> ReferencedFields;
 
 	RuntimeType* ReturnValue;
 	std::vector<RuntimeType*> Parameters;
