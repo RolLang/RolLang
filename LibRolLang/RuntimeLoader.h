@@ -28,9 +28,6 @@
 	7. Unmanaged function pointer don't need to be wrapped to function type.
 	   Delegate like C# should be fine. Managed function type is only internal use.
 
-	Remember to put check of _loadingTypes to LoadFields. The base class should alse
-	be loaded in there.
-
 */
 //TODO Allow value type to implement interface?
 //TODO pay attention to the following C# code (note it's not possible to do the same in C++)
@@ -131,12 +128,10 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap
-//TODO Field table in GenericDeclaration
-//TODO Base type in template
-//TODO Load base type (layout, vtab load, check, etc)
 //TODO RuntimeObject implementation
 //TODO Interface type in template
-//TODO Interface implementation (also for value type?)
+//TODO Interface implementation
+//TODO Boxing type (boxing type should implements interfaces)
 //TODO Generic argument constrain (base class, interface)
 //TODO Sub-type alias definition & sub-type reference in GenericDeclaration
 //TODO Traits (see above)
@@ -460,6 +455,9 @@ private:
 		rt->Initializer = nullptr;
 		rt->Finalizer = nullptr;
 		rt->StaticPointer = nullptr;
+		rt->StaticPointerVtab = nullptr;
+		rt->VirtualTableType = nullptr;
+		rt->VirtualTablePointer = nullptr;
 
 		auto ret = rt.get();
 		AddLoadedType(std::move(rt));
@@ -672,14 +670,6 @@ private:
 		for (auto t : _loadingTypes)
 		{
 			assert(!(t->Args == type->Args));
-#if 0
-			if (t->Args == type->Args)
-			{
-				//Actually this never fires, because we can get an existing 
-				//pointer from _loadingType, but the size will be 0 (checked below).
-				throw RuntimeLoaderException("Cyclic type dependence");
-			}
-#endif
 		}
 		_loadingTypes.push_back(type.get());
 		if (_loadingTypes.size() + _loadingFunctions.size() > _loadingLimit)
@@ -692,11 +682,87 @@ private:
 		{
 			tt = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
 		}
+
+		std::size_t offset = 0, totalAlignment = 1;
+
+		//Virtual table
+		type->VirtualTablePointer = nullptr;
+		auto vtabType = LoadRefType(type->Args, tt->Generic, tt->VirtualTableType, type.get());
+		if (vtabType != nullptr)
+		{
+			if (vtabType->Storage != TSM_GLOBAL)
+			{
+				throw RuntimeLoaderException("Vtab type must be global storage");
+			}
+			if (type->Storage == TSM_GLOBAL || type->Storage == TSM_VALUE)
+			{
+				throw RuntimeLoaderException("Global and value type cannot have vtab");
+			}
+
+			//Allocate a new block of memory which will be initialized right before using.
+			if (vtabType->StaticPointerVtab == nullptr)
+			{
+				vtabType->StaticPointerVtab = AllocateNewGlobalStorage(vtabType);
+			}
+
+			type->VirtualTableType = vtabType;
+			type->VirtualTablePointer = vtabType->StaticPointerVtab;
+		}
+
+		//Base type
+		auto baseType = LoadRefType(type->Args, tt->Generic, tt->BaseType, type.get());
+		if (baseType != nullptr)
+		{
+			if (type->Storage == TSM_GLOBAL)
+			{
+				throw RuntimeLoaderException("Global type cannot have base type");
+			}
+			else
+			{
+				if (type->Storage != baseType->Storage)
+				{
+					throw RuntimeLoaderException("Base type storage must be same as the derived type");
+				}
+
+				offset = type->GetStorageSize();
+				totalAlignment = type->GetStorageAlignment();
+				//TODO allow zero-length base type (now it's only a waste of space).
+				//Note that we are using size to check whether loading is finished.
+			}
+		}
+
+		//Check base type & vtab together
+		if (baseType && baseType->VirtualTablePointer && type->VirtualTablePointer == nullptr)
+		{
+			throw RuntimeLoaderException("Vtab not matching base type");
+		}
+		if (type->VirtualTablePointer && baseType && baseType->VirtualTablePointer)
+		{
+			auto tbase = baseType->VirtualTableType;
+			auto tderived = type->VirtualTableType;
+			if (tbase->Fields.size() > tderived->Fields.size())
+			{
+				throw RuntimeLoaderException("Vtab not matching base type");
+			}
+			for (std::size_t i = 0; i < tbase->Fields.size(); ++i)
+			{
+				auto& fbase = tbase->Fields[i];
+				auto& fderived = tderived->Fields[i];
+				if (fbase.Type != fderived.Type)
+				{
+					throw RuntimeLoaderException("Vtab not matching base type");
+				}
+				assert(fbase.Offset == fderived.Offset);
+				assert(fbase.Length == fderived.Length);
+			}
+		}
+
+		//Fields
 		std::vector<RuntimeType*> fields;
 		for (auto typeId : tt->Fields)
 		{
 			auto fieldType = LoadRefType(type->Args, tt->Generic, typeId, type.get());
-			if (!fieldType)
+			if (fieldType == nullptr)
 			{
 				//Only goes here if REF_EMPTY is specified.
 				throw RuntimeLoaderException("Invalid field type");
@@ -709,7 +775,6 @@ private:
 			fields.push_back(fieldType);
 		}
 
-		std::size_t offset = 0, totalAlignment = 1;
 		for (std::size_t i = 0; i < fields.size(); ++i)
 		{
 			auto ftype = fields[i];
@@ -734,6 +799,13 @@ private:
 		}
 		type->Size = offset == 0 ? 1 : offset;
 		type->Alignment = totalAlignment;
+
+		//Allocate global storage before returning
+		if (type->Storage == TSM_GLOBAL)
+		{
+			type->StaticPointer = AllocateNewGlobalStorage(type.get());
+		}
+
 		auto ret = type.get();
 		_postLoadingTypes.emplace_back(std::move(type));
 
@@ -761,15 +833,6 @@ private:
 			{
 				throw RuntimeLoaderException("Only reference type can have finalizer");
 			}
-		}
-		if (type->Storage == TSM_GLOBAL)
-		{
-			std::size_t alignment = type->GetStorageAlignment();
-			std::size_t totalSize = type->GetStorageSize() + alignment;
-			std::unique_ptr<char[]> ptr = std::make_unique<char[]>(totalSize);
-			uintptr_t rawPtr = (uintptr_t)ptr.get();
-			uintptr_t alignedPtr = (rawPtr + alignment - 1) / alignment * alignment;
-			type->StaticPointer = (void*)alignedPtr;
 		}
 		_finishedLoadingTypes.emplace_back(std::move(type));
 	}
@@ -895,6 +958,8 @@ protected:
 	}
 
 private:
+	//TODO separate this section to a new type (DeclarationRefList)
+
 	RuntimeType* LoadRefType(const LoadingArguments& args, GenericDeclaration& g,
 		std::size_t typeId, RuntimeType* selfType)
 	{
@@ -1170,6 +1235,17 @@ private:
 
 		_codeStorage.Data.push_back(ret);
 		return std::move(ret);
+	}
+
+	//Multiple objects might be allocated if the type is used as a vtab.
+	void* AllocateNewGlobalStorage(RuntimeType* type)
+	{
+		std::size_t alignment = type->GetStorageAlignment();
+		std::size_t totalSize = type->GetStorageSize() + alignment;
+		std::unique_ptr<char[]> ptr = std::make_unique<char[]>(totalSize);
+		uintptr_t rawPtr = (uintptr_t)ptr.get();
+		uintptr_t alignedPtr = (rawPtr + alignment - 1) / alignment * alignment;
+		return (void*)alignedPtr;
 	}
 
 	void AddLoadedType(std::unique_ptr<RuntimeType> t)

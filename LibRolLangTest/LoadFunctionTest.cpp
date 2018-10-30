@@ -88,7 +88,6 @@ namespace LibRolLangTest
 		{
 			auto t = builder.BeginType(TSM_VALUE, "Test.Native4");
 			builder.Link(false, true);
-			builder.SetTypeHandlers({}, {});
 			builder.EndType();
 
 			builder.BeginFunction("Test.TestFunc1");

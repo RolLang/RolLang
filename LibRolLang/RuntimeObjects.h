@@ -82,8 +82,12 @@ struct RuntimeType : Initializable
 
 	RuntimeFunction* Initializer;
 	RuntimeFunction* Finalizer;
-	void* StaticPointer;
+	void* StaticPointer; //Memory block for TSM_GLOBAL.
+	void* StaticPointerVtab; //Additional memory block for TSM_GLOBAL for vtab. Internal access only.
 	RuntimeType* PointerType;
+
+	RuntimeType* VirtualTableType;
+	void* VirtualTablePointer;
 
 	std::size_t GetStorageSize()
 	{

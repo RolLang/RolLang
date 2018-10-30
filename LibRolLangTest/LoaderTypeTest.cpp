@@ -92,7 +92,6 @@ namespace LibRolLangTest
 		static void SetupEmptyType(Builder& builder)
 		{
 			builder.BeginType(TSM_VALUE, "Test.SingleType");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.EndType();
 		}
@@ -108,12 +107,10 @@ namespace LibRolLangTest
 		static void SetupNativeType(Builder& builder, TypeReference* t1, TypeReference* t4)
 		{
 			*t1 = builder.BeginType(TSM_VALUE, "Test.Native1");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, true);
 			builder.EndType();
 
 			*t4 = builder.BeginType(TSM_VALUE, "Test.Native4");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, true);
 			builder.EndType();
 		}
@@ -134,7 +131,6 @@ namespace LibRolLangTest
 		static void SetupValueType(Builder& builder, TypeReference t1, TypeReference t4)
 		{
 			auto a = builder.BeginType(TSM_VALUE, "Test.ValueTypeA");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(false, false);
 			builder.AddField(t1);
 			builder.AddField(t1);
@@ -144,7 +140,6 @@ namespace LibRolLangTest
 			builder.EndType();
 
 			builder.BeginType(TSM_VALUE, "Test.ValueTypeB");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(a);
 			builder.AddField(t1);
@@ -169,14 +164,12 @@ namespace LibRolLangTest
 		static void SetupReferenceType(Builder& builder, TypeReference t1, TypeReference t4)
 		{
 			auto a = builder.BeginType(TSM_REF, "Test.RefTypeA");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(false, false);
 			builder.AddField(t1);
 			builder.AddField(t4);
 			builder.EndType();
 
 			builder.BeginType(TSM_REF, "Test.RefTypeB");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(t4);
 			builder.AddField(a);
@@ -201,14 +194,12 @@ namespace LibRolLangTest
 		static void SetupGlobalType(Builder& builder, TypeReference t1, TypeReference t4)
 		{
 			auto a = builder.BeginType(TSM_VALUE, "Test.ValueTypeG1");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(false, false);
 			builder.AddField(t4);
 			builder.AddField(t4);
 			builder.EndType();
 
 			builder.BeginType(TSM_GLOBAL, "Test.GlobalType");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(a);
 			builder.AddField(t4);
@@ -239,7 +230,6 @@ namespace LibRolLangTest
 			r2.Type = Builder::TR_TEMP;
 			r2.Id = 100;
 			builder.BeginType(TSM_VALUE, "Test.ValueTypeC");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(r1);
 			builder.AddField(r2);
@@ -257,7 +247,6 @@ namespace LibRolLangTest
 			auto tt = builder.BeginType(TSM_VALUE, "Test.TemplateType");
 			auto g1 = builder.AddGenericParameter();
 			auto g2 = builder.AddGenericParameter();
-			builder.SetTypeHandlers({}, {});
 			builder.Link(false, false);
 			builder.AddField(g1);
 			builder.AddField(g2);
@@ -267,7 +256,6 @@ namespace LibRolLangTest
 			auto tt12 = builder.MakeType(tt, { t1, t4 });
 
 			builder.BeginType(TSM_VALUE, "Test.TemplateTestType1");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(tt11);
 			builder.AddField(tt12);
@@ -276,7 +264,6 @@ namespace LibRolLangTest
 			builder.BeginType(TSM_VALUE, "Test.TemplateTestType2");
 			auto g3 = builder.AddGenericParameter();
 			auto tt2 = builder.MakeType(tt, { t4, g3 });
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(tt2);
 			builder.EndType();
@@ -317,45 +304,38 @@ namespace LibRolLangTest
 		{
 			auto t1b = builder.ForwardDeclareType();
 			auto t1a = builder.BeginType(TSM_VALUE, "Test.CycType1A");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(t1b);
 			builder.EndType();
 
 			builder.BeginType(TSM_VALUE, "Test.CycType1B", t1b);
-			builder.SetTypeHandlers({}, {});
 			builder.Link(false, false);
 			builder.AddField(t1a);
 			builder.EndType();
 
 			auto t2b = builder.ForwardDeclareType();
 			auto t2a = builder.BeginType(TSM_VALUE, "Test.CycType2A");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(t2b);
 			builder.EndType();
 
 			builder.BeginType(TSM_REF, "Test.CycType2B", t2b);
-			builder.SetTypeHandlers({}, {});
 			builder.Link(false, false);
 			builder.AddField(t2a);
 			builder.EndType();
 
 			auto t3 = builder.BeginType(TSM_REF, "Test.CycType3A");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(t3);
 			builder.EndType();
 
 			builder.BeginType(TSM_REF, "Test.CycType4");
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(builder.SelfType());
 			builder.EndType();
 
 			auto t5 = builder.BeginType(TSM_REF, "Test.CycType5");
 			auto g = builder.AddGenericParameter();
-			builder.SetTypeHandlers({}, {});
 			builder.Link(true, false);
 			builder.AddField(builder.MakeType(t5, { builder.SelfType() }));
 			builder.EndType();

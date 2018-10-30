@@ -93,6 +93,7 @@ namespace
 				_currentType = ret.Id;
 				_currentName = name;
 				_assembly.Types[_currentType].GCMode = ts;
+				InitType(_assembly.Types[_currentType]);
 				return ret;
 			}
 			else if (r.Type == TR_TEMP)
@@ -100,6 +101,7 @@ namespace
 				_currentType = r.Id;
 				_currentName = name;
 				_assembly.Types[_currentType].GCMode = ts;
+				InitType(_assembly.Types[_currentType]);
 				return r;
 			}
 			return { TR_EMPTY, 0, {} };
@@ -146,6 +148,7 @@ namespace
 
 		void EndType()
 		{
+			FinishType();
 			_currentType = -1;
 			_currentName = "";
 		}
@@ -309,6 +312,36 @@ namespace
 				return WriteFunctionRef(_assembly.Functions[_currentFunction].Generic, f);
 			}
 			return SIZE_MAX;
+		}
+
+	private:
+		void InitType(Type& t)
+		{
+			t.BaseType = SIZE_MAX;
+			t.VirtualTableType = SIZE_MAX;
+			t.Initializer = SIZE_MAX;
+			t.Finalizer = SIZE_MAX;
+		}
+
+		void FinishType()
+		{
+			auto& t = _assembly.Types[_currentType];
+			if (t.BaseType == SIZE_MAX)
+			{
+				t.BaseType = WriteTypeRef(t.Generic, {});
+			}
+			if (t.VirtualTableType == SIZE_MAX)
+			{
+				t.VirtualTableType = WriteTypeRef(t.Generic, {});
+			}
+			if (t.Initializer == SIZE_MAX)
+			{
+				t.Initializer = WriteFunctionRef(t.Generic, {});
+			}
+			if (t.Finalizer == SIZE_MAX)
+			{
+				t.Finalizer = WriteFunctionRef(t.Generic, {});
+			}
 		}
 
 	public:
