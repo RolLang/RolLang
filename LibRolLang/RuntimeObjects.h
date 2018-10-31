@@ -91,12 +91,12 @@ struct RuntimeType : Initializable
 
 	std::size_t GetStorageSize()
 	{
-		return Storage == TypeStorageMode::TSM_REF ? sizeof(void*) : Size;
+		return Storage == TypeStorageMode::TSM_REF ? Parent->GetPointerSize() : Size;
 	}
 
 	std::size_t GetStorageAlignment()
 	{
-		return Storage == TypeStorageMode::TSM_REF ? sizeof(void*) : Alignment;
+		return Storage == TypeStorageMode::TSM_REF ? Parent->GetPointerSize() : Alignment;
 	}
 };
 

@@ -45,8 +45,6 @@
 //1. Disallow (by limiting simultaneously loading types)
 //2. Allow incomplete type. Only call LoadFields when needed. (Need major change in structure.)
 
-//TODO allow platform to choose pointer size
-
 
 /*
 Traits: we want the following:
@@ -209,8 +207,10 @@ protected:
 	};
 
 public:
-	RuntimeLoader(AssemblyList assemblies, std::size_t loadingLimit = 256)
-		: _assemblies(std::move(assemblies)), _loadingLimit(loadingLimit)
+	RuntimeLoader(AssemblyList assemblies, std::size_t ptrSize = sizeof(void*),
+		std::size_t itabPtrSize = sizeof(void*), std::size_t loadingLimit = 256)
+		: _assemblies(std::move(assemblies)), _ptrSize(ptrSize),
+		_itabPtrSize(itabPtrSize), _loadingLimit(loadingLimit)
 	{
 		FindPointerTypeId();
 	}
@@ -351,6 +351,11 @@ public:
 			if (e.ExportName == n) return (std::uint32_t)e.InternalId;
 		}
 		throw RuntimeLoaderException("Constant export not found");
+	}
+
+	std::size_t GetPointerSize()
+	{
+		return _ptrSize;
 	}
 
 private:
@@ -781,7 +786,7 @@ private:
 			std::size_t len, alignment;
 			if (ftype->Storage == TSM_REF)
 			{
-				len = alignment = sizeof(void*);
+				len = alignment = _ptrSize;
 			}
 			else if (ftype->Storage == TSM_VALUE)
 			{
@@ -1291,6 +1296,7 @@ protected:
 
 private:
 	AssemblyList _assemblies;
+	std::size_t _ptrSize, _itabPtrSize;
 	std::size_t _loadingLimit;
 
 	std::vector<std::unique_ptr<RuntimeType>> _loadedTypes;
