@@ -66,7 +66,7 @@
     <ClInclude Include="InterpreterCommon.h">
       <Filter>Header Files\Interpreter</Filter>
     </ClInclude>
-    <ClInclude Include="RuntimeObjects.h">
+    <ClInclude Include="LoaderObjects.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
   </ItemGroup>

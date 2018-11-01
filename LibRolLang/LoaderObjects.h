@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include "Assembly.h"
 
 class RuntimeLoader;
 struct RuntimeType;

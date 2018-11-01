@@ -1,5 +1,5 @@
 #pragma once
-#include "RuntimeObjects.h"
+#include "LoaderObjects.h"
 
 enum ErrorClass : unsigned char
 {

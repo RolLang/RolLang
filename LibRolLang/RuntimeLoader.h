@@ -6,7 +6,7 @@
 #include <algorithm>
 #include "Assembly.h"
 #include "Spinlock.h"
-#include "RuntimeObjects.h"
+#include "LoaderObjects.h"
 
 //TODO support base class (including virtual function support)
 /*

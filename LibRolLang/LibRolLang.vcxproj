@@ -30,7 +30,7 @@
     <ClInclude Include="InterpreterStack.h" />
     <ClInclude Include="InterpreterStacktracer.h" />
     <ClInclude Include="RuntimeLoader.h" />
-    <ClInclude Include="RuntimeObjects.h" />
+    <ClInclude Include="LoaderObjects.h" />
     <ClInclude Include="Serialization.h" />
     <ClInclude Include="Spinlock.h" />
     <ClInclude Include="Type.h" />
