@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <deque>
 #include <cassert>
 #include <memory>
 #include <algorithm>
@@ -459,12 +460,11 @@ private:
 		rt->Alignment = alignment;
 		rt->Initializer = nullptr;
 		rt->Finalizer = nullptr;
-		rt->StaticPointer = nullptr;
-		rt->StaticPointerVtab = nullptr;
 		rt->VirtualTableType = nullptr;
-		rt->VirtualTablePointer = nullptr;
 
 		auto ret = rt.get();
+		FinalCheckType(ret);
+		OnTypeLoaded(ret);
 		AddLoadedType(std::move(rt));
 		return ret;
 	}
@@ -493,15 +493,15 @@ private:
 		}
 		while (_finishedLoadingTypes.size() > 0)
 		{
-			auto t = std::move(_finishedLoadingTypes.back());
+			auto t = std::move(_finishedLoadingTypes.front());
 			AddLoadedType(std::move(t));
-			_finishedLoadingTypes.pop_back();
+			_finishedLoadingTypes.pop_front();
 		}
 		while (_finishedLoadingFunctions.size() > 0)
 		{
-			auto f = std::move(_finishedLoadingFunctions.back());
+			auto f = std::move(_finishedLoadingFunctions.front());
 			AddLoadedFunction(std::move(f));
-			_finishedLoadingFunctions.pop_back();
+			_finishedLoadingFunctions.pop_front();
 		}
 	}
 
@@ -513,24 +513,24 @@ private:
 		{
 			if (_loadingRefTypes.size())
 			{
-				auto t = std::move(_loadingRefTypes.back());
-				_loadingRefTypes.pop_back();
+				auto t = std::move(_loadingRefTypes.front());
+				_loadingRefTypes.pop_front();
 				LoadFields(std::move(t), nullptr);
 				assert(_loadingTypes.size() == 0);
 				continue;
 			}
 			if (_postLoadingTypes.size())
 			{
-				auto t = std::move(_postLoadingTypes.back());
-				_postLoadingTypes.pop_back();
+				auto t = std::move(_postLoadingTypes.front());
+				_postLoadingTypes.pop_front();
 				PostLoadType(std::move(t));
 				assert(_loadingTypes.size() == 0);
 				continue;
 			}
 			if (_loadingFunctions.size())
 			{
-				auto t = std::move(_loadingFunctions.back());
-				_loadingFunctions.pop_back();
+				auto t = std::move(_loadingFunctions.front());
+				_loadingFunctions.pop_front();
 				PostLoadFunction(std::move(t));
 				assert(_loadingTypes.size() == 0);
 				continue;
@@ -605,7 +605,6 @@ private:
 			t->Args = args;
 			t->TypeId = _nextTypeId++;
 			t->Storage = typeTemplate->GCMode;
-			t->StaticPointer = nullptr;
 			t->PointerType = nullptr;
 			RuntimeType* ret = t.get();
 			_loadingRefTypes.push_back(std::move(t));
@@ -618,7 +617,6 @@ private:
 			t->Args = args;
 			t->TypeId = _nextTypeId++;
 			t->Storage = typeTemplate->GCMode;
-			t->StaticPointer = nullptr;
 			t->PointerType = nullptr;
 			return LoadFields(std::move(t), typeTemplate);
 		}
@@ -691,7 +689,6 @@ private:
 		std::size_t offset = 0, totalAlignment = 1;
 
 		//Virtual table
-		type->VirtualTablePointer = nullptr;
 		auto vtabType = LoadRefType(type->Args, tt->Generic, tt->VirtualTableType, type.get());
 		if (vtabType != nullptr)
 		{
@@ -704,14 +701,7 @@ private:
 				throw RuntimeLoaderException("Global and value type cannot have vtab");
 			}
 
-			//Allocate a new block of memory which will be initialized right before using.
-			if (vtabType->StaticPointerVtab == nullptr)
-			{
-				vtabType->StaticPointerVtab = AllocateNewGlobalStorage(vtabType);
-			}
-
 			type->VirtualTableType = vtabType;
-			type->VirtualTablePointer = vtabType->StaticPointerVtab;
 		}
 
 		//Base type
@@ -737,11 +727,11 @@ private:
 		}
 
 		//Check base type & vtab together
-		if (baseType && baseType->VirtualTablePointer && type->VirtualTablePointer == nullptr)
+		if (baseType && baseType->VirtualTableType && type->VirtualTableType == nullptr)
 		{
 			throw RuntimeLoaderException("Vtab not matching base type");
 		}
-		if (type->VirtualTablePointer && baseType && baseType->VirtualTablePointer)
+		if (type->VirtualTableType && baseType && baseType->VirtualTableType)
 		{
 			auto tbase = baseType->VirtualTableType;
 			auto tderived = type->VirtualTableType;
@@ -804,12 +794,6 @@ private:
 		}
 		type->Size = offset == 0 ? 1 : offset;
 		type->Alignment = totalAlignment;
-
-		//Allocate global storage before returning
-		if (type->Storage == TSM_GLOBAL)
-		{
-			type->StaticPointer = AllocateNewGlobalStorage(type.get());
-		}
 
 		auto ret = type.get();
 		_postLoadingTypes.emplace_back(std::move(type));
@@ -1242,17 +1226,6 @@ private:
 		return std::move(ret);
 	}
 
-	//Multiple objects might be allocated if the type is used as a vtab.
-	void* AllocateNewGlobalStorage(RuntimeType* type)
-	{
-		std::size_t alignment = type->GetStorageAlignment();
-		std::size_t totalSize = type->GetStorageSize() + alignment;
-		std::unique_ptr<char[]> ptr = std::make_unique<char[]>(totalSize);
-		uintptr_t rawPtr = (uintptr_t)ptr.get();
-		uintptr_t alignedPtr = (rawPtr + alignment - 1) / alignment * alignment;
-		return (void*)alignedPtr;
-	}
-
 	void AddLoadedType(std::unique_ptr<RuntimeType> t)
 	{
 		auto id = t->TypeId;
@@ -1304,12 +1277,26 @@ private:
 	RuntimeFunctionCodeStorage _codeStorage;
 
 	std::vector<RuntimeType*> _loadingTypes;
-	std::vector<std::unique_ptr<RuntimeType>> _loadingRefTypes;
-	std::vector<std::unique_ptr<RuntimeType>> _postLoadingTypes;
-	std::vector<std::unique_ptr<RuntimeFunction>> _loadingFunctions;
-	std::vector<std::unique_ptr<RuntimeType>> _finishedLoadingTypes;
-	std::vector<std::unique_ptr<RuntimeFunction>> _finishedLoadingFunctions;
+
+	//Loading queues. We need to keep order.
+	std::deque<std::unique_ptr<RuntimeType>> _loadingRefTypes;
+	std::deque<std::unique_ptr<RuntimeType>> _postLoadingTypes;
+	std::deque<std::unique_ptr<RuntimeFunction>> _loadingFunctions;
+	std::deque<std::unique_ptr<RuntimeType>> _finishedLoadingTypes;
+	std::deque<std::unique_ptr<RuntimeFunction>> _finishedLoadingFunctions;
 
 	std::uint32_t _nextFunctionId = 1, _nextTypeId = 1;
 	std::size_t _pointerTypeId;
+
+private:
 };
+
+inline std::size_t RuntimeType::GetStorageSize()
+{
+	return Storage == TypeStorageMode::TSM_REF ? Parent->GetPointerSize() : Size;
+}
+
+inline std::size_t RuntimeType::GetStorageAlignment()
+{
+	return Storage == TypeStorageMode::TSM_REF ? Parent->GetPointerSize() : Alignment;
+}

@@ -8,6 +8,7 @@ class InterpreterBase
 {
 protected:
 	using FuncInfo = InterpreterRuntimeLoader::InterpreterRuntimeFunctionInfo;
+	using TypeInfo = InterpreterRuntimeLoader::InterpreterRuntimeTypeInfo;
 
 public:
 	InterpreterBase(AssemblyList assemblies, Interpreter* i, NativeFunction interpreterEntry)

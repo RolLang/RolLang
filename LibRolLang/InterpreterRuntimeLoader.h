@@ -31,9 +31,52 @@ public:
 		RuntimeFunction* RuntimePtr;
 	};
 
+	struct InterpreterRuntimeTypeInfo
+	{
+		void* StaticPointer; //Memory block for TSM_GLOBAL.
+		void* StaticPointerVtab; //Additional memory block for TSM_GLOBAL for vtab. Internal access only.
+		void* VirtualTablePointer;
+		bool Valid; //Remove this once we have other fields to use
+	};
+
 protected:
 	virtual void OnTypeLoaded(RuntimeType* type) override
 	{
+		InterpreterRuntimeTypeInfo info = {};
+		info.Valid = true;
+
+		//Allocate global storage before returning
+		if (type->Storage == TSM_GLOBAL)
+		{
+			info.StaticPointer = AllocateNewGlobalStorage(type);
+		}
+
+		if (type->VirtualTableType != nullptr)
+		{
+			InterpreterRuntimeTypeInfo vtabInfo;
+			auto vtabLoaded = TryFindTypeInfoById(type->VirtualTableType->TypeId, &vtabInfo);
+			assert(vtabLoaded);
+
+			//Allocate a new block of memory which will be initialized right before using.
+			if (vtabInfo.StaticPointerVtab == nullptr)
+			{
+				vtabInfo.StaticPointerVtab = AllocateNewGlobalStorage(type->VirtualTableType);
+			}
+			info.VirtualTablePointer = vtabInfo.StaticPointerVtab;
+		}
+
+		if (type->TypeId >= _interpreterTypeInfo.size())
+		{
+			while (type->TypeId > _interpreterTypeInfo.size())
+			{
+				_interpreterTypeInfo.push_back({});
+			}
+			_interpreterTypeInfo.push_back(info);
+		}
+		else
+		{
+			_interpreterTypeInfo[type->TypeId] = info;
+		}
 	}
 
 	virtual void OnFunctionLoaded(RuntimeFunction* func) override
@@ -71,6 +114,18 @@ protected:
 		{
 			_interpreterFuncInfo[func->FunctionId] = info;
 		}
+	}
+
+private:
+	//Multiple objects might be allocated if the type is used as a vtab.
+	static void* AllocateNewGlobalStorage(RuntimeType* type)
+	{
+		std::size_t alignment = type->GetStorageAlignment();
+		std::size_t totalSize = type->GetStorageSize() + alignment;
+		std::unique_ptr<char[]> ptr = std::make_unique<char[]>(totalSize);
+		uintptr_t rawPtr = (uintptr_t)ptr.get();
+		uintptr_t alignedPtr = (rawPtr + alignment - 1) / alignment * alignment;
+		return (void*)alignedPtr;
 	}
 
 public:
@@ -120,9 +175,30 @@ public:
 		return true;
 	}
 
+	bool TryFindTypeInfoById(std::size_t id, InterpreterRuntimeTypeInfo* r)
+	{
+		std::lock_guard<Spinlock> lock(_loaderLock);
+		if (r == nullptr)
+		{
+			return false;
+		}
+		if (id >= _interpreterTypeInfo.size())
+		{
+			return false;
+		}
+		auto& info = _interpreterTypeInfo[id];
+		if (!info.Valid)
+		{
+			return false;
+		}
+		*r = info;
+		return true;
+	}
+
 private:
 	NativeFunction _interpreterWrapper;
 	std::vector<NativeFunctionDeclaration> _nativeFunctions;
 	std::vector<InterpreterRuntimeFunctionInfo> _interpreterFuncInfo;
+	std::vector<InterpreterRuntimeTypeInfo> _interpreterTypeInfo;
 	std::vector<std::unique_ptr<NativeWrapperData>> _nativeWrapperData;
 };

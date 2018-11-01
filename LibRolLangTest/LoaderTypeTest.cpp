@@ -49,7 +49,6 @@ namespace LibRolLangTest
 			Assert::AreEqual((int)TSM_VALUE, (int)t->Storage);
 			Assert::IsNull(t->Initializer);
 			Assert::IsNull(t->Finalizer);
-			Assert::IsNull(t->StaticPointer);
 		}
 
 		static void CheckValueTypeSize(RuntimeType* t, std::size_t s, std::size_t a)
@@ -75,7 +74,6 @@ namespace LibRolLangTest
 			Assert::AreEqual(sizeof(void*), t->GetStorageSize());
 			Assert::IsNull(t->Initializer);
 			Assert::IsNull(t->Finalizer);
-			Assert::IsNull(t->StaticPointer);
 		}
 
 		static void CheckGlobalTypeBasic(RuntimeLoader* loader, RuntimeType* t)
@@ -84,8 +82,6 @@ namespace LibRolLangTest
 			Assert::AreEqual((int)TSM_GLOBAL, (int)t->Storage);
 			Assert::IsNull(t->Initializer);
 			Assert::IsNull(t->Finalizer);
-			Assert::IsNotNull(t->StaticPointer);
-			std::memset(t->StaticPointer, 0, t->Size);
 		}
 
 	private:

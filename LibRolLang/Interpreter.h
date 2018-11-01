@@ -330,15 +330,21 @@ private:
 		auto g = t->BeginInit();
 		if (g)
 		{
+			TypeInfo info;
+			if (!_loader->TryFindTypeInfoById(t->TypeId, &info))
+			{
+				throw InterpreterException(this, ERR_PROGRAM, "Type fails to initialize");
+			}
+
 			//Static object init to 0
-			if (t->StaticPointer != nullptr)
+			if (info.StaticPointer != nullptr)
 			{
 				assert(t->Storage == TSM_GLOBAL);
-				std::memset(t->StaticPointer, 0, t->GetStorageSize());
+				std::memset(info.StaticPointer, 0, t->GetStorageSize());
 			}
 
 			//Init vtab type first
-			if (t->VirtualTablePointer != nullptr)
+			if (info.VirtualTablePointer != nullptr)
 			{
 				CheckInitType(t->VirtualTableType);
 			}
@@ -358,9 +364,9 @@ private:
 			}
 
 			//Copy vtab data
-			if (t->Storage == TSM_GLOBAL && t->StaticPointerVtab != nullptr)
+			if (t->Storage == TSM_GLOBAL && info.StaticPointerVtab != nullptr)
 			{
-				std::memcpy(t->StaticPointerVtab, t->StaticPointer, t->GetStorageSize());
+				std::memcpy(info.StaticPointerVtab, info.StaticPointer, t->GetStorageSize());
 			}
 		}
 	}
