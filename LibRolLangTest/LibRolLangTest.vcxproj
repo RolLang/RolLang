@@ -159,7 +159,7 @@
     <ClCompile Include="ExecuteSimpleNativeFunctionTest.cpp" />
     <ClCompile Include="ExecuteSimpleProgramTest.cpp" />
     <ClCompile Include="ImportTest.cpp" />
-    <ClCompile Include="LoaderTypeTest.cpp" />
+    <ClCompile Include="LoadTypeTest.cpp" />
     <ClCompile Include="LoadFunctionTest.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

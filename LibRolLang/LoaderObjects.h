@@ -72,6 +72,12 @@ struct RuntimeType : Initializable
 		std::size_t Length;
 	};
 
+	struct InterfaceInfo
+	{
+		RuntimeType* Type;
+		RuntimeType* VirtualTable;
+	};
+
 	RuntimeLoader* Parent;
 	LoadingArguments Args;
 	std::size_t TypeId;
@@ -85,7 +91,9 @@ struct RuntimeType : Initializable
 	RuntimeFunction* Finalizer;
 	RuntimeType* PointerType;
 
+	RuntimeType* BaseType;
 	RuntimeType* VirtualTableType;
+	std::vector<InterfaceInfo> Interfaces;
 
 	inline std::size_t GetStorageSize();
 	inline std::size_t GetStorageAlignment();

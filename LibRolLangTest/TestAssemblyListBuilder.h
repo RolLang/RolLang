@@ -317,8 +317,8 @@ namespace
 	private:
 		void InitType(Type& t)
 		{
-			t.BaseType = SIZE_MAX;
-			t.VirtualTableType = SIZE_MAX;
+			t.Base.InheritedType = SIZE_MAX;
+			t.Base.VirtualTableType = SIZE_MAX;
 			t.Initializer = SIZE_MAX;
 			t.Finalizer = SIZE_MAX;
 		}
@@ -326,13 +326,13 @@ namespace
 		void FinishType()
 		{
 			auto& t = _assembly.Types[_currentType];
-			if (t.BaseType == SIZE_MAX)
+			if (t.Base.InheritedType == SIZE_MAX)
 			{
-				t.BaseType = WriteTypeRef(t.Generic, {});
+				t.Base.InheritedType = WriteTypeRef(t.Generic, {});
 			}
-			if (t.VirtualTableType == SIZE_MAX)
+			if (t.Base.VirtualTableType == SIZE_MAX)
 			{
-				t.VirtualTableType = WriteTypeRef(t.Generic, {});
+				t.Base.VirtualTableType = WriteTypeRef(t.Generic, {});
 			}
 			if (t.Initializer == SIZE_MAX)
 			{

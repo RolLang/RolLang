@@ -127,8 +127,6 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap (common)
-//TODO Interface type in template
-//TODO Interface implementation
 //TODO Boxing type (boxing type should implements interfaces)
 //TODO Generic argument constrain (base class, interface)
 //TODO Sub-type alias definition & sub-type reference in GenericDeclaration
@@ -600,7 +598,7 @@ private:
 			throw RuntimeLoaderException("Type template cannot contain field reference");
 		}
 
-		if (typeTemplate->GCMode == TSM_REF)
+		if (typeTemplate->GCMode == TSM_REFERENCE || typeTemplate->GCMode == TSM_INTERFACE)
 		{
 			auto t = std::make_unique<RuntimeType>();
 			t->Parent = this;
@@ -688,8 +686,16 @@ private:
 			tt = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
 		}
 
+		if (type->Storage == TSM_INTERFACE)
+		{
+			if (tt->Fields.size() != 0)
+			{
+				throw RuntimeLoaderException("Interface cannot have fields");
+			}
+		}
+
 		//Virtual table
-		auto vtabType = LoadRefType({ type.get(), tt->Generic }, tt->VirtualTableType);
+		auto vtabType = LoadRefType({ type.get(), tt->Generic }, tt->Base.VirtualTableType);
 		if (vtabType != nullptr)
 		{
 			if (vtabType->Storage != TSM_GLOBAL)
@@ -703,14 +709,25 @@ private:
 
 			type->VirtualTableType = vtabType;
 		}
+		else
+		{
+			if (type->Storage == TSM_INTERFACE)
+			{
+				throw RuntimeLoaderException("Interface must have vtab");
+			}
+		}
 
 		//Base type
-		auto baseType = LoadRefType({ type.get(), tt->Generic }, tt->BaseType);
+		auto baseType = LoadRefType({ type.get(), tt->Generic }, tt->Base.InheritedType);
 		if (baseType != nullptr)
 		{
 			if (type->Storage == TSM_GLOBAL)
 			{
 				throw RuntimeLoaderException("Global type cannot have base type");
+			}
+			else if (type->Storage == TSM_INTERFACE)
+			{
+				throw RuntimeLoaderException("Interface cannot have base type");
 			}
 			else
 			{
@@ -718,37 +735,10 @@ private:
 				{
 					throw RuntimeLoaderException("Base type storage must be same as the derived type");
 				}
-
-				//TODO allow zero-length base type (now it's only a waste of space).
-				//Note that we are using size to check whether loading is finished.
 			}
+			type->BaseType = baseType;
 		}
-
-		//Check base type & vtab together
-		if (baseType && baseType->VirtualTableType && type->VirtualTableType == nullptr)
-		{
-			throw RuntimeLoaderException("Vtab not matching base type");
-		}
-		if (type->VirtualTableType && baseType && baseType->VirtualTableType)
-		{
-			auto tbase = baseType->VirtualTableType;
-			auto tderived = type->VirtualTableType;
-			if (tbase->Fields.size() > tderived->Fields.size())
-			{
-				throw RuntimeLoaderException("Vtab not matching base type");
-			}
-			for (std::size_t i = 0; i < tbase->Fields.size(); ++i)
-			{
-				auto& fbase = tbase->Fields[i];
-				auto& fderived = tderived->Fields[i];
-				if (fbase.Type != fderived.Type)
-				{
-					throw RuntimeLoaderException("Vtab not matching base type");
-				}
-				assert(fbase.Offset == fderived.Offset);
-				assert(fbase.Length == fderived.Length);
-			}
-		}
+		CheckVirtualTable(type.get(), baseType, vtabType);
 
 		std::size_t offset = 0, totalAlignment = 1;
 
@@ -762,7 +752,7 @@ private:
 				//Only goes here if REF_EMPTY is specified.
 				throw RuntimeLoaderException("Invalid field type");
 			}
-			if (fieldType->Storage == TSM_VALUE && fieldType->Size == 0)
+			if (fieldType->Storage == TSM_VALUE && fieldType->Alignment == 0)
 			{
 				assert(TypeIsInLoading(fieldType));
 				throw RuntimeLoaderException("Cyclic type dependence");
@@ -774,17 +764,17 @@ private:
 		{
 			auto ftype = fields[i];
 			std::size_t len, alignment;
-			if (ftype->Storage == TSM_REF)
+			switch (ftype->Storage)
 			{
+			case TSM_REFERENCE:
+			case TSM_INTERFACE:
 				len = alignment = _ptrSize;
-			}
-			else if (ftype->Storage == TSM_VALUE)
-			{
+				break;
+			case TSM_VALUE:
 				len = ftype->Size;
 				alignment = ftype->Alignment;
-			}
-			else
-			{
+				break;
+			default:
 				throw RuntimeLoaderException("Invalid field type");
 			}
 			offset = (offset + alignment - 1) / alignment * alignment;
@@ -792,7 +782,7 @@ private:
 			type->Fields.push_back({ ftype, offset, len });
 			offset += len;
 		}
-		type->Size = offset == 0 ? 1 : offset;
+		type->Size = offset;
 		type->Alignment = totalAlignment;
 
 		auto ret = type.get();
@@ -807,6 +797,48 @@ private:
 	void PostLoadType(std::unique_ptr<RuntimeType> type)
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
+
+		//TODO allow value type to have interface
+		if (type->Storage == TSM_GLOBAL || type->Storage == TSM_VALUE)
+		{
+			if (typeTemplate->Interfaces.size() != 0)
+			{
+				throw RuntimeLoaderException("Global and value type cannot have interfaces");
+			}
+		}
+		for (auto& i : typeTemplate->Interfaces)
+		{
+			RuntimeType::InterfaceInfo ii = {};
+
+			auto vtabType = LoadRefType({ type.get(), typeTemplate->Generic }, i.VirtualTableType);
+			if (vtabType == nullptr && type->Storage != TSM_INTERFACE)
+			{
+				throw RuntimeLoaderException("Vtab type not specified for interface");
+			}
+			if (vtabType != nullptr)
+			{
+				if (vtabType->Storage != TSM_GLOBAL)
+				{
+					throw RuntimeLoaderException("Vtab type must be global storage");
+				}
+				ii.VirtualTable = vtabType;
+			}
+
+			auto baseType = LoadRefType({ type.get(), typeTemplate->Generic }, i.InheritedType);
+			if (baseType == nullptr)
+			{
+				throw RuntimeLoaderException("Interface type not specified");
+			}
+			if (baseType->Storage != TSM_INTERFACE)
+			{
+				throw RuntimeLoaderException("Interface must be interface storage");
+			}
+			ii.Type = baseType;
+			
+			CheckVirtualTable(type.get(), ii.Type, ii.VirtualTable);
+			type->Interfaces.push_back(ii);
+		}
+
 		type->Initializer = LoadRefFunction({ type.get(), typeTemplate->Generic }, typeTemplate->Initializer);
 		type->Finalizer = LoadRefFunction({ type.get(), typeTemplate->Generic }, typeTemplate->Finalizer);
 		if (type->Storage != TSM_GLOBAL)
@@ -816,7 +848,7 @@ private:
 				throw RuntimeLoaderException("Only global type can have initializer");
 			}
 		}
-		if (type->Storage != TSM_REF)
+		if (type->Storage != TSM_REFERENCE)
 		{
 			if (type->Finalizer != nullptr)
 			{
@@ -886,6 +918,33 @@ private:
 
 	void FinalCheckFunction(RuntimeFunction* func)
 	{
+	}
+
+	void CheckVirtualTable(RuntimeType* type, RuntimeType* baseType, RuntimeType* vtabType)
+	{
+		if (baseType && baseType->VirtualTableType && vtabType == nullptr)
+		{
+			throw RuntimeLoaderException("Vtab not matching base type");
+		}
+		if (vtabType && baseType && baseType->VirtualTableType)
+		{
+			auto tbase = baseType->VirtualTableType;
+			if (tbase->Fields.size() > vtabType->Fields.size())
+			{
+				throw RuntimeLoaderException("Vtab not matching base type");
+			}
+			for (std::size_t i = 0; i < tbase->Fields.size(); ++i)
+			{
+				auto& fbase = tbase->Fields[i];
+				auto& fderived = vtabType->Fields[i];
+				if (fbase.Type != fderived.Type)
+				{
+					throw RuntimeLoaderException("Vtab not matching base type");
+				}
+				assert(fbase.Offset == fderived.Offset);
+				assert(fbase.Length == fderived.Length);
+			}
+		}
 	}
 
 private:
@@ -1285,10 +1344,12 @@ private:
 
 inline std::size_t RuntimeType::GetStorageSize()
 {
-	return Storage == TypeStorageMode::TSM_REF ? Parent->GetPointerSize() : Size;
+	return Storage == TSM_REFERENCE || Storage == TSM_INTERFACE ?
+		Parent->GetPointerSize() : Size;
 }
 
 inline std::size_t RuntimeType::GetStorageAlignment()
 {
-	return Storage == TypeStorageMode::TSM_REF ? Parent->GetPointerSize() : Alignment;
+	return Storage == TSM_REFERENCE || Storage == TSM_INTERFACE ?
+		Parent->GetPointerSize() : Alignment;
 }

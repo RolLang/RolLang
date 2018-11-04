@@ -113,7 +113,7 @@ namespace LibRolLangTest
 			builder.Signature({}, { t1 });
 			builder.EndFunction();
 
-			builder.BeginType(TSM_REF, "Test.TestType1", t1);
+			builder.BeginType(TSM_REFERENCE, "Test.TestType1", t1);
 			builder.Link(false, false);
 			builder.SetTypeHandlers({}, f1);
 			builder.EndType();

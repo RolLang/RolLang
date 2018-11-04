@@ -69,7 +69,7 @@ namespace LibRolLangTest
 		static void CheckReferenceTypeBasic(RuntimeLoader* loader, RuntimeType* t)
 		{
 			Assert::AreEqual((std::size_t)loader, (std::size_t)t->Parent);
-			Assert::AreEqual((int)TSM_REF, (int)t->Storage);
+			Assert::AreEqual((int)TSM_REFERENCE, (int)t->Storage);
 			Assert::AreEqual(sizeof(void*), t->GetStorageAlignment());
 			Assert::AreEqual(sizeof(void*), t->GetStorageSize());
 			Assert::IsNull(t->Initializer);
@@ -159,13 +159,13 @@ namespace LibRolLangTest
 
 		static void SetupReferenceType(Builder& builder, TypeReference t1, TypeReference t4)
 		{
-			auto a = builder.BeginType(TSM_REF, "Test.RefTypeA");
+			auto a = builder.BeginType(TSM_REFERENCE, "Test.RefTypeA");
 			builder.Link(false, false);
 			builder.AddField(t1);
 			builder.AddField(t4);
 			builder.EndType();
 
-			builder.BeginType(TSM_REF, "Test.RefTypeB");
+			builder.BeginType(TSM_REFERENCE, "Test.RefTypeB");
 			builder.Link(true, false);
 			builder.AddField(t4);
 			builder.AddField(a);
@@ -315,22 +315,22 @@ namespace LibRolLangTest
 			builder.AddField(t2b);
 			builder.EndType();
 
-			builder.BeginType(TSM_REF, "Test.CycType2B", t2b);
+			builder.BeginType(TSM_REFERENCE, "Test.CycType2B", t2b);
 			builder.Link(false, false);
 			builder.AddField(t2a);
 			builder.EndType();
 
-			auto t3 = builder.BeginType(TSM_REF, "Test.CycType3A");
+			auto t3 = builder.BeginType(TSM_REFERENCE, "Test.CycType3A");
 			builder.Link(true, false);
 			builder.AddField(t3);
 			builder.EndType();
 
-			builder.BeginType(TSM_REF, "Test.CycType4");
+			builder.BeginType(TSM_REFERENCE, "Test.CycType4");
 			builder.Link(true, false);
 			builder.AddField(builder.SelfType());
 			builder.EndType();
 
-			auto t5 = builder.BeginType(TSM_REF, "Test.CycType5");
+			auto t5 = builder.BeginType(TSM_REFERENCE, "Test.CycType5");
 			auto g = builder.AddGenericParameter();
 			builder.Link(true, false);
 			builder.AddField(builder.MakeType(t5, { builder.SelfType() }));
