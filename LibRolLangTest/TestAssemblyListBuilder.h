@@ -78,11 +78,16 @@ namespace
 			return { TR_TEMP, id, {} };
 		}
 
-		TypeReference ImportType(const std::string& a, const std::string& name)
+		TypeReference ImportType(const std::string& a, const std::string& name, std::size_t nargs = 0)
 		{
 			auto id = _assembly.ImportTypes.size();
-			_assembly.ImportTypes.push_back({ a, name });
+			_assembly.ImportTypes.push_back({ a, name, nargs });
 			return { TR_TEMPI, id, {} };
+		}
+
+		void ExportType(const std::string& name, std::size_t id)
+		{
+			_assembly.ExportTypes.push_back({ id, name });
 		}
 
 		TypeReference BeginType(TypeStorageMode ts, const std::string& name, const TypeReference& r = {})
@@ -191,11 +196,37 @@ namespace
 			return { TR_EMPTY, 0, {} };
 		}
 
+		FunctionReference MakeFunction(const FunctionReference& base, std::vector<TypeReference> args)
+		{
+			if (base.Type == FR_TEMP)
+			{
+				return { FR_INST, base.Id, std::move(args) };
+			}
+			else if (base.Type == FR_TEMPI)
+			{
+				return { FR_INSTI, base.Id, std::move(args) };
+			}
+			return { FR_EMPTY, 0, {} };
+		}
+
 		FunctionReference ForwardDeclareFunction()
 		{
 			auto id = _assembly.Functions.size();
 			_assembly.Functions.push_back({});
 			return { FR_TEMP, id, {} };
+		}
+
+		FunctionReference ImportFunction(const std::string& a, const std::string& name,
+			std::size_t nargs = 0)
+		{
+			auto id = _assembly.ImportFunctions.size();
+			_assembly.ImportFunctions.push_back({ a, name, nargs });
+			return { FR_TEMPI, id, {} };
+		}
+
+		void ExportFunction(const std::string& name, std::size_t id)
+		{
+			_assembly.ExportFunctions.push_back({ id, name });
 		}
 
 		FunctionReference BeginFunction(const std::string& name, const FunctionReference& r = {})

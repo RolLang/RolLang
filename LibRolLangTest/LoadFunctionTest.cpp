@@ -6,69 +6,11 @@ namespace LibRolLangTest
 {
 	using Builder = TestAssemblyListBuilder;
 	using TypeReference = Builder::TypeReference;
+	using namespace RuntimeLoaderHelper;
 
 	TEST_CLASS(LoadFunctionTest)
 	{
 	private:
-		static RuntimeFunction* LoadFunction(RuntimeLoader* loader,
-			const std::string& a, const std::string& n,
-			std::vector<RuntimeType*> args, bool shouldFail)
-		{
-			LoadingArguments la;
-			loader->FindExportFunction({ a, n, args.size() }, la);
-			la.Arguments = args;
-			std::string err;
-			auto ret = loader->GetFunction(la, err);
-			if (shouldFail)
-			{
-				Assert::IsNull(ret, ToString(err.c_str()).c_str());
-			}
-			else
-			{
-				Assert::IsNotNull(ret, ToString(err.c_str()).c_str());
-			}
-			return ret;
-		}
-
-		static RuntimeType* LoadNativeType(RuntimeLoader* loader,
-			const std::string& a, const std::string& n, std::size_t size)
-		{
-			std::string err;
-			auto ret = loader->AddNativeType(a, n, size, size, err);
-			Assert::IsNotNull(ret, ToString(err.c_str()).c_str());
-			return ret;
-		}
-
-		static RuntimeFunction* LoadFunction(RuntimeLoader* loader,
-			const std::string& a, const std::string& n, bool shouldFail)
-		{
-			return LoadFunction(loader, a, n, {}, shouldFail);
-		}
-
-		static void CheckFunctionBasic(RuntimeLoader* loader, RuntimeFunction* f)
-		{
-			Assert::AreEqual((std::size_t)loader, (std::size_t)f->Parent);
-			Assert::IsFalse((bool)f->Code);
-		}
-
-		static void CheckFunctionTypes(RuntimeFunction* f, std::size_t retSize,
-			std::vector<std::size_t> paramSizes)
-		{
-			if (retSize == 0)
-			{
-				Assert::IsNull(f->ReturnValue);
-			}
-			else
-			{
-				Assert::AreEqual(retSize, f->ReturnValue->GetStorageSize());
-			}
-			Assert::AreEqual(paramSizes.size(), f->Parameters.size());
-			for (std::size_t i = 0; i < paramSizes.size(); ++i)
-			{
-				Assert::AreEqual(paramSizes[i], f->Parameters[i]->GetStorageSize());
-			}
-		}
-
 		static void SetupEmptyFunction(Builder& builder)
 		{
 			builder.BeginFunction("Test.EmptyFunc");

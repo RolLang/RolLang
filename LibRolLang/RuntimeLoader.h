@@ -127,7 +127,7 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap (common)
-//TODO Boxing type (boxing type should implements interfaces)
+//TODO Test cases for type loading with base/interfaces, box type
 //TODO Generic argument constrain (base class, interface)
 //TODO Sub-type alias definition & sub-type reference in GenericDeclaration
 //TODO Traits (see above)
@@ -607,26 +607,21 @@ private:
 			}
 		}
 
+		auto t = std::make_unique<RuntimeType>();
+		t->Parent = this;
+		t->Args = args;
+		t->TypeId = _nextTypeId++;
+		t->Storage = typeTemplate->GCMode;
+		t->PointerType = nullptr;
+
 		if (typeTemplate->GCMode == TSM_REFERENCE || typeTemplate->GCMode == TSM_INTERFACE)
 		{
-			auto t = std::make_unique<RuntimeType>();
-			t->Parent = this;
-			t->Args = args;
-			t->TypeId = _nextTypeId++;
-			t->Storage = typeTemplate->GCMode;
-			t->PointerType = nullptr;
 			RuntimeType* ret = t.get();
 			_loadingRefTypes.push_back(std::move(t));
 			return ret;
 		}
 		else
 		{
-			auto t = std::make_unique<RuntimeType>();
-			t->Parent = this;
-			t->Args = args;
-			t->TypeId = _nextTypeId++;
-			t->Storage = typeTemplate->GCMode;
-			t->PointerType = nullptr;
 			return LoadFields(std::move(t), typeTemplate);
 		}
 	}
@@ -882,6 +877,7 @@ private:
 			assert(elementType->PointerType == nullptr);
 			elementType->PointerType = type;
 		}
+		//TODO check box type?
 		if (type->Initializer != nullptr)
 		{
 			if (type->Initializer->ReturnValue != nullptr ||
@@ -1172,20 +1168,21 @@ private:
 			{
 				throw RuntimeLoaderException("Invalid function reference");
 			}
-			auto i = a->ImportTypes[func.Index];
+			auto i = a->ImportFunctions[func.Index];
 			if (!FindExportFunction(i, la))
 			{
 				throw RuntimeLoaderException("Import function not found");
 			}
-			LoadRefTypeArgList(lg, funcId, la);
+			LoadRefFuncArgList(lg, funcId, la);
 			if (la.Arguments.size() != i.GenericParameters)
 			{
 				throw RuntimeLoaderException("Invalid function reference");
 			}
 			return LoadFunctionInternal(la);
 		}
-		case REF_ARGUMENT:
 		case REF_CLONETYPE:
+			return nullptr;
+		case REF_ARGUMENT:
 		default:
 			throw RuntimeLoaderException("Invalid function reference");
 		}
@@ -1382,8 +1379,6 @@ private:
 
 	std::uint32_t _nextFunctionId = 1, _nextTypeId = 1;
 	std::size_t _pointerTypeId, _boxTypeId;
-
-private:
 };
 
 inline std::size_t RuntimeType::GetStorageSize()
