@@ -213,7 +213,7 @@ public:
 		: _assemblies(std::move(assemblies)), _ptrSize(ptrSize),
 		_itabPtrSize(itabPtrSize), _loadingLimit(loadingLimit)
 	{
-		FindPointerTypeId();
+		FindInternalTypeId();
 	}
 
 	virtual ~RuntimeLoader() {}
@@ -598,6 +598,15 @@ private:
 			throw RuntimeLoaderException("Type template cannot contain field reference");
 		}
 
+		if (args.Assembly == "Core" && args.Id == _boxTypeId)
+		{
+			if (args.Arguments.size() != 1 ||
+				args.Arguments[0]->Storage != TSM_VALUE)
+			{
+				throw RuntimeLoaderException("Box type can only take value type as argument");
+			}
+		}
+
 		if (typeTemplate->GCMode == TSM_REFERENCE || typeTemplate->GCMode == TSM_INTERFACE)
 		{
 			auto t = std::make_unique<RuntimeType>();
@@ -738,7 +747,7 @@ private:
 			}
 			type->BaseType = baseType;
 		}
-		CheckVirtualTable(type.get(), baseType, vtabType);
+		CheckVirtualTable(baseType, vtabType);
 
 		std::size_t offset = 0, totalAlignment = 1;
 
@@ -798,45 +807,24 @@ private:
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
 
-		//TODO allow value type to have interface
-		if (type->Storage == TSM_GLOBAL || type->Storage == TSM_VALUE)
+		if (type->Storage == TSM_GLOBAL)
 		{
 			if (typeTemplate->Interfaces.size() != 0)
 			{
 				throw RuntimeLoaderException("Global and value type cannot have interfaces");
 			}
 		}
-		for (auto& i : typeTemplate->Interfaces)
+
+		if (type->Args.Assembly == "Core" && type->Args.Id == _boxTypeId)
 		{
-			RuntimeType::InterfaceInfo ii = {};
-
-			auto vtabType = LoadRefType({ type.get(), typeTemplate->Generic }, i.VirtualTableType);
-			if (vtabType == nullptr && type->Storage != TSM_INTERFACE)
+			if (type->Args.Arguments[0]->Storage == TSM_VALUE)
 			{
-				throw RuntimeLoaderException("Vtab type not specified for interface");
+				LoadInterfaces(type.get(), type->Args.Arguments[0], nullptr);
 			}
-			if (vtabType != nullptr)
-			{
-				if (vtabType->Storage != TSM_GLOBAL)
-				{
-					throw RuntimeLoaderException("Vtab type must be global storage");
-				}
-				ii.VirtualTable = vtabType;
-			}
-
-			auto baseType = LoadRefType({ type.get(), typeTemplate->Generic }, i.InheritedType);
-			if (baseType == nullptr)
-			{
-				throw RuntimeLoaderException("Interface type not specified");
-			}
-			if (baseType->Storage != TSM_INTERFACE)
-			{
-				throw RuntimeLoaderException("Interface must be interface storage");
-			}
-			ii.Type = baseType;
-			
-			CheckVirtualTable(type.get(), ii.Type, ii.VirtualTable);
-			type->Interfaces.push_back(ii);
+		}
+		else if (type->Storage == TSM_INTERFACE || type->Storage == TSM_REFERENCE)
+		{
+			LoadInterfaces(type.get(), type.get(), typeTemplate);
 		}
 
 		type->Initializer = LoadRefFunction({ type.get(), typeTemplate->Generic }, typeTemplate->Initializer);
@@ -920,7 +908,47 @@ private:
 	{
 	}
 
-	void CheckVirtualTable(RuntimeType* type, RuntimeType* baseType, RuntimeType* vtabType)
+	void LoadInterfaces(RuntimeType* dest, RuntimeType* src, Type* srcTemplate)
+	{
+		if (srcTemplate == nullptr)
+		{
+			srcTemplate = FindTypeTemplate(src->Args.Assembly, src->Args.Id);
+		}
+		for (auto& i : srcTemplate->Interfaces)
+		{
+			RuntimeType::InterfaceInfo ii = {};
+
+			auto vtabType = LoadRefType({ src, srcTemplate->Generic }, i.VirtualTableType);
+			if (vtabType == nullptr && src->Storage != TSM_INTERFACE)
+			{
+				throw RuntimeLoaderException("Vtab type not specified for interface");
+			}
+			if (vtabType != nullptr)
+			{
+				if (vtabType->Storage != TSM_GLOBAL)
+				{
+					throw RuntimeLoaderException("Vtab type must be global storage");
+				}
+				ii.VirtualTable = vtabType;
+			}
+
+			auto baseType = LoadRefType({ src, srcTemplate->Generic }, i.InheritedType);
+			if (baseType == nullptr)
+			{
+				throw RuntimeLoaderException("Interface type not specified");
+			}
+			if (baseType->Storage != TSM_INTERFACE)
+			{
+				throw RuntimeLoaderException("Interface must be interface storage");
+			}
+			ii.Type = baseType;
+
+			CheckVirtualTable(ii.Type, ii.VirtualTable);
+			dest->Interfaces.push_back(ii);
+		}
+	}
+
+	void CheckVirtualTable(RuntimeType* baseType, RuntimeType* vtabType)
 	{
 		if (baseType && baseType->VirtualTableType && vtabType == nullptr)
 		{
@@ -948,25 +976,34 @@ private:
 	}
 
 private:
-	void FindPointerTypeId()
+	void FindInternalTypeId()
 	{
-		_pointerTypeId = SIZE_MAX;
-		auto a = FindAssemblyNoThrow("Core");
-		if (a != nullptr)
+		_pointerTypeId = _boxTypeId = SIZE_MAX;
+		if (auto a = FindAssemblyNoThrow("Core"))
 		{
 			for (auto& e : a->ExportTypes)
 			{
 				if (e.ExportName == "Core.Pointer")
 				{
 					if (e.InternalId >= a->Types.size() ||
-						!CheckPointerTypeTemplate(&a->Types[e.InternalId]))
+						!CheckPointerTypeTemplate(&a->Types[e.InternalId]) ||
+						_pointerTypeId != SIZE_MAX)
 					{
 						//This is actually an error, but we don't want to throw in ctor.
 						//Let's wait for the type loading to fail.
 						return;
 					}
 					_pointerTypeId = e.InternalId;
-					return;
+				}
+				else if (e.ExportName == "Core.Box")
+				{
+					if (e.InternalId >= a->Types.size() ||
+						!CheckBoxTypeTemplate(&a->Types[e.InternalId]) ||
+						_boxTypeId != SIZE_MAX)
+					{
+						return;
+					}
+					_boxTypeId = e.InternalId;
 				}
 			}
 		}
@@ -976,6 +1013,13 @@ private:
 	{
 		if (t->Generic.Parameters.size() != 1) return false;
 		if (t->GCMode != TSM_VALUE) return false;
+		return true;
+	}
+
+	bool CheckBoxTypeTemplate(Type* t)
+	{
+		if (t->Generic.Parameters.size() != 1) return false;
+		if (t->GCMode != TSM_REFERENCE) return false;
 		return true;
 	}
 
@@ -1337,7 +1381,7 @@ private:
 	std::deque<std::unique_ptr<RuntimeFunction>> _finishedLoadingFunctions;
 
 	std::uint32_t _nextFunctionId = 1, _nextTypeId = 1;
-	std::size_t _pointerTypeId;
+	std::size_t _pointerTypeId, _boxTypeId;
 
 private:
 };
