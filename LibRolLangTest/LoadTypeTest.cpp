@@ -96,7 +96,7 @@ namespace LibRolLangTest
 		{
 			auto t = LoadType(loader, "Test", "Test.SingleType", false);
 			CheckValueTypeBasic(loader, t);
-			CheckValueTypeSize(t, 1, 1);
+			CheckValueTypeSize(t, 0, 1);
 			CheckFieldOffset(t, {});
 		}
 
