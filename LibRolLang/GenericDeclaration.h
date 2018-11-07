@@ -13,7 +13,7 @@ enum ReferenceType : unsigned char
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
 	REF_SELF, //for type/traits, the type itself
 };
-//Note that for generic function, the generic arguments should use REF_CloneType
+//Note that for generic function, the generic arguments should use REF_CLONETYPE
 
 struct GenericParameter
 {

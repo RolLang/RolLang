@@ -100,7 +100,7 @@ namespace LibRolLangTest
 		static void CheckCyclicFunction(RuntimeLoader* loader)
 		{
 			auto f2 = LoadFunction(loader, "Test", "Test.TestFunc2", false);
-			auto f1 = f2->ReferencedFunction[0];
+			auto f1 = f2->References.Functions[0];
 			Assert::IsNotNull(f1);
 
 			CheckFunctionBasic(loader, f1);

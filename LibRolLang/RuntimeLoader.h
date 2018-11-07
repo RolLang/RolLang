@@ -127,16 +127,77 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap (common)
-//TODO Test cases for type loading with base/interfaces, box type
-//TODO Generic argument constrain (base class, interface)
-//TODO Sub-type alias definition & sub-type reference in GenericDeclaration
 //TODO Traits (see above)
+//  for generic type's member, function must inherits parameters
+//  (when looking for members, these parameters are directly
+//  copied from type's parameters, before constrain is checked)
+//TODO Generic argument constrain: base class, interface, as system-defined-traits
 //TODO Reference of trait function, type
 //TODO Type parital specialization
+//TODO Remove direct export of function and fields
 //TODO GenericDeclaration with parameter pack (see above)
+//TODO Support for variable sized object (string, array)
 
 //Roadmap (interpreter)
 //TODO RuntimeObject layout
+
+//Roadmap (low priority)
+//TODO Test cases for type loading with base/interfaces, box type
+
+//New types of type reference in constrain type list
+//  Parent: parent type itself (only for type).
+//  Alias: subtype alias of another type in constrain list.
+//  Any: any type, which is to be determined by matching.
+//    traits A<T1>(T)...; ... requires T : A;
+//    Implicitly => T1: any, T : A<T1>
+
+//New types of function reference in constrain function list
+//  Member: member function of a type (with give param and ret types)
+
+//To allow the parent GenericDeclaration to refer to a type/function
+//in one of its constrains, we organize each constrain as a tree,
+//like a file system. Each constrain 'export' either one type (file)
+//or one of its sub constrain (folder). In the parent GD, we specify
+//a path to recursively index through this tree and find the type
+//we need. Each level, the exporting use a string as a name to allow
+//binary compatibility across versions.
+/*
+traits A(T)
+{
+	requires Stream : B<T>;
+}
+traits B<T1>(T)
+{
+	void Write(T1);
+}
+
+translates to:
+A {
+	Types:
+	[0] self
+	[1] Stream
+	Sub-traits:
+	#0 on [1] with B<[0]>
+	Export traits:
+	"Stream" : #0
+}
+B {
+	Types:
+	[0] empty
+	[1] argument 0
+	Functions:
+	#0: "Write": ret [0]. args { [1] }
+	Export functions:
+	"Write" : #0
+}
+
+If one generic declaration is 
+	<T> requires T : A
+translates to:
+	#0: constrain A on arg 0
+Reference of Stream.Write is:
+	#0/Stream/Write
+*/
 
 //Note: vtab will be copied from StaticPointer for each type using it, after initializer is executed. 
 //Further modification will not have any effect.
@@ -194,6 +255,49 @@ class RuntimeLoader
 	 * all objects are moved to loaded list. If any function call fails by throwing
 	 * an InternalException, no object will be moved to loaded list and the API fails.
 	 *
+	 */
+
+	/**
+	 * Changes to the above loading procedure (constrains)
+	 *
+	 * Requirements:
+	 * 1. Constrain check should happen before loading fields.
+	 * 2. Because of possible recursive constrain, we must check
+	 *    after creating the RuntimeType pointer.
+	 *    A have alias A1=int, requires B::B1, and B requires A::A1.
+	 *    When loading A, we check A->B::B1->A::A1.
+	 * 3. We must detect infinite recursive constrain.
+	 *    A has A1=B::B1, and B has B1=A::A1.
+	 *    When loading A, we check A->B::B1->A::A1->B::B1->...
+	 *    Note that we don't have SFINAE. This is an error.
+	 * 4. We need a back reference from type/function list to
+	 *    constrain list in order to quickly find the constrain to
+	 *    check when that entry is referred by another type.
+	 *
+	 * Changes on loading procedure:
+	 * 1. All constrains are 'instantiated' before checking. An
+	 *    instance of a constrain contains a list of type and a
+	 *    list of function, similar to a GenericDeclaration. The
+	 *    process of checking a constrain is to calculate these
+	 *    two lists.
+	 * 2. Constrains requiring a type or a typa alias, no matter
+	 *    as a template or as a instantiated type, to exist, simply
+	 *    points to the entry in type list.
+	 * 3. When constrain is checked, all entries of the type/function
+	 *    list that are referenced by the constrain are loaded.
+	 *    Other entries are nullptr and to be loaded later.
+	 * 4. When referencing an type/function entry in another loading
+	 *    type while checking constrain for one type, and if that 
+	 *    type has not finished its constrain check, it forms a 
+	 *    recursive reference.
+	 * 5. Recursive reference is acceptable if there is no infinite
+	 *    loop. This can be detected by setting the entry of 
+	 *    _referencedTypes/Functions to a special value before
+	 *    performing the actual loading task.
+	 * 6. The _loadingTypes stack plus the method in 5. can prevent
+	 *    infinite recursion in constrain check.
+	 * 7. When post-loading a type, only the not-null entries in
+	 *    the type/function list are calculated.
 	 */
 
 protected:
@@ -802,6 +906,15 @@ private:
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
 
+		for (std::size_t i = 0; i < typeTemplate->Generic.Types.size(); ++i)
+		{
+			SetValueInList(type->References.Types, i, LoadRefType({ type.get(), typeTemplate->Generic }, i));
+		}
+		for (std::size_t i = 0; i < typeTemplate->Generic.Functions.size(); ++i)
+		{
+			SetValueInList(type->References.Functions, i, LoadRefFunction({ type.get(), typeTemplate->Generic }, i));
+		}
+
 		if (type->Storage == TSM_GLOBAL)
 		{
 			if (typeTemplate->Interfaces.size() != 0)
@@ -847,21 +960,21 @@ private:
 		auto funcTemplate = FindFunctionTemplate(func->Args.Assembly, func->Args.Id);
 		for (std::size_t i = 0; i < funcTemplate->Generic.Types.size(); ++i)
 		{
-			func->ReferencedType.push_back(LoadRefType({ func.get(), funcTemplate->Generic }, i));
+			SetValueInList(func->References.Types, i, LoadRefType({ func.get(), funcTemplate->Generic }, i));
 		}
 		for (std::size_t i = 0; i < funcTemplate->Generic.Functions.size(); ++i)
 		{
-			func->ReferencedFunction.push_back(LoadRefFunction({ func.get(), funcTemplate->Generic }, i));
+			SetValueInList(func->References.Functions, i, LoadRefFunction({ func.get(), funcTemplate->Generic }, i));
 		}
 		auto assembly = FindAssemblyThrow(func->Args.Assembly);
 		for (std::size_t i = 0; i < funcTemplate->Generic.Fields.size(); ++i)
 		{
 			func->ReferencedFields.push_back(LoadImportConstant(assembly, funcTemplate->Generic.Fields[i]));
 		}
-		func->ReturnValue = func->ReferencedType[funcTemplate->ReturnValue.TypeId];
+		func->ReturnValue = func->References.Types[funcTemplate->ReturnValue.TypeId];
 		for (std::size_t i = 0; i < funcTemplate->Parameters.size(); ++i)
 		{
-			func->Parameters.push_back(func->ReferencedType[funcTemplate->Parameters[i].TypeId]);
+			func->Parameters.push_back(func->References.Types[funcTemplate->Parameters[i].TypeId]);
 		}
 		auto ptr = func.get();
 		_finishedLoadingFunctions.emplace_back(std::move(func));
@@ -968,6 +1081,24 @@ private:
 				assert(fbase.Offset == fderived.Offset);
 				assert(fbase.Length == fderived.Length);
 			}
+		}
+	}
+
+	template <typename T>
+	static void SetValueInList(std::vector<T>& v, std::size_t n, T&& val)
+	{
+		while (v.size() < n)
+		{
+			v.push_back({});
+		}
+		if (v.size() == n)
+		{
+			v.push_back(std::forward<T>(val));
+		}
+		else
+		{
+			assert(v[n] == T());
+			v[n] = std::forward<T>(val);
 		}
 	}
 
@@ -1320,38 +1451,12 @@ private:
 
 	void AddLoadedType(std::unique_ptr<RuntimeType> t)
 	{
-		auto id = t->TypeId;
-		if (id < _loadedTypes.size())
-		{
-			assert(_loadedTypes[id] == nullptr);
-			_loadedTypes[id] = std::move(t);
-		}
-		else
-		{
-			while (id > _loadedTypes.size())
-			{
-				_loadedTypes.push_back(nullptr);
-			}
-			_loadedTypes.emplace_back(std::move(t));
-		}
+		SetValueInList(_loadedTypes, t->TypeId, std::move(t));
 	}
 
 	void AddLoadedFunction(std::unique_ptr<RuntimeFunction> f)
 	{
-		auto id = f->FunctionId;
-		if (id < _loadedFunctions.size())
-		{
-			assert(_loadedFunctions[id] == nullptr);
-			_loadedFunctions[id] = std::move(f);
-		}
-		else
-		{
-			while (id > _loadedFunctions.size())
-			{
-				_loadedFunctions.push_back(nullptr);
-			}
-			_loadedFunctions.emplace_back(std::move(f));
-		}
+		SetValueInList(_loadedFunctions, f->FunctionId, std::move(f));
 	}
 
 protected:

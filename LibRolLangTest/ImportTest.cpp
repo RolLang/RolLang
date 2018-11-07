@@ -71,8 +71,8 @@ namespace LibRolLangTest
 				auto f = LoadFunction(&loader, "Test", "Test.TestFunction", false);
 				CheckFunctionBasic(&loader, f);
 				CheckFunctionTypes(f, 0, {});
-				auto f1 = f->ReferencedFunction[fid1];
-				auto f2 = f->ReferencedFunction[fid2];
+				auto f1 = f->References.Functions[fid1];
+				auto f2 = f->References.Functions[fid2];
 				CheckFunctionBasic(&loader, f1);
 				CheckFunctionTypes(f1, 0, {});
 				CheckFunctionBasic(&loader, f2);

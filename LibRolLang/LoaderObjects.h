@@ -63,6 +63,13 @@ private:
 	bool InitFlag;
 };
 
+struct RuntimeReferences
+{
+	std::vector<RuntimeType*> Types;
+	std::vector<RuntimeFunction*> Functions;
+	//TODO constrain list
+};
+
 struct RuntimeType : Initializable
 {
 	struct RuntimeFieldInfo
@@ -81,6 +88,8 @@ struct RuntimeType : Initializable
 	RuntimeLoader* Parent;
 	LoadingArguments Args;
 	std::size_t TypeId;
+
+	RuntimeReferences References;
 
 	TypeStorageMode Storage;
 	std::vector<RuntimeFieldInfo> Fields;
@@ -127,8 +136,7 @@ struct RuntimeFunction : Initializable
 
 	std::shared_ptr<RuntimeFunctionCode> Code;
 
-	std::vector<RuntimeType*> ReferencedType;
-	std::vector<RuntimeFunction*> ReferencedFunction;
+	RuntimeReferences References;
 	std::vector<std::size_t> ReferencedFields;
 
 	RuntimeType* ReturnValue;

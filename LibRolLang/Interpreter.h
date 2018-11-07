@@ -154,10 +154,10 @@ private:
 				auto& k = code->ConstantTable[opr];
 				assert(k.Offset < code->ConstantData.size());
 				assert(k.Offset + k.Length <= code->ConstantData.size());
-				assert(k.TypeId < f->ReferencedType.size());
-				assert(k.Length == f->ReferencedType[k.TypeId]->GetStorageSize());
+				assert(k.TypeId < f->References.Types.size());
+				assert(k.Length == f->References.Types[k.TypeId]->GetStorageSize());
 
-				auto type = f->ReferencedType[k.TypeId];
+				auto type = f->References.Types[k.TypeId];
 				auto ptr = &code->ConstantData[k.Offset];
 				auto dest = _stack.Push(GetPointerType(type));
 				*(void**)dest = ptr;
@@ -194,8 +194,8 @@ private:
 			}
 			case OP_CALL:
 			{
-				assert(opr < f->ReferencedFunction.size());
-				auto callee = f->ReferencedFunction[opr];
+				assert(opr < f->References.Functions.size());
+				auto callee = f->References.Functions[opr];
 				assert(callee);
 				CheckInitFunction(callee);
 				FuncInfo calleeInfo;
@@ -318,7 +318,7 @@ private:
 		auto g = f->BeginInit();
 		if (g)
 		{
-			for (auto t : f->ReferencedType)
+			for (auto t : f->References.Types)
 			{
 				if (t) CheckInitType(t);
 			}
