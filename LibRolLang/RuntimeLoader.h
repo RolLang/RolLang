@@ -146,6 +146,7 @@ Because constrains can only be applied on single type, it can only be applied to
 //TODO Remove direct export of function and fields
 //TODO GenericDeclaration with parameter pack (see above)
 //TODO Support for variable sized object (string, array)
+//TODO Allow a function to use REF_SELF to refer to itself
 
 //Roadmap (interpreter)
 //TODO RuntimeObject layout
@@ -317,6 +318,23 @@ protected:
 		RuntimeLoaderException(const std::string& msg)
 			: std::runtime_error(msg)
 		{
+		}
+	};
+
+	struct SubtypeLoadingArguments
+	{
+		RuntimeType* Parent;
+		std::string Name;
+		std::vector<RuntimeType*> Arguments;
+
+		bool operator == (const SubtypeLoadingArguments &b) const
+		{
+			return Parent == b.Parent && Name == b.Name && Arguments == b.Arguments;
+		}
+
+		bool operator != (const SubtypeLoadingArguments &b) const
+		{
+			return !(*this == b);
 		}
 	};
 
@@ -704,7 +722,7 @@ private:
 			}
 		}
 
-		auto typeTemplate = FindTypeTemplate(args.Assembly, args.Id);
+		auto typeTemplate = FindTypeTemplate(args);
 		CheckGenericArguments(typeTemplate->Generic, args);
 		if (typeTemplate->Generic.Fields.size() != 0)
 		{
@@ -785,6 +803,46 @@ private:
 		return false;
 	}
 
+	RuntimeType* LoadSubtype(const SubtypeLoadingArguments& args)
+	{
+		for (auto& t : _loadingSubtypes)
+		{
+			if (t == args)
+			{
+				throw RuntimeLoaderException("Cyclic reference in subtype");
+			}
+		}
+		_loadingSubtypes.push_back(args);
+		if (_loadingTypes.size() + _loadingFunctions.size() +
+			_loadingSubtypes.size() > _loadingLimit)
+		{
+			throw RuntimeLoaderException("Loading object limit exceeded.");
+		}
+
+		auto tt = FindTypeTemplate(args.Parent->Args);
+		std::size_t id = SIZE_MAX;
+		for (auto& n : tt->PublicSubTypes)
+		{
+			if (n.Name == args.Name)
+			{
+				id = n.Id;
+				break;
+			}
+		}
+		if (id == SIZE_MAX)
+		{
+			throw RuntimeLoaderException("Subtype name not found");
+		}
+		
+		LoadingRefArguments la(args.Parent, tt->Generic, args.Arguments);
+		auto ret = LoadRefType(la, id);
+
+		assert(_loadingSubtypes.back() == args);
+		_loadingSubtypes.pop_back();
+
+		return ret;
+	}
+
 	RuntimeType* LoadFields(std::unique_ptr<RuntimeType> type, Type* typeTemplate)
 	{
 		for (auto t : _loadingTypes)
@@ -792,7 +850,8 @@ private:
 			assert(!(t->Args == type->Args));
 		}
 		_loadingTypes.push_back(type.get());
-		if (_loadingTypes.size() + _loadingFunctions.size() > _loadingLimit)
+		if (_loadingTypes.size() + _loadingFunctions.size() +
+			_loadingSubtypes.size() > _loadingLimit)
 		{
 			throw RuntimeLoaderException("Loading object limit exceeded.");
 		}
@@ -800,7 +859,7 @@ private:
 		Type* tt = typeTemplate;
 		if (tt == nullptr)
 		{
-			tt = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
+			tt = FindTypeTemplate(type->Args);
 		}
 
 		if (type->Storage == TSM_INTERFACE)
@@ -913,7 +972,7 @@ private:
 
 	void PostLoadType(std::unique_ptr<RuntimeType> type)
 	{
-		auto typeTemplate = FindTypeTemplate(type->Args.Assembly, type->Args.Id);
+		auto typeTemplate = FindTypeTemplate(type->Args);
 
 		for (std::size_t i = 0; i < typeTemplate->Generic.Types.size(); ++i)
 		{
@@ -1044,7 +1103,7 @@ private:
 	{
 		if (srcTemplate == nullptr)
 		{
-			srcTemplate = FindTypeTemplate(src->Args.Assembly, src->Args.Id);
+			srcTemplate = FindTypeTemplate(src->Args);
 		}
 		for (auto& i : srcTemplate->Interfaces)
 		{
@@ -1205,7 +1264,7 @@ private:
 		const GenericDeclaration& Declaration;
 		const LoadingArguments& Arguments;
 		RuntimeType* SelfType;
-		std::vector<RuntimeType*>* AdditionalArguments;
+		const std::vector<RuntimeType*>* AdditionalArguments;
 
 		LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g)
 			: Declaration(g), Arguments(type->Args), SelfType(type), AdditionalArguments(nullptr)
@@ -1217,13 +1276,8 @@ private:
 		{
 		}
 
-		LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g, std::vector<RuntimeType*>& aa)
+		LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g, const std::vector<RuntimeType*>& aa)
 			: Declaration(g), Arguments(type->Args), SelfType(type), AdditionalArguments(&aa)
-		{
-		}
-
-		LoadingRefArguments(RuntimeFunction* func, const GenericDeclaration& g, std::vector<RuntimeType*>& aa)
-			: Declaration(g), Arguments(func->Args), SelfType(nullptr), AdditionalArguments(&aa)
 		{
 		}
 	};
@@ -1286,6 +1340,12 @@ private:
 			}
 			return lg.SelfType;
 		case REF_SUBTYPE:
+		{
+			auto name = lg.Declaration.SubtypeNames[type.Index];
+			auto parent = LoadRefType(lg, typeId + 1);
+			LoadRefTypeArgList(lg, typeId + 1, la);
+			return LoadSubtype({ parent, name, la.Arguments });
+		}
 		case REF_CLONETYPE:
 		default:
 			throw RuntimeLoaderException("Invalid type reference");
@@ -1416,14 +1476,14 @@ protected:
 		return ret;
 	}
 
-	Type* FindTypeTemplate(const std::string& assembly, std::size_t id)
+	Type* FindTypeTemplate(const LoadingArguments& args)
 	{
-		auto a = FindAssemblyThrow(assembly);
-		if (id >= a->Types.size())
+		auto a = FindAssemblyThrow(args.Assembly);
+		if (args.Id >= a->Types.size())
 		{
 			throw RuntimeLoaderException("Invalid type reference");
 		}
-		return &a->Types[id];
+		return &a->Types[args.Id];
 	}
 
 	Function* FindFunctionTemplate(const std::string& assembly, std::size_t id)
@@ -1511,6 +1571,7 @@ private:
 	RuntimeFunctionCodeStorage _codeStorage;
 
 	std::vector<RuntimeType*> _loadingTypes;
+	std::vector<SubtypeLoadingArguments> _loadingSubtypes;
 
 	//Loading queues. We need to keep order.
 	std::deque<std::unique_ptr<RuntimeType>> _loadingRefTypes;

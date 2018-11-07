@@ -11,7 +11,7 @@ enum ReferenceType : unsigned char
 	REF_IMPORT, //index = import #
 	REF_ARGUMENT, //index = generic parameter list index
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
-	REF_SELF, //for type/traits, the type itself
+	REF_SELF, //for type, the type itself. for trait, the target type
 	REF_SUBTYPE, //sub type of the given type. index = index in name list
 
 	REF_REFTYPES = 127,
@@ -26,7 +26,7 @@ enum ConstrainType : unsigned char
 	CONSTRAIN_BASE, //<T1>(T) -> T1 == T or T1 is in the base type chain from T
 	CONSTRAIN_INTERFACE, //<T1>(T) -> T implements T1
 	CONSTRAIN_TRAIT_ASSEMBLY, //<...>(T) -> check trait (in the same assembly)
-	CONSTRAIN_TRAIT_IMPORT,
+	CONSTRAIN_TRAIT_IMPORT, //import trait
 };
 
 struct DeclarationReference
