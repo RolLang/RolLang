@@ -405,33 +405,33 @@ namespace
 		}
 
 	private:
-		std::size_t WriteTypeRef(GenericDeclaration& g, const TypeReference& t)
+		std::size_t WriteTypeRef(GenericDeclaration& g, const TypeReference& t, bool forceLoad = true)
 		{
 			std::vector<std::size_t> args;
 			for (std::size_t i = 0; i < t.Arguments.size(); ++i)
 			{
-				args.push_back(WriteTypeRef(g, t.Arguments[i]));
+				args.push_back(WriteTypeRef(g, t.Arguments[i], true));
 			}
 
 			std::size_t ret = g.Types.size();
 			switch (t.Type)
 			{
 			case TR_EMPTY:
-				g.Types.push_back({ REF_EMPTY, 0 });
+				g.Types.push_back({ ForceLoad(REF_EMPTY, forceLoad), 0 });
 				return ret;
 			case TR_ARGUMENT:
-				g.Types.push_back({ REF_ARGUMENT, t.Id });
+				g.Types.push_back({ ForceLoad(REF_ARGUMENT, forceLoad), t.Id });
 				return ret;
 			case TR_TEMP:
 			case TR_INST:
-				g.Types.push_back({ REF_ASSEMBLY, t.Id });
+				g.Types.push_back({ ForceLoad(REF_ASSEMBLY, forceLoad), t.Id });
 				break;
 			case TR_TEMPI:
 			case TR_INSTI:
-				g.Types.push_back({ REF_IMPORT, t.Id });
+				g.Types.push_back({ ForceLoad(REF_IMPORT, forceLoad), t.Id });
 				break;
 			case TR_SELF:
-				g.Types.push_back({ REF_SELF, 0 });
+				g.Types.push_back({ ForceLoad(REF_SELF, forceLoad), 0 });
 				return ret;
 			default:
 				return SIZE_MAX;
@@ -450,15 +450,15 @@ namespace
 			switch (f.Type)
 			{
 			case FR_EMPTY:
-				g.Functions.push_back({ REF_EMPTY, 0 });
+				g.Functions.push_back({ ForceLoad(REF_EMPTY, true), 0 });
 				return ret;
 			case FR_TEMP:
 			case FR_INST:
-				g.Functions.push_back({ REF_ASSEMBLY, f.Id });
+				g.Functions.push_back({ ForceLoad(REF_ASSEMBLY, true), f.Id });
 				break;
 			case FR_TEMPI:
 			case FR_INSTI:
-				g.Functions.push_back({ REF_IMPORT, f.Id });
+				g.Functions.push_back({ ForceLoad(REF_IMPORT, true), f.Id });
 				break;
 			default:
 				return SIZE_MAX;
@@ -469,6 +469,11 @@ namespace
 			}
 			g.Functions.push_back({ REF_EMPTY, 0 });
 			return ret;
+		}
+
+		ReferenceType ForceLoad(ReferenceType v, bool f)
+		{
+			return f ? (ReferenceType)(v | REF_FORCELOAD) : v;
 		}
 
 	private:

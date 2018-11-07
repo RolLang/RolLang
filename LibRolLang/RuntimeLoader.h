@@ -30,7 +30,6 @@
 	   Delegate like C# should be fine. Managed function type is only internal use.
 
 */
-//TODO Allow value type to implement interface?
 //TODO pay attention to the following C# code (note it's not possible to do the same in C++)
 /*
 		class A<T> : List<A<List<T>>>
@@ -552,7 +551,7 @@ private:
 		{
 			throw RuntimeLoaderException("Invalid function reference");
 		}
-		if (type.Generic.Functions[type.Finalizer].Type != REF_EMPTY)
+		if ((type.Generic.Functions[type.Finalizer].Type & REF_REFTYPES) != REF_EMPTY)
 		{
 			throw RuntimeLoaderException("Internal type cannot have finalizer");
 		}
@@ -560,7 +559,7 @@ private:
 		{
 			throw RuntimeLoaderException("Invalid function reference");
 		}
-		if (type.Generic.Functions[type.Initializer].Type != REF_EMPTY)
+		if ((type.Generic.Functions[type.Initializer].Type & REF_REFTYPES) != REF_EMPTY)
 		{
 			throw RuntimeLoaderException("Internal type cannot have initializer");
 		}
@@ -918,11 +917,17 @@ private:
 
 		for (std::size_t i = 0; i < typeTemplate->Generic.Types.size(); ++i)
 		{
-			SetValueInList(type->References.Types, i, LoadRefType({ type.get(), typeTemplate->Generic }, i));
+			if (typeTemplate->Generic.Types[i].Type & REF_FORCELOAD)
+			{
+				SetValueInList(type->References.Types, i, LoadRefType({ type.get(), typeTemplate->Generic }, i));
+			}
 		}
 		for (std::size_t i = 0; i < typeTemplate->Generic.Functions.size(); ++i)
 		{
-			SetValueInList(type->References.Functions, i, LoadRefFunction({ type.get(), typeTemplate->Generic }, i));
+			if (typeTemplate->Generic.Functions[i].Type & REF_FORCELOAD)
+			{
+				SetValueInList(type->References.Functions, i, LoadRefFunction({ type.get(), typeTemplate->Generic }, i));
+			}
 		}
 
 		if (type->Storage == TSM_GLOBAL)
@@ -970,11 +975,19 @@ private:
 		auto funcTemplate = FindFunctionTemplate(func->Args.Assembly, func->Args.Id);
 		for (std::size_t i = 0; i < funcTemplate->Generic.Types.size(); ++i)
 		{
-			SetValueInList(func->References.Types, i, LoadRefType({ func.get(), funcTemplate->Generic }, i));
+			if (funcTemplate->Generic.Types[i].Type & REF_FORCELOAD)
+			{
+				SetValueInList(func->References.Types, i,
+					LoadRefType({ func.get(), funcTemplate->Generic }, i));
+			}
 		}
 		for (std::size_t i = 0; i < funcTemplate->Generic.Functions.size(); ++i)
 		{
-			SetValueInList(func->References.Functions, i, LoadRefFunction({ func.get(), funcTemplate->Generic }, i));
+			if (funcTemplate->Generic.Functions[i].Type & REF_FORCELOAD)
+			{
+				SetValueInList(func->References.Functions, i,
+					LoadRefFunction({ func.get(), funcTemplate->Generic }, i));
+			}
 		}
 		auto assembly = FindAssemblyThrow(func->Args.Assembly);
 		for (std::size_t i = 0; i < funcTemplate->Generic.Fields.size(); ++i)
@@ -1192,14 +1205,25 @@ private:
 		const GenericDeclaration& Declaration;
 		const LoadingArguments& Arguments;
 		RuntimeType* SelfType;
+		std::vector<RuntimeType*>* AdditionalArguments;
 
 		LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g)
-			: Declaration(g), Arguments(type->Args), SelfType(type)
+			: Declaration(g), Arguments(type->Args), SelfType(type), AdditionalArguments(nullptr)
 		{
 		}
 
 		LoadingRefArguments(RuntimeFunction* func, const GenericDeclaration& g)
-			: Declaration(g), Arguments(func->Args), SelfType(nullptr)
+			: Declaration(g), Arguments(func->Args), SelfType(nullptr), AdditionalArguments(nullptr)
+		{
+		}
+
+		LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g, std::vector<RuntimeType*>& aa)
+			: Declaration(g), Arguments(type->Args), SelfType(type), AdditionalArguments(&aa)
+		{
+		}
+
+		LoadingRefArguments(RuntimeFunction* func, const GenericDeclaration& g, std::vector<RuntimeType*>& aa)
+			: Declaration(g), Arguments(func->Args), SelfType(nullptr), AdditionalArguments(&aa)
 		{
 		}
 	};
@@ -1213,7 +1237,7 @@ private:
 		auto type = lg.Declaration.Types[typeId];
 		LoadingArguments la;
 	loadClone:
-		switch (type.Type)
+		switch (type.Type & REF_REFTYPES)
 		{
 		case REF_EMPTY:
 			return nullptr;
@@ -1261,6 +1285,7 @@ private:
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 			return lg.SelfType;
+		case REF_SUBTYPE:
 		case REF_CLONETYPE:
 		default:
 			throw RuntimeLoaderException("Invalid type reference");
@@ -1285,7 +1310,7 @@ private:
 		auto func = lg.Declaration.Functions[funcId];
 		LoadingArguments la;
 	loadClone:
-		switch (func.Type)
+		switch (func.Type & REF_REFTYPES)
 		{
 		case REF_EMPTY:
 			return nullptr;
@@ -1324,6 +1349,8 @@ private:
 		case REF_CLONETYPE:
 			return nullptr;
 		case REF_ARGUMENT:
+		case REF_SELF:
+		case REF_SUBTYPE:
 		default:
 			throw RuntimeLoaderException("Invalid function reference");
 		}

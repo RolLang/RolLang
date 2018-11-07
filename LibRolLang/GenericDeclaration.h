@@ -12,7 +12,10 @@ enum ReferenceType : unsigned char
 	REF_ARGUMENT, //index = generic parameter list index
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
 	REF_SELF, //for type/traits, the type itself
-	REF_SUBTYPE,
+	REF_SUBTYPE, //sub type of the given type. index = index in name list
+
+	REF_REFTYPES = 127,
+	REF_FORCELOAD = 128,
 };
 //Note that for generic function, the generic arguments should use REF_CLONETYPE
 
