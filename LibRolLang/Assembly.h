@@ -1,6 +1,7 @@
 #pragma once
 #include "Type.h"
 #include "Function.h"
+#include "Trait.h"
 
 struct AssemblyImport
 {
@@ -30,24 +31,26 @@ FIELD_SERIALIZER_END()
 struct Assembly
 {
 	std::string AssemblyName;
-	std::vector<AssemblyExport> ExportFunctions, ExportTypes;
-	std::vector<AssemblyImport> ImportFunctions, ImportTypes;
+	std::vector<AssemblyExport> ExportFunctions, ExportTypes, ExportConstants, ExportTraits;
+	std::vector<AssemblyImport> ImportFunctions, ImportTypes, ImportConstants, ImportTraits;
 	std::vector<AssemblyExport> NativeFunctions, NativeTypes;
-	std::vector<AssemblyExport> ExportConstants;
-	std::vector<AssemblyImport> ImportConstants;
 	std::vector<Function> Functions;
 	std::vector<Type> Types;
+	std::vector<Trait> Traits;
 };
 FIELD_SERIALIZER_BEGIN(Assembly)
 	SERIALIZE_FIELD(AssemblyName)
 	SERIALIZE_FIELD(ExportFunctions)
 	SERIALIZE_FIELD(ExportTypes)
+	SERIALIZE_FIELD(ExportConstants)
+	SERIALIZE_FIELD(ExportTraits)
 	SERIALIZE_FIELD(ImportFunctions)
 	SERIALIZE_FIELD(ImportTypes)
+	SERIALIZE_FIELD(ImportConstants)
+	SERIALIZE_FIELD(ImportTraits)
 	SERIALIZE_FIELD(NativeFunctions)
 	SERIALIZE_FIELD(NativeTypes)
-	SERIALIZE_FIELD(ExportConstants)
-	SERIALIZE_FIELD(ImportConstants)
 	SERIALIZE_FIELD(Functions)
 	SERIALIZE_FIELD(Types)
+	SERIALIZE_FIELD(Traits)
 FIELD_SERIALIZER_END()

@@ -126,6 +126,16 @@ Because constrains can only be applied on single type, it can only be applied to
 
 */
 
+//Roadmap (traits)
+//TODO REF_SUBTYPE
+//TODO import/export traits impl & test
+//TODO constrain framework (CONSTRAIN_EXIST, SAME)
+//TODO base type/interface constrain
+//TODO trait constrain framework
+//TODO trait function
+//TODO trait field
+//TODO trait export
+
 //Roadmap (common)
 //TODO Traits (see above)
 //  for generic type's member, function must inherits parameters
@@ -407,7 +417,7 @@ public:
 					return FindExportType(a->ImportTypes[importId], result);
 				}
 				if (args.GenericParameters != SIZE_MAX &&
-					a->Types[e.InternalId].Generic.Parameters.size() != args.GenericParameters)
+					a->Types[e.InternalId].Generic.ParameterCount != args.GenericParameters)
 				{
 					return false;
 				}
@@ -436,7 +446,7 @@ public:
 					return FindExportFunction(a->ImportFunctions[importId], result);
 				}
 				if (args.GenericParameters != SIZE_MAX &&
-					a->Functions[e.InternalId].Generic.Parameters.size() != args.GenericParameters)
+					a->Functions[e.InternalId].Generic.ParameterCount != args.GenericParameters)
 				{
 					return false;
 				}
@@ -530,7 +540,7 @@ private:
 	{
 		auto a = FindAssemblyThrow(assemblyName);
 		auto& type = a->Types[id];
-		if (type.Generic.Parameters.size())
+		if (type.Generic.ParameterCount)
 		{
 			throw RuntimeLoaderException("Native type cannot be generic");
 		}
@@ -645,7 +655,7 @@ private:
 
 	void CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args)
 	{
-		if (g.Parameters.size() != args.Arguments.size())
+		if (g.ParameterCount != args.Arguments.size())
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
@@ -1138,14 +1148,14 @@ private:
 
 	bool CheckPointerTypeTemplate(Type* t)
 	{
-		if (t->Generic.Parameters.size() != 1) return false;
+		if (t->Generic.ParameterCount != 1) return false;
 		if (t->GCMode != TSM_VALUE) return false;
 		return true;
 	}
 
 	bool CheckBoxTypeTemplate(Type* t)
 	{
-		if (t->Generic.Parameters.size() != 1) return false;
+		if (t->Generic.ParameterCount != 1) return false;
 		if (t->GCMode != TSM_REFERENCE) return false;
 		return true;
 	}

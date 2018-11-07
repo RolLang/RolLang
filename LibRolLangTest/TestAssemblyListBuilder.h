@@ -170,14 +170,12 @@ namespace
 		{
 			if (_currentType != SIZE_MAX)
 			{
-				auto id = _assembly.Types[_currentType].Generic.Parameters.size();
-				_assembly.Types[_currentType].Generic.Parameters.push_back({});
+				auto id = _assembly.Types[_currentType].Generic.ParameterCount++;
 				return { TR_ARGUMENT, id, {} };
 			}
 			else if (_currentFunction != SIZE_MAX)
 			{
-				auto id = _assembly.Functions[_currentFunction].Generic.Parameters.size();
-				_assembly.Functions[_currentFunction].Generic.Parameters.push_back({});
+				auto id = _assembly.Functions[_currentFunction].Generic.ParameterCount++;
 				return { TR_ARGUMENT, id, {} };
 			}
 			return { TR_EMPTY, 0, {} };

@@ -12,14 +12,19 @@ enum ReferenceType : unsigned char
 	REF_ARGUMENT, //index = generic parameter list index
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
 	REF_SELF, //for type/traits, the type itself
+	REF_SUBTYPE,
 };
 //Note that for generic function, the generic arguments should use REF_CLONETYPE
 
-struct GenericParameter
+enum ConstrainType : unsigned char
 {
+	CONSTRAIN_EXIST, //(T) -> T exists
+	CONSTRAIN_SAME, //<T1>(T) -> T1 == T
+	CONSTRAIN_BASE, //<T1>(T) -> T1 == T or T1 is in the base type chain from T
+	CONSTRAIN_INTERFACE, //<T1>(T) -> T implements T1
+	CONSTRAIN_TRAIT_ASSEMBLY, //<...>(T) -> check trait (in the same assembly)
+	CONSTRAIN_TRAIT_IMPORT,
 };
-FIELD_SERIALIZER_BEGIN(GenericParameter)
-FIELD_SERIALIZER_END()
 
 struct DeclarationReference
 {
@@ -31,17 +36,39 @@ FIELD_SERIALIZER_BEGIN(DeclarationReference)
 	SERIALIZE_FIELD(Index)
 FIELD_SERIALIZER_END()
 
+struct GenericConstrain
+{
+	ConstrainType Type;
+	std::size_t Index;
+
+	std::vector<DeclarationReference> TypeReferences;
+	std::size_t Target;
+	std::vector<std::size_t> Arguments;
+};
+FIELD_SERIALIZER_BEGIN(GenericConstrain)
+	SERIALIZE_FIELD(Type)
+	SERIALIZE_FIELD(Index)
+	SERIALIZE_FIELD(TypeReferences)
+	SERIALIZE_FIELD(Target)
+	SERIALIZE_FIELD(Arguments)
+FIELD_SERIALIZER_END()
+
 struct GenericDeclaration
 {
-	std::vector<GenericParameter> Parameters;
+	std::size_t ParameterCount;
+	std::vector<GenericConstrain> Constrains;
+
 	std::vector<DeclarationReference> Types;
 	std::vector<DeclarationReference> Functions;
 	//Contains index in import constant table. Exported values are field index, not offset.
 	std::vector<std::size_t> Fields;
+	std::vector<std::string> SubtypeNames;
 };
 FIELD_SERIALIZER_BEGIN(GenericDeclaration)
-	SERIALIZE_FIELD(Parameters)
+	SERIALIZE_FIELD(ParameterCount)
+	SERIALIZE_FIELD(Constrains)
 	SERIALIZE_FIELD(Types)
 	SERIALIZE_FIELD(Functions)
 	SERIALIZE_FIELD(Fields)
+	SERIALIZE_FIELD(SubtypeNames)
 FIELD_SERIALIZER_END()

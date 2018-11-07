@@ -69,6 +69,9 @@
     <ClInclude Include="LoaderObjects.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="Trait.h">
+      <Filter>Header Files\Storage</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

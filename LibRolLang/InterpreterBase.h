@@ -158,7 +158,7 @@ protected:
 	{
 		if (f == nullptr) return false;
 		if (f->Instruction.size() || f->ConstantTable.size() || f->ConstantData.size()) return false;
-		if (f->Generic.Parameters.size()) return false;
+		if (f->Generic.ParameterCount) return false;
 		if (f->Generic.Functions.size()) return false;
 		return true;
 	}

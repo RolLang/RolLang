@@ -33,6 +33,7 @@
     <ClInclude Include="LoaderObjects.h" />
     <ClInclude Include="Serialization.h" />
     <ClInclude Include="Spinlock.h" />
+    <ClInclude Include="Trait.h" />
     <ClInclude Include="Type.h" />
   </ItemGroup>
   <ItemGroup>
