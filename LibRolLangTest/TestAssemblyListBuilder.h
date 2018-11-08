@@ -16,6 +16,7 @@ namespace
 			TR_INST,
 			TR_INSTI,
 			TR_SELF,
+			TR_SUBTYPE,
 		};
 
 		enum FunctionReferenceType
@@ -33,6 +34,7 @@ namespace
 			TypeReferenceType Type;
 			std::size_t Id;
 			std::vector<TypeReference> Arguments;
+			std::string SubtypeName;
 		};
 
 		struct FunctionReference
@@ -144,6 +146,12 @@ namespace
 			_assembly.Types[_currentType].Fields.push_back(id);
 		}
 
+		void AddSubType(const std::string& name, const TypeReference& type)
+		{
+			auto id = WriteTypeRef(_assembly.Types[_currentType].Generic, type, false);
+			_assembly.Types[_currentType].PublicSubTypes.push_back({ name, id });
+		}
+
 		void SetTypeHandlers(const FunctionReference& initializer, const FunctionReference& finalizer)
 		{
 			auto& t = _assembly.Types[_currentType];
@@ -181,6 +189,21 @@ namespace
 			return { TR_EMPTY, 0, {} };
 		}
 
+		TypeReference AddAdditionalGenericParameter(std::size_t n)
+		{
+			if (_currentType != SIZE_MAX)
+			{
+				auto id = _assembly.Types[_currentType].Generic.ParameterCount + n;
+				return { TR_ARGUMENT, id, {} };
+			}
+			else if (_currentFunction != SIZE_MAX)
+			{
+				auto id = _assembly.Functions[_currentFunction].Generic.ParameterCount + n;
+				return { TR_ARGUMENT, id, {} };
+			}
+			return { TR_EMPTY, 0, {} };
+		}
+
 		TypeReference MakeType(const TypeReference& base, std::vector<TypeReference> args)
 		{
 			if (base.Type == TR_TEMP)
@@ -192,6 +215,13 @@ namespace
 				return { TR_INSTI, base.Id, std::move(args) };
 			}
 			return { TR_EMPTY, 0, {} };
+		}
+
+		TypeReference MakeSubtype(const TypeReference& parent, const std::string& name,
+			std::vector<TypeReference> args)
+		{
+			args.insert(args.begin(), parent);
+			return { TR_SUBTYPE, 0, args, name };
 		}
 
 		FunctionReference MakeFunction(const FunctionReference& base, std::vector<TypeReference> args)
@@ -317,7 +347,7 @@ namespace
 			_currentName = "";
 		}
 
-		std::size_t  AddTypeRef(const TypeReference& t)
+		std::size_t AddTypeRef(const TypeReference& t)
 		{
 			if (_currentType != SIZE_MAX)
 			{
@@ -410,7 +440,7 @@ namespace
 			std::vector<std::size_t> args;
 			for (std::size_t i = 0; i < t.Arguments.size(); ++i)
 			{
-				args.push_back(WriteTypeRef(g, t.Arguments[i], true));
+				args.push_back(WriteTypeRef(g, t.Arguments[i], false));
 			}
 
 			std::size_t ret = g.Types.size();
@@ -433,6 +463,14 @@ namespace
 			case TR_SELF:
 				g.Types.push_back({ ForceLoad(REF_SELF, forceLoad), 0 });
 				return ret;
+			case TR_SUBTYPE:
+			{
+				if (t.Id != 0) return SIZE_MAX;
+				auto nameid = g.SubtypeNames.size();
+				g.SubtypeNames.push_back(t.SubtypeName);
+				g.Types.push_back({ ForceLoad(REF_SUBTYPE, forceLoad), nameid });
+				break;
+			}
 			default:
 				return SIZE_MAX;
 			}

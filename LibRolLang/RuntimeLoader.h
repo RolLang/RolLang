@@ -127,13 +127,13 @@ Because constrains can only be applied on single type, it can only be applied to
 
 //Roadmap (traits)
 //TODO REF_SUBTYPE
-//TODO import/export traits impl & test
 //TODO constrain framework (CONSTRAIN_EXIST, SAME)
 //TODO base type/interface constrain
 //TODO trait constrain framework
 //TODO trait function
 //TODO trait field
 //TODO trait export
+//TODO import/export traits impl & test
 
 //Roadmap (common)
 //TODO Traits (see above)
@@ -153,6 +153,7 @@ Because constrains can only be applied on single type, it can only be applied to
 
 //Roadmap (low priority)
 //TODO Test cases for type loading with base/interfaces, box type
+//TODO public API for loading subtype
 
 //New types of type reference in constrain type list
 //  Parent: parent type itself (only for type).
@@ -1330,7 +1331,12 @@ private:
 		case REF_ARGUMENT:
 			if (type.Index >= lg.Arguments.Arguments.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				auto aaid = type.Index - lg.Arguments.Arguments.size();
+				if (lg.AdditionalArguments == nullptr || aaid >= lg.AdditionalArguments->size())
+				{
+					throw RuntimeLoaderException("Invalid type reference");
+				}
+				return (*lg.AdditionalArguments)[aaid];
 			}
 			return lg.Arguments.Arguments[type.Index];
 		case REF_SELF:
