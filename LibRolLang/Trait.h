@@ -59,6 +59,11 @@ type lists:
 	Note that this list has no function counterpart.
 	We should allow this list to reference exported types from another constrain
 	(limited to constrains that are already checked).
+	Note that list list cannot contain REF_SELF. Using it potentially leads to 
+	cyclic referencing:
+		class A<T> requires A<T> : SomeTrait
+	Here A<T> must be exist before we can check SomeTrait. So, for A<int> for 
+	example, A<int> exists => SomeTrait(A<int>) => A<int> exists
 
 2. Types in GenericDeclaration of the trait
 	This list helps the calculation of the trait:
@@ -73,5 +78,14 @@ type lists:
 3. Types in Trait
 	This list is not a type reference list. 
 	Export types that has been verified to exist.
+
+*/
+/*
+
+Type export from constrain to parent generic declaration:
+<name>/<name>/.../<object_name>
+For type and <object_name> = 'target', export the target type. This is very
+useful for CONSTRAIN_EXIST.
+Where do we specify top-level constrain (index? name?)
 
 */

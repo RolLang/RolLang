@@ -126,7 +126,6 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap (traits)
-//TODO REF_SUBTYPE
 //TODO constrain framework (CONSTRAIN_EXIST, SAME)
 //TODO base type/interface constrain
 //TODO trait constrain framework
@@ -140,7 +139,6 @@ Because constrains can only be applied on single type, it can only be applied to
 //  for generic type's member, function must inherits parameters
 //  (when looking for members, these parameters are directly
 //  copied from type's parameters, before constrain is checked)
-//TODO Generic argument constrain: base class, interface, as system-defined-traits
 //TODO Reference of trait function, type
 //TODO Type parital specialization
 //TODO Remove direct export of function and fields
@@ -154,6 +152,7 @@ Because constrains can only be applied on single type, it can only be applied to
 //Roadmap (low priority)
 //TODO Test cases for type loading with base/interfaces, box type
 //TODO public API for loading subtype
+//TODO Test cases for subtype loading, with cyclic reference
 
 //New types of type reference in constrain type list
 //  Parent: parent type itself (only for type).
@@ -498,7 +497,7 @@ private:
 		RuntimeType* ret = nullptr;
 		try
 		{
-			auto ret2 = LoadTypeInternal(args);
+			auto ret2 = LoadTypeInternal(args, false);
 			ProcessLoadingLists();
 			MoveFinishedObjects();
 			ret = ret2;
@@ -551,6 +550,8 @@ private:
 		}
 		return FindExportConstant(info.AssemblyName, info.ImportName);
 	}
+
+#if /* Loading stages */ 1
 
 private:
 	RuntimeType* AddNativeTypeInternal(const std::string& assemblyName, std::size_t id,
@@ -671,21 +672,22 @@ private:
 		}
 	}
 
-	void CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args)
+	bool CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args)
 	{
 		if (g.ParameterCount != args.Arguments.size())
 		{
-			throw RuntimeLoaderException("Invalid generic arguments");
+			return false;
 		}
 		if (std::any_of(args.Arguments.begin(), args.Arguments.end(),
 			[](RuntimeType* t) { return t == nullptr; }))
 		{
-			throw RuntimeLoaderException("Invalid generic arguments");
+			return false;
 		}
-		//TODO argument constrain check
+		//TODO argument constrain check (to avoid infinite recursion, use a loading stack)
+		return true;
 	}
 
-	RuntimeType* LoadTypeInternal(const LoadingArguments& args)
+	RuntimeType* LoadTypeInternal(const LoadingArguments& args, bool skipArgumentCheck)
 	{
 		for (auto& t : _loadedTypes)
 		{
@@ -724,7 +726,11 @@ private:
 		}
 
 		auto typeTemplate = FindTypeTemplate(args);
-		CheckGenericArguments(typeTemplate->Generic, args);
+		if (!skipArgumentCheck && !CheckGenericArguments(typeTemplate->Generic, args))
+		{
+			throw RuntimeLoaderException("Invalid generic arguments");
+		}
+
 		if (typeTemplate->Generic.Fields.size() != 0)
 		{
 			throw RuntimeLoaderException("Type template cannot contain field reference");
@@ -1167,6 +1173,8 @@ private:
 		}
 	}
 
+#endif
+
 	template <typename T>
 	static void SetValueInList(std::vector<T>& v, std::size_t n, T&& val)
 	{
@@ -1259,6 +1267,8 @@ protected:
 	{
 	}
 
+#if /* Load reference list */ 1
+
 private:
 	struct LoadingRefArguments
 	{
@@ -1308,7 +1318,7 @@ private:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = type.Index;
 			LoadRefTypeArgList(lg, typeId, la);
-			return LoadTypeInternal(la);
+			return LoadTypeInternal(la, false);
 		case REF_IMPORT:
 		{
 			auto a = FindAssemblyThrow(lg.Arguments.Assembly);
@@ -1326,7 +1336,7 @@ private:
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
-			return LoadTypeInternal(la);
+			return LoadTypeInternal(la, false);
 		}
 		case REF_ARGUMENT:
 			if (type.Index >= lg.Arguments.Arguments.size())
@@ -1434,6 +1444,301 @@ private:
 			la.Arguments.push_back(LoadRefType(lg, lg.Declaration.Functions[i].Index));
 		}
 	}
+
+#endif
+
+#if /* Constrains */ 1
+
+private:
+	enum ConstrainTypeType
+	{
+		CTT_FAIL,
+		CTT_ANY,
+		CTT_GENERIC,
+		CTT_SUBTYPE,
+		CTT_RT,
+	};
+
+	using TypeRefList = std::vector<DeclarationReference>;
+
+	struct ConstrainUndeterminedTypeSource;
+	struct ConstrainUndeterminedTypeRef
+	{
+		ConstrainUndeterminedTypeSource* Parent;
+		std::size_t Index;
+	};
+	struct ConstrainUndeterminedTypeInfo
+	{
+		RuntimeType* Determined;
+	};
+	struct ConstrainUndeterminedTypeSource
+	{
+		ConstrainUndeterminedTypeSource* Parent;
+		std::vector<ConstrainUndeterminedTypeInfo> UndeterminedTypes;
+		std::size_t TotalSize;
+		bool IsDetermined(std::size_t i)
+		{
+			if (i > Parent->TotalSize)
+			{
+				return UndeterminedTypes[i - Parent->TotalSize].Determined != nullptr;
+			}
+			return Parent->IsDetermined(i);
+		}
+	};
+	struct ConstrainType
+	{
+		ConstrainTypeType CType;
+		RuntimeType* Determined;
+		std::string TypeTemplateAssembly;
+		std::size_t TypeTemplateIndex;
+		std::string SubtypeName;
+		std::vector<ConstrainType> Args;
+		ConstrainUndeterminedTypeRef Undetermined;
+		bool TryArgumentConstrain;
+
+		bool ContainsUndetermined()
+		{
+			switch (CType)
+			{
+			case CTT_RT: return false;
+			case CTT_GENERIC:
+			case CTT_SUBTYPE:
+				for (auto& a : Args)
+				{
+					if (a.ContainsUndetermined()) return true;
+				}
+				return false;
+			case CTT_ANY:
+				return Undetermined.Parent->IsDetermined(Undetermined.Index);
+			default:
+				assert(0);
+				return false;
+			}
+		}
+
+		static ConstrainType Fail()
+		{
+			return { CTT_FAIL };
+		}
+
+		static ConstrainType RT(RuntimeType* rt)
+		{
+			return { CTT_RT, rt, nullptr, {}, {} };
+		}
+
+		static ConstrainType Try(ConstrainType&& t)
+		{
+			auto ret = ConstrainType(std::move(t));
+			ret.TryArgumentConstrain = true;
+			return ret;
+		}
+	};
+	struct ConstrainCalculationCache
+	{
+		ConstrainType Target;
+		std::vector<ConstrainType> Arguments;
+		std::vector<ConstrainCalculationCache> Children;
+	};
+
+	bool CheckConstrains(GenericDeclaration* g, const std::vector<RuntimeType*>& args)
+	{
+		std::vector<ConstrainType> cargs;
+		for (auto a : args)
+		{
+			cargs.push_back(ConstrainType::RT(a));
+		}
+		return CheckConstrainsInternal(g, cargs);
+	}
+
+	bool CheckConstrainsInternal(GenericDeclaration* g, const std::vector<ConstrainType>& args)
+	{
+		for (auto& constrain : g->Constrains)
+		{
+			ConstrainCalculationCache cache;
+			cache.Target = ConstructConstrainArgumentType(constrain.TypeReferences, args, constrain.Target);
+			for (auto a : constrain.Arguments)
+			{
+				cache.Arguments.push_back(ConstructConstrainArgumentType(constrain.TypeReferences, args, a));
+			}
+			while (ListContainUndetermined(cache.Arguments))
+			{
+				if (!TryDetermineConstrainArgument(constrain, cache))
+				{
+					//Cannot determine some of the REF_ANY arguments.
+					//Further constrain check is impossible. We return false to indicate
+					//the requirements of this constrain is not met.
+					return false;
+				}
+			}
+			//All REF_ANY are resolved.
+			if (!CheckConstrainDetermined(constrain, cache))
+			{
+				return false;
+			}
+			//TODO calculate exportable references
+		}
+		return true;
+	}
+
+	bool ListContainUndetermined(std::vector<ConstrainType>& l)
+	{
+		for (auto& a : l)
+		{
+			if (a.ContainsUndetermined()) return true;
+		}
+		return false;
+	}
+
+	ConstrainType ConstructConstrainArgumentType(TypeRefList& list, const std::vector<ConstrainType>& args, std::size_t i)
+	{
+		//TODO
+		throw 1;
+	}
+
+	//ret: 1: determined something. 0: no change. -1: impossible (constrain check fails)
+	int TryDetermineEqualTypes(ConstrainType& a, ConstrainType& b)
+	{
+		SimplifyConstrainType(a);
+		SimplifyConstrainType(b);
+		if (a.CType == CTT_FAIL || b.CType == CTT_FAIL) return -1;
+		//TODO
+		return 0;
+	}
+
+	bool TryDetermineConstrainArgument(GenericConstrain& c, ConstrainCalculationCache& args)
+	{
+		if (args.Target.CType == CTT_RT)
+		{
+			//Only check member components if the parent (target) has been fully determined.
+			//TODO
+		}
+		//for each clause (subconstrain, field, subtype, function)
+		//  try determine something
+		return false;
+	}
+
+	void SimplifyConstrainType(ConstrainType& t)
+	{
+		switch (t.CType)
+		{
+		case CTT_ANY:
+		case CTT_RT:
+		case CTT_FAIL:
+			//Elemental type. Can't simplify.
+			return;
+		case CTT_GENERIC:
+		{
+			for (auto& arg : t.Args)
+			{
+				SimplifyConstrainType(arg);
+			}
+			LoadingArguments la = { t.TypeTemplateAssembly, t.TypeTemplateIndex };
+			for (auto& arg : t.Args)
+			{
+				//TODO use a separate function (3 uses)
+				if (arg.CType != CTT_RT)
+				{
+					if (arg.CType == CTT_FAIL)
+					{
+						t = ConstrainType::Fail();
+					}
+					return;
+				}
+				assert(arg.Determined);
+				la.Arguments.push_back(arg.Determined);
+			}
+			if (t.TryArgumentConstrain)
+			{
+				auto tt = FindTypeTemplate(la);
+				if (!CheckGenericArguments(tt->Generic, la))
+				{
+					t = ConstrainType::Fail();
+				}
+			}
+			t = ConstrainType::RT(LoadTypeInternal(la, t.TryArgumentConstrain));
+			return;
+		}
+		case CTT_SUBTYPE:
+		{
+			for (auto& arg : t.Args)
+			{
+				SimplifyConstrainType(arg);
+			}
+			assert(t.Args.size() > 0);
+			if (t.Args[0].CType != CTT_RT)
+			{
+				if (t.Args[0].CType == CTT_FAIL)
+				{
+					t = ConstrainType::Fail();
+				}
+				return;
+			}
+			assert(t.Args[0].Determined);
+			SubtypeLoadingArguments la = { t.Args[0].Determined, t.Args[0].SubtypeName };
+			for (auto i = t.Args.begin() + 1; i < t.Args.end(); ++i)
+			{
+				if (i->CType != CTT_RT)
+				{
+					if (i->CType == CTT_FAIL)
+					{
+						t = ConstrainType::Fail();
+					}
+					return;
+				}
+				assert(i->Determined);
+				la.Arguments.push_back(i->Determined);
+			}
+			//LoadSubtype is too complicated to separate the constrain check.
+			//We have to use a try block.
+			if (t.TryArgumentConstrain)
+			{
+				try
+				{
+					t = ConstrainType::RT(LoadSubtype(la));
+					return;
+				}
+				catch (...)
+				{
+					//TODO make sure it's really caused by type constrain checking.
+					t = ConstrainType::Fail();
+					return;
+				}
+			}
+			else
+			{
+				t = ConstrainType::RT(LoadSubtype(la));
+				return;
+			}
+		}
+		default:
+			break;
+		}
+	}
+
+	bool CheckConstrainDetermined(GenericConstrain& c, ConstrainCalculationCache& cache)
+	{
+		switch (c.Type)
+		{
+		case CONSTRAIN_EXIST:
+			if (cache.Arguments.size() != 1)
+			{
+				throw RuntimeLoaderException("Invalid constrain CONSTRAIN_EXIST");
+			}
+			SimplifyConstrainType(cache.Arguments[0]);
+			if (cache.Arguments[0].CType != CTT_RT)
+			{
+				assert(cache.Arguments[0].CType == CTT_FAIL);
+				return false;
+			}
+			return true;
+		//TODO other constrains
+		}
+		return false;
+	}
+
+#endif
+
+#if /* Helpers */ 1 
 
 protected:
 	Assembly* FindAssemblyNoThrow(const std::string& name)
@@ -1561,6 +1866,8 @@ private:
 	{
 		SetValueInList(_loadedFunctions, f->FunctionId, std::move(f));
 	}
+
+#endif
 
 protected:
 	//We don't expect loader to run very often. A simple spinlock

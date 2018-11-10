@@ -14,6 +14,10 @@ enum ReferenceType : unsigned char
 	REF_SELF, //for type, the type itself. for trait, the target type
 	REF_SUBTYPE, //sub type of the given type. index = index in name list
 
+	//Following 2 are only for constrain type list only
+	REF_TRY, //same as CLONE except for that it allow the refered calculation to fail (not an error)
+	REF_ANY, //undetermined generic type in trait constrains (can only be used as argument)
+
 	REF_REFTYPES = 127,
 	REF_FORCELOAD = 128,
 };
