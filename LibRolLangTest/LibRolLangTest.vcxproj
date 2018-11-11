@@ -159,6 +159,7 @@
   <ItemGroup>
     <ClCompile Include="ExecuteSimpleNativeFunctionTest.cpp" />
     <ClCompile Include="ExecuteSimpleProgramTest.cpp" />
+    <ClCompile Include="GenericConstrainTest.cpp" />
     <ClCompile Include="ImportTest.cpp" />
     <ClCompile Include="LoadTypeTest.cpp" />
     <ClCompile Include="LoadFunctionTest.cpp" />

@@ -49,6 +49,7 @@ struct GenericConstrain
 	std::size_t Index;
 
 	std::vector<DeclarationReference> TypeReferences;
+	std::vector<std::string> SubtypeNames;
 	std::size_t Target;
 	std::vector<std::size_t> Arguments;
 };

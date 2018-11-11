@@ -17,6 +17,7 @@ namespace
 			TR_INSTI,
 			TR_SELF,
 			TR_SUBTYPE,
+			TR_ANY,
 		};
 
 		enum FunctionReferenceType
@@ -47,6 +48,11 @@ namespace
 		TypeReference SelfType()
 		{
 			return { TR_SELF, 0, {} };
+		}
+
+		TypeReference AnyType()
+		{
+			return { TR_ANY, 0, {} };
 		}
 
 		void BeginAssembly(const std::string& name)
@@ -202,6 +208,27 @@ namespace
 				return { TR_ARGUMENT, id, {} };
 			}
 			return { TR_EMPTY, 0, {} };
+		}
+
+		void AddConstrain(TypeReference target, const std::vector<TypeReference> args,
+			ConstrainType type, std::size_t id)
+		{
+			GenericConstrain constrain = {};
+			constrain.Type = type;
+			constrain.Index = id;
+			constrain.Target = WriteTypeRef(constrain, target, false);
+			for (auto& a : args)
+			{
+				constrain.Arguments.push_back(WriteTypeRef(constrain, target, false));
+			}
+			if (_currentType != SIZE_MAX)
+			{
+				_assembly.Types[_currentType].Generic.Constrains.emplace_back(std::move(constrain));
+			}
+			else if (_currentFunction != SIZE_MAX)
+			{
+				_assembly.Functions[_currentFunction].Generic.Constrains.emplace_back(std::move(constrain));
+			}
 		}
 
 		TypeReference MakeType(const TypeReference& base, std::vector<TypeReference> args)
@@ -435,7 +462,21 @@ namespace
 		}
 
 	private:
-		std::size_t WriteTypeRef(GenericDeclaration& g, const TypeReference& t, bool forceLoad = true)
+		struct ReferenceTypeWriteTarget
+		{
+			std::vector<DeclarationReference>& Types;
+			std::vector<std::string>& SubtypeNames;
+			ReferenceTypeWriteTarget(GenericDeclaration& g)
+				: Types(g.Types), SubtypeNames(g.SubtypeNames)
+			{
+			}
+			ReferenceTypeWriteTarget(GenericConstrain& constrain)
+				: Types(constrain.TypeReferences), SubtypeNames(constrain.SubtypeNames)
+			{
+			}
+		};
+
+		std::size_t WriteTypeRef(ReferenceTypeWriteTarget g, const TypeReference& t, bool forceLoad = true)
 		{
 			std::vector<std::size_t> args;
 			for (std::size_t i = 0; i < t.Arguments.size(); ++i)
@@ -470,6 +511,11 @@ namespace
 				g.SubtypeNames.push_back(t.SubtypeName);
 				g.Types.push_back({ ForceLoad(REF_SUBTYPE, forceLoad), nameid });
 				break;
+			}
+			case TR_ANY:
+			{
+				g.Types.push_back({ ForceLoad(REF_ANY, forceLoad), 0 });
+				return ret;
 			}
 			default:
 				return SIZE_MAX;
