@@ -1474,14 +1474,14 @@ private:
 		ConstrainUndeterminedTypeSource* Parent = nullptr;
 		std::vector<ConstrainUndeterminedTypeInfo> UndeterminedTypes;
 		std::size_t TotalSize = 0;
-		bool IsDetermined(std::size_t i)
+		RuntimeType* GetDetermined(std::size_t i)
 		{
 			auto ps = Parent ? Parent->TotalSize : 0;
 			if (i >= ps)
 			{
-				return UndeterminedTypes[i - ps].Determined != nullptr;
+				return UndeterminedTypes[i - ps].Determined;
 			}
-			return Parent->IsDetermined(i);
+			return Parent->GetDetermined(i);
 		}
 		void Determined(std::size_t i, RuntimeType* t)
 		{
@@ -1520,7 +1520,7 @@ private:
 				}
 				return false;
 			case CTT_ANY:
-				return !Undetermined.Parent->IsDetermined(Undetermined.Index);
+				return !Undetermined.Parent->GetDetermined(Undetermined.Index);
 			default:
 				assert(0);
 				return false;
@@ -1567,6 +1567,8 @@ private:
 		ConstrainCalculationCacheRoot* Root;
 		ConstrainCalculationCache* Parent;
 
+		std::vector<ConstrainType> CheckArguments;
+
 		std::string SrcAssembly;
 		ConstrainType Target;
 		std::vector<ConstrainType> Arguments;
@@ -1600,6 +1602,7 @@ private:
 			cache.Parent = nullptr;
 			cache.Root = &cc;
 			cache.SrcAssembly = srcAssebly;
+			cache.CheckArguments = args; //TODO avoid copy?
 			cache.Target = ConstructConstrainArgumentType(cache, constrain, constrain.Target);
 			for (auto a : constrain.Arguments)
 			{
@@ -1607,13 +1610,13 @@ private:
 			}
 			while (ListContainUndetermined(cache.Arguments, cache.Target))
 			{
-				if (!TryDetermineConstrainArgument(constrain, cache))
-				{
-					//Cannot determine some of the REF_ANY arguments.
-					//Further constrain check is impossible. We return false to indicate
-					//the requirements of this constrain is not met.
-					return false;
-				}
+				auto check = TryDetermineConstrainArgument(constrain, cache);
+				if (check == -1) return false;
+				if (check == 1) continue;
+				//Cannot determine some of the REF_ANY arguments.
+				//Further constrain check is impossible. We return false to indicate
+				//the requirements of this constrain is not met.
+				return false;
 			}
 			//All REF_ANY are resolved.
 			if (!CheckConstrainDetermined(constrain, cache))
@@ -1649,7 +1652,7 @@ private:
 		case REF_CLONE:
 			return ConstructConstrainArgumentType(cache, constrain, t.Index);
 		case REF_ARGUMENT:
-			return cache.Arguments[t.Index];
+			return cache.CheckArguments[t.Index];
 		case REF_ASSEMBLY:
 		{
 			auto ret = ConstrainType::G(cache.SrcAssembly, t.Index);
@@ -1791,26 +1794,47 @@ private:
 		}
 	}
 
-	bool TryDetermineConstrainArgument(GenericConstrain& c, ConstrainCalculationCache& args)
+	int TryDetermineConstrainArgument(GenericConstrain& c, ConstrainCalculationCache& cache)
 	{
-		if (args.Target.CType == CTT_RT)
+		switch (c.Type)
 		{
-			//Only check member components if the parent (target) has been fully determined.
+		case CONSTRAIN_EXIST:
+		case CONSTRAIN_BASE:
+		case CONSTRAIN_INTERFACE:
+			return 0;
+		case CONSTRAIN_SAME:
+			if (cache.Arguments.size() != 1)
+			{
+				throw RuntimeLoaderException("Invalid constrain arguments");
+			}
+			return TryDetermineEqualTypes(cache.Arguments[0], cache.Target);
+		case CONSTRAIN_TRAIT_ASSEMBLY:
+		case CONSTRAIN_TRAIT_IMPORT:
+			if (cache.Target.CType == CTT_RT)
+			{
+				//Only check member components if the parent (target) has been fully determined.
+			}
+			//for each clause (subconstrain, field, subtype, function)
+			//  for subconstrain, create cache if necessary
+			//  try determine something
+		default:
+			return 0;
 		}
-		//for each clause (subconstrain, field, subtype, function)
-		//  for subconstrain, create cache if necessary
-		//  try determine something
-		return false;
 	}
 
 	void SimplifyConstrainType(ConstrainType& t)
 	{
 		switch (t.CType)
 		{
-		case CTT_ANY:
 		case CTT_RT:
 		case CTT_FAIL:
 			//Elemental type. Can't simplify.
+			return;
+		case CTT_ANY:
+			if (auto rt = t.Undetermined.Parent->GetDetermined(t.Undetermined.Index))
+			{
+				t = ConstrainType::RT(rt);
+			}
 			return;
 		case CTT_GENERIC:
 		{
@@ -1908,7 +1932,7 @@ private:
 		case CONSTRAIN_EXIST:
 			if (cache.Arguments.size() != 0)
 			{
-				throw RuntimeLoaderException("Invalid constrain CONSTRAIN_EXIST");
+				throw RuntimeLoaderException("Invalid constrain arguments");
 			}
 			SimplifyConstrainType(cache.Target);
 			if (cache.Target.CType != CTT_RT)
@@ -1921,7 +1945,7 @@ private:
 		case CONSTRAIN_SAME:
 			if (cache.Arguments.size() != 1)
 			{
-				throw RuntimeLoaderException("Invalid constrain CONSTRAIN_EXIST");
+				throw RuntimeLoaderException("Invalid constrain arguments");
 			}
 			SimplifyConstrainType(cache.Target);
 			SimplifyConstrainType(cache.Arguments[0]);

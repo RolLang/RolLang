@@ -219,7 +219,7 @@ namespace
 			constrain.Target = WriteTypeRef(constrain, target, false);
 			for (auto& a : args)
 			{
-				constrain.Arguments.push_back(WriteTypeRef(constrain, target, false));
+				constrain.Arguments.push_back(WriteTypeRef(constrain, a, false));
 			}
 			if (_currentType != SIZE_MAX)
 			{
