@@ -106,6 +106,29 @@ struct RuntimeType : Initializable
 
 	inline std::size_t GetStorageSize();
 	inline std::size_t GetStorageAlignment();
+
+	bool IsBaseTypeOf(RuntimeType* rt)
+	{
+		do
+		{
+			if (this == rt)
+			{
+				return true;
+			}
+		} while ((rt = rt->BaseType));
+		return false;
+	}
+
+	bool IsInterfaceOf(RuntimeType* rt)
+	{
+		assert(Storage == TSM_INTERFACE);
+		for (auto& i : rt->Interfaces)
+		{
+			if (i.Type == this) return true;
+			if (IsInterfaceOf(i.Type)) return true;
+		}
+		return false;
+	}
 };
 
 //TODO move RuntimeObjectSymbol to after LoadingArguments

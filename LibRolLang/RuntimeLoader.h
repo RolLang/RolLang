@@ -1958,6 +1958,18 @@ private:
 		}
 	}
 
+	bool CheckSimplifiedConstrainType(ConstrainType& t)
+	{
+		SimplifyConstrainType(t);
+		if (t.CType != CTT_RT)
+		{
+			assert(t.CType == CTT_FAIL);
+			return false;
+		}
+		assert(t.Determined);
+		return true;
+	}
+
 	bool CheckConstrainDetermined(GenericConstrain& c, ConstrainCalculationCache& cache)
 	{
 		switch (c.Type)
@@ -1967,38 +1979,40 @@ private:
 			{
 				throw RuntimeLoaderException("Invalid constrain arguments");
 			}
-			SimplifyConstrainType(cache.Target);
-			if (cache.Target.CType != CTT_RT)
-			{
-				assert(cache.Target.CType == CTT_FAIL);
-				return false;
-			}
-			assert(cache.Target.Determined);
-			return true;
+			return CheckSimplifiedConstrainType(cache.Target);
 		case CONSTRAIN_SAME:
 			if (cache.Arguments.size() != 1)
 			{
 				throw RuntimeLoaderException("Invalid constrain arguments");
 			}
-			SimplifyConstrainType(cache.Target);
-			SimplifyConstrainType(cache.Arguments[0]);
-			if (cache.Target.CType != CTT_RT)
-			{
-				assert(cache.Target.CType == CTT_FAIL);
-				return false;
-			}
-			if (cache.Arguments[0].CType != CTT_RT)
-			{
-				assert(cache.Arguments[0].CType == CTT_FAIL);
-				return false;
-			}
-			assert(cache.Target.Determined);
-			assert(cache.Arguments[0].Determined);
-			if (cache.Target.Determined != cache.Arguments[0].Determined)
+			if (!CheckSimplifiedConstrainType(cache.Target) ||
+				!CheckSimplifiedConstrainType(cache.Arguments[0]))
 			{
 				return false;
 			}
-			return true;
+			return cache.Target.Determined == cache.Arguments[0].Determined;
+		case CONSTRAIN_BASE:
+			if (cache.Arguments.size() != 1)
+			{
+				throw RuntimeLoaderException("Invalid constrain arguments");
+			}
+			if (!CheckSimplifiedConstrainType(cache.Target) ||
+				!CheckSimplifiedConstrainType(cache.Arguments[0]))
+			{
+				return false;
+			}
+			return cache.Arguments[0].Determined->IsBaseTypeOf(cache.Target.Determined);
+		case CONSTRAIN_INTERFACE:
+			if (cache.Arguments.size() != 1)
+			{
+				throw RuntimeLoaderException("Invalid constrain arguments");
+			}
+			if (!CheckSimplifiedConstrainType(cache.Target) ||
+				!CheckSimplifiedConstrainType(cache.Arguments[0]))
+			{
+				return false;
+			}
+			return cache.Arguments[0].Determined->IsInterfaceOf(cache.Target.Determined);
 		//TODO other constrains
 		}
 		return false;
