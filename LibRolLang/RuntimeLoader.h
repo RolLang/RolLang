@@ -126,10 +126,8 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap (traits)
-//TODO base type/interface constrain
 //TODO trait constrain framework
-//TODO trait function
-//TODO trait field
+//TODO trait function/field
 //TODO trait export
 //TODO import/export traits impl & test
 
@@ -153,6 +151,7 @@ Because constrains can only be applied on single type, it can only be applied to
 //  test cyclic (class, valuetype, interface) inheritance check
 //TODO Public API for loading subtype
 //TODO Test cases for subtype loading, with cyclic reference
+//TODO Test for custom pointer size
 
 //New types of type reference in constrain type list
 //  Parent: parent type itself (only for type).
@@ -1175,7 +1174,17 @@ private:
 			}
 			ii.Type = baseType;
 
-			CheckVirtualTable(ii.Type, ii.VirtualTable);
+			if (src->Storage == TSM_INTERFACE)
+			{
+				if (ii.VirtualTable != nullptr)
+				{
+					throw RuntimeLoaderException("Interface cannot have implementation");
+				}
+			}
+			else
+			{
+				CheckVirtualTable(ii.Type, ii.VirtualTable);
+			}
 			dest->Interfaces.push_back(ii);
 		}
 	}

@@ -165,6 +165,20 @@ namespace
 			t.Finalizer = WriteFunctionRef(t.Generic, finalizer);
 		}
 
+		void SetBaseType(const TypeReference& itype, const TypeReference& vtab)
+		{
+			auto id1 = WriteTypeRef(_assembly.Types[_currentType].Generic, itype);
+			auto id2 = WriteTypeRef(_assembly.Types[_currentType].Generic, vtab);
+			_assembly.Types[_currentType].Base = { id1, id2 };
+		}
+
+		void AddInterface(const TypeReference& itype, const TypeReference& vtab)
+		{
+			auto id1 = WriteTypeRef(_assembly.Types[_currentType].Generic, itype);
+			auto id2 = WriteTypeRef(_assembly.Types[_currentType].Generic, vtab);
+			_assembly.Types[_currentType].Interfaces.push_back({ id1, id2 });
+		}
+
 		void EndType()
 		{
 			FinishType();

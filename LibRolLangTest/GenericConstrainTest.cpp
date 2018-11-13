@@ -31,7 +31,7 @@ namespace LibRolLangTest
 			}
 		}
 
-		TEST_METHOD(SimpleTypeSame)
+		TEST_METHOD(DeductionTypeSame)
 		{
 			//class A<T> requires B<T,C<T>> == B<D,any>
 			//success: A<D>, fail: A<E>
@@ -66,6 +66,62 @@ namespace LibRolLangTest
 				auto te = LoadType(&l, "Core", "Core.E", false);
 				LoadType(&l, "Core", "Core.A", { td }, false);
 				LoadType(&l, "Core", "Core.A", { te }, true);
+			}
+		}
+
+		TEST_METHOD(SimpleInheritance)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto v1 = b.BeginType(TSM_VALUE, "Core.ValueType1");
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.ValueType2");
+				b.SetBaseType(v1, {});
+				b.Link(true, false);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.ValueType3");
+				b.Link(true, false);
+				b.EndType();
+
+				auto vtab = b.BeginType(TSM_GLOBAL, "Core.VTabType");
+				b.EndType();
+				auto i1 = b.BeginType(TSM_INTERFACE, "Core.Interface1");
+				b.SetBaseType({}, vtab);
+				b.EndType();
+				b.BeginType(TSM_INTERFACE, "Core.Interface2");
+				b.SetBaseType({}, vtab);
+				b.AddInterface(i1, {});
+				b.Link(true, false);
+				b.EndType();
+				b.BeginType(TSM_INTERFACE, "Core.Interface3");
+				b.SetBaseType({}, vtab);
+				b.Link(true, false);
+				b.EndType();
+
+				b.BeginType(TSM_VALUE, "Core.TestType1");
+				auto t1g = b.AddGenericParameter();
+				b.AddConstrain(t1g, { v1 }, CONSTRAIN_BASE, 0);
+				b.Link(true, false);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType2");
+				auto t2g = b.AddGenericParameter();
+				b.AddConstrain(t2g, { i1 }, CONSTRAIN_INTERFACE, 0);
+				b.Link(true, false);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				auto v2 = LoadType(&l, "Core", "Core.ValueType2", false);
+				auto v3 = LoadType(&l, "Core", "Core.ValueType3", false);
+				auto i2 = LoadType(&l, "Core", "Core.Interface2", false);
+				auto i3 = LoadType(&l, "Core", "Core.Interface3", false);
+
+				LoadType(&l, "Core", "Core.TestType1", { v2 }, false);
+				LoadType(&l, "Core", "Core.TestType1", { v3 }, true);
+				LoadType(&l, "Core", "Core.TestType2", { i2 }, false);
+				LoadType(&l, "Core", "Core.TestType2", { i3 }, true);
 			}
 		}
 	};
