@@ -150,6 +150,7 @@ Because constrains can only be applied on single type, it can only be applied to
 
 //Roadmap (low priority)
 //TODO Test cases for type loading with base/interfaces, box type
+//  test cyclic (class, valuetype, interface) inheritance check
 //TODO Public API for loading subtype
 //TODO Test cases for subtype loading, with cyclic reference
 
@@ -609,6 +610,8 @@ private:
 		_postLoadingTypes.clear();
 		_finishedLoadingTypes.clear();
 		_finishedLoadingFunctions.clear();
+		_constrainCheckingTypes.clear();
+		_constrainCheckingFunctions.clear();
 	}
 
 	void MoveFinishedObjects()
@@ -724,10 +727,20 @@ private:
 		}
 
 		auto typeTemplate = FindTypeTemplate(args);
+		for (auto& i : _constrainCheckingTypes)
+		{
+			if (i == args)
+			{
+				throw RuntimeLoaderException("Cyclic constrain");
+			}
+		}
+		_constrainCheckingTypes.push_back(args);
 		if (!skipArgumentCheck && !CheckGenericArguments(typeTemplate->Generic, args))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
+		assert(_constrainCheckingTypes.back() == args);
+		_constrainCheckingTypes.pop_back();
 
 		if (typeTemplate->Generic.Fields.size() != 0)
 		{
@@ -750,7 +763,7 @@ private:
 		t->Storage = typeTemplate->GCMode;
 		t->PointerType = nullptr;
 
-		if (typeTemplate->GCMode == TSM_REFERENCE || typeTemplate->GCMode == TSM_INTERFACE)
+		if (typeTemplate->GCMode == TSM_REFERENCE)
 		{
 			RuntimeType* ret = t.get();
 			_loadingRefTypes.push_back(std::move(t));
@@ -758,6 +771,8 @@ private:
 		}
 		else
 		{
+			//Note that interfaces also go here. We need to use LoadFields to check cyclic inheritance
+			//of interfaces.
 			return LoadFields(std::move(t), typeTemplate);
 		}
 	}
@@ -787,7 +802,21 @@ private:
 		}
 
 		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
-		CheckGenericArguments(funcTemplate->Generic, args);
+
+		for (auto& i : _constrainCheckingFunctions)
+		{
+			if (i == args)
+			{
+				throw RuntimeLoaderException("Cyclic constrain");
+			}
+		}
+		_constrainCheckingFunctions.push_back(args);
+		if (!CheckGenericArguments(funcTemplate->Generic, args))
+		{
+			throw RuntimeLoaderException("Invalid generic arguments");
+		}
+		assert(_constrainCheckingFunctions.back() == args);
+		_constrainCheckingFunctions.pop_back();
 
 		auto f = std::make_unique<RuntimeFunction>();
 		auto ret = f.get();
@@ -921,6 +950,12 @@ private:
 		}
 		CheckVirtualTable(baseType, vtabType);
 
+		if (type->Storage == TSM_INTERFACE)
+		{
+			//Within the range of _loadingTypes, we can avoid cyclic interface inheritance.
+			LoadInterfaces(type.get(), type.get(), tt);
+		}
+
 		std::size_t offset = 0, totalAlignment = 1;
 
 		//Fields
@@ -1009,10 +1044,11 @@ private:
 				LoadInterfaces(type.get(), type->Args.Arguments[0], nullptr);
 			}
 		}
-		else if (type->Storage == TSM_INTERFACE || type->Storage == TSM_REFERENCE)
+		else if (type->Storage == TSM_REFERENCE)
 		{
 			LoadInterfaces(type.get(), type.get(), typeTemplate);
 		}
+		//Interfaces of TSM_INTERFACE has already been loaded in LoadFields.
 
 		type->Initializer = LoadRefFunction({ type.get(), typeTemplate->Generic }, typeTemplate->Initializer);
 		type->Finalizer = LoadRefFunction({ type.get(), typeTemplate->Generic }, typeTemplate->Finalizer);
@@ -1611,11 +1647,7 @@ private:
 			while (ListContainUndetermined(cache.Arguments, cache.Target))
 			{
 				auto check = TryDetermineConstrainArgument(constrain, cache);
-				if (check == -1) return false;
 				if (check == 1) continue;
-				//Cannot determine some of the REF_ANY arguments.
-				//Further constrain check is impossible. We return false to indicate
-				//the requirements of this constrain is not met.
 				return false;
 			}
 			//All REF_ANY are resolved.
@@ -1921,6 +1953,7 @@ private:
 			}
 		}
 		default:
+			assert(0);
 			break;
 		}
 	}
@@ -2120,6 +2153,8 @@ private:
 
 	std::vector<RuntimeType*> _loadingTypes;
 	std::vector<SubtypeLoadingArguments> _loadingSubtypes;
+	std::vector<LoadingArguments> _constrainCheckingTypes;
+	std::vector<LoadingArguments> _constrainCheckingFunctions;
 
 	//Loading queues. We need to keep order.
 	std::deque<std::unique_ptr<RuntimeType>> _loadingRefTypes;
