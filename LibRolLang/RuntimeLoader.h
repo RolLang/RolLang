@@ -1965,6 +1965,7 @@ private:
 				if (!CheckGenericArguments(tt->Generic, la))
 				{
 					t = ConstrainType::Fail();
+					return;
 				}
 			}
 			t = ConstrainType::RT(LoadTypeInternal(la, t.TryArgumentConstrain));
@@ -2002,6 +2003,7 @@ private:
 			}
 			//LoadSubtype is too complicated to separate the constrain check.
 			//We have to use a try block.
+			//TODO maybe it's still better not to throw.
 			if (t.TryArgumentConstrain)
 			{
 				try
@@ -2011,7 +2013,7 @@ private:
 				}
 				catch (...)
 				{
-					//TODO make sure it's really caused by type constrain checking.
+					//TODO or at least make sure it's really caused by constrain checking.
 					t = ConstrainType::Fail();
 					return;
 				}

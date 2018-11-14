@@ -18,6 +18,7 @@ namespace
 			TR_SELF,
 			TR_SUBTYPE,
 			TR_ANY,
+			TR_TRY,
 		};
 
 		enum FunctionReferenceType
@@ -66,6 +67,11 @@ namespace
 		TypeReference AnyType()
 		{
 			return { TR_ANY, 0, {} };
+		}
+
+		TypeReference TryType(const TypeReference& t)
+		{
+			return { TR_TRY, 0, { t } };
 		}
 
 		void BeginAssembly(const std::string& name)
@@ -561,6 +567,12 @@ namespace
 			case TR_ANY:
 			{
 				g.Types.push_back({ ForceLoad(REF_ANY, forceLoad), 0 });
+				return ret;
+			}
+			case TR_TRY:
+			{
+				if (args.size() != 1) return SIZE_MAX;
+				g.Types.push_back({ ForceLoad(REF_TRY, forceLoad), args[0] });
 				return ret;
 			}
 			default:

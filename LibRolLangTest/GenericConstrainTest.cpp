@@ -160,5 +160,39 @@ namespace LibRolLangTest
 				LoadType(&l, "Core", "Core.TestType", { tv2, tv2 }, true);
 			}
 		}
+
+		TEST_METHOD(TryTypeExist)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto tv1 = b.BeginType(TSM_VALUE, "Core.ValueType1");
+				b.Link(true, false);
+				b.EndType();
+				auto tv2 = b.BeginType(TSM_VALUE, "Core.ValueType2");
+				b.Link(true, false);
+				b.EndType();
+				auto ct = b.BeginType(TSM_VALUE, "Core.ConstrainType");
+				auto cg = b.AddGenericParameter();
+				b.AddConstrain(cg, { tv1 }, CONSTRAIN_SAME, 0);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType");
+				b.Link(true, false);
+				auto tg = b.AddGenericParameter();
+				b.AddConstrain(b.TryType(b.MakeType(ct, { tg })), {}, CONSTRAIN_EXIST, 0);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				auto tv1 = LoadType(&l, "Core", "Core.ValueType1", false);
+				auto tv2 = LoadType(&l, "Core", "Core.ValueType2", false);
+				LoadType(&l, "Core", "Core.TestType", { tv1 }, false);
+				LoadType(&l, "Core", "Core.TestType", { tv2 }, true);
+				//Needs manually step-in to check where it throws.
+				//Should be in loading Core.TestType instead of Core.ConstrainType.
+				//TODO use exception tracing, loader constrain API or type overload when any is available.
+			}
+		}
 	};
 }
