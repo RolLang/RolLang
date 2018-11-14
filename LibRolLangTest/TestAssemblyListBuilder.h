@@ -29,6 +29,13 @@ namespace
 			FR_INSTI,
 		};
 
+		enum TraitReferenceType
+		{
+			CR_EMPTY,
+			CR_TEMP,
+			CR_TEMPI,
+		};
+
 		//Note that all references will be invalidated after EndAssembly()
 		struct TypeReference
 		{
@@ -45,6 +52,12 @@ namespace
 			std::vector<TypeReference> Arguments;
 		};
 
+		struct TraitReference
+		{
+			TraitReferenceType Type;
+			std::size_t Id;
+		};
+
 		TypeReference SelfType()
 		{
 			return { TR_SELF, 0, {} };
@@ -59,7 +72,7 @@ namespace
 		{
 			_assembly = Assembly();
 			_assembly.AssemblyName = name;
-			_currentType = _currentFunction = SIZE_MAX;
+			_currentType = _currentFunction = _currentTrait = SIZE_MAX;
 		}
 
 		void ExportConstant(const std::string& name, std::uint32_t val)
@@ -82,7 +95,7 @@ namespace
 		TypeReference ForwardDeclareType()
 		{
 			auto id = _assembly.Types.size();
-			_assembly.Types.push_back({});
+			_assembly.Types.emplace_back();
 			return { TR_TEMP, id, {} };
 		}
 
@@ -144,6 +157,11 @@ namespace
 					_assembly.NativeFunctions.push_back({ _currentFunction, _currentName });
 				}
 			}
+			else if (_currentTrait != SIZE_MAX)
+			{
+				assert(!linkNative);
+				_assembly.ExportTraits.push_back({ _currentTrait, _currentName });
+			}
 		}
 
 		void AddField(const TypeReference& type)
@@ -182,7 +200,7 @@ namespace
 		void EndType()
 		{
 			FinishType();
-			_currentType = -1;
+			_currentType = SIZE_MAX;
 			_currentName = "";
 		}
 
@@ -196,32 +214,14 @@ namespace
 
 		TypeReference AddGenericParameter()
 		{
-			if (_currentType != SIZE_MAX)
-			{
-				auto id = _assembly.Types[_currentType].Generic.ParameterCount++;
-				return { TR_ARGUMENT, id, {} };
-			}
-			else if (_currentFunction != SIZE_MAX)
-			{
-				auto id = _assembly.Functions[_currentFunction].Generic.ParameterCount++;
-				return { TR_ARGUMENT, id, {} };
-			}
-			return { TR_EMPTY, 0, {} };
+			auto id = CurrentDeclaration().ParameterCount++;
+			return { TR_ARGUMENT, id, {} };
 		}
 
 		TypeReference AddAdditionalGenericParameter(std::size_t n)
 		{
-			if (_currentType != SIZE_MAX)
-			{
-				auto id = _assembly.Types[_currentType].Generic.ParameterCount + n;
-				return { TR_ARGUMENT, id, {} };
-			}
-			else if (_currentFunction != SIZE_MAX)
-			{
-				auto id = _assembly.Functions[_currentFunction].Generic.ParameterCount + n;
-				return { TR_ARGUMENT, id, {} };
-			}
-			return { TR_EMPTY, 0, {} };
+			auto id = CurrentDeclaration().ParameterCount + n;
+			return { TR_ARGUMENT, id, {} };
 		}
 
 		void AddConstrain(TypeReference target, const std::vector<TypeReference> args,
@@ -235,14 +235,7 @@ namespace
 			{
 				constrain.Arguments.push_back(WriteTypeRef(constrain, a, false));
 			}
-			if (_currentType != SIZE_MAX)
-			{
-				_assembly.Types[_currentType].Generic.Constrains.emplace_back(std::move(constrain));
-			}
-			else if (_currentFunction != SIZE_MAX)
-			{
-				_assembly.Functions[_currentFunction].Generic.Constrains.emplace_back(std::move(constrain));
-			}
+			CurrentDeclaration().Constrains.emplace_back(std::move(constrain));
 		}
 
 		TypeReference MakeType(const TypeReference& base, std::vector<TypeReference> args)
@@ -281,7 +274,7 @@ namespace
 		FunctionReference ForwardDeclareFunction()
 		{
 			auto id = _assembly.Functions.size();
-			_assembly.Functions.push_back({});
+			_assembly.Functions.emplace_back();
 			return { FR_TEMP, id, {} };
 		}
 
@@ -388,30 +381,52 @@ namespace
 			_currentName = "";
 		}
 
+		TraitReference ImportTrait(const std::string& a, const std::string& n, std::size_t nargs)
+		{
+			auto ret = _assembly.ImportTraits.size();
+			_assembly.ImportTraits.push_back({ a, n, nargs });
+			return { CR_TEMPI, ret };
+		}
+
+		TraitReference ForwardDeclareTrait()
+		{
+			auto ret = _assembly.Traits.size();
+			_assembly.Traits.emplace_back();
+			return { CR_TEMP, ret };
+		}
+
+		TraitReference BeginTrait(const std::string& name, TraitReference r = {})
+		{
+			if (r.Type == CR_EMPTY)
+			{
+				auto ret = ForwardDeclareTrait();
+				_currentTrait = ret.Id;
+				_currentName = name;
+				return ret;
+			}
+			else if (r.Type == CR_TEMP)
+			{
+				_currentTrait = r.Id;
+				_currentName = name;
+				return r;
+			}
+			return {};
+		}
+
+		void EndTrait()
+		{
+			_currentTrait = SIZE_MAX;
+			_currentName = "";
+		}
+
 		std::size_t AddTypeRef(const TypeReference& t)
 		{
-			if (_currentType != SIZE_MAX)
-			{
-				return WriteTypeRef(_assembly.Types[_currentType].Generic, t);
-			}
-			else if (_currentFunction != SIZE_MAX)
-			{
-				return WriteTypeRef(_assembly.Functions[_currentFunction].Generic, t);
-			}
-			return SIZE_MAX;
+			return WriteTypeRef(CurrentDeclaration(), t);
 		}
 
 		std::size_t AddFunctionRef(const FunctionReference& f)
 		{
-			if (_currentType != SIZE_MAX)
-			{
-				return WriteFunctionRef(_assembly.Types[_currentType].Generic, f);
-			}
-			else if (_currentFunction != SIZE_MAX)
-			{
-				return WriteFunctionRef(_assembly.Functions[_currentFunction].Generic, f);
-			}
-			return SIZE_MAX;
+			return WriteFunctionRef(CurrentDeclaration(), f);
 		}
 
 	private:
@@ -476,6 +491,23 @@ namespace
 		}
 
 	private:
+		GenericDeclaration& CurrentDeclaration()
+		{
+			if (_currentType != SIZE_MAX)
+			{
+				return _assembly.Types[_currentType].Generic;
+			}
+			else if (_currentFunction != SIZE_MAX)
+			{
+				return _assembly.Functions[_currentFunction].Generic;
+			}
+			else
+			{
+				assert(_currentTrait != SIZE_MAX);
+				return _assembly.Traits[_currentTrait].Generic;
+			}
+		}
+
 		struct ReferenceTypeWriteTarget
 		{
 			std::vector<DeclarationReference>& Types;
@@ -579,6 +611,7 @@ namespace
 		Assembly _assembly;
 		std::size_t _currentType;
 		std::size_t _currentFunction;
+		std::size_t _currentTrait;
 		std::string _currentName;
 	};
 }

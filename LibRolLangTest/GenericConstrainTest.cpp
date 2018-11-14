@@ -124,5 +124,41 @@ namespace LibRolLangTest
 				LoadType(&l, "Core", "Core.TestType2", { i3 }, true);
 			}
 		}
+
+		TEST_METHOD(SimpleTrait)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto tv1 = b.BeginType(TSM_VALUE, "Core.ValueType1");
+				b.Link(true, false);
+				b.EndType();
+				auto tv2 = b.BeginType(TSM_VALUE, "Core.ValueType2");
+				b.Link(true, false);
+				b.EndType();
+				auto tt = b.BeginTrait("Core.Trait1");
+				auto cg1 = b.SelfType();
+				auto cg2 = b.AddGenericParameter();
+				b.AddConstrain(cg1, { tv1 }, CONSTRAIN_SAME, 0);
+				b.AddConstrain(cg2, { tv1 }, CONSTRAIN_SAME, 0);
+				b.EndTrait();
+				b.BeginType(TSM_VALUE, "Core.TestType");
+				b.Link(true, false);
+				auto tg1 = b.AddGenericParameter();
+				auto tg2 = b.AddGenericParameter();
+				b.AddConstrain(tg1, { tg2 }, CONSTRAIN_TRAIT_ASSEMBLY, tt.Id);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				auto tv1 = LoadType(&l, "Core", "Core.ValueType1", false);
+				auto tv2 = LoadType(&l, "Core", "Core.ValueType2", false);
+				LoadType(&l, "Core", "Core.TestType", { tv1, tv1 }, false);
+				LoadType(&l, "Core", "Core.TestType", { tv2, tv1 }, true);
+				LoadType(&l, "Core", "Core.TestType", { tv1, tv2 }, true);
+				LoadType(&l, "Core", "Core.TestType", { tv2, tv2 }, true);
+			}
+		}
 	};
 }
