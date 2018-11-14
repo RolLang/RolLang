@@ -126,7 +126,6 @@ Because constrains can only be applied on single type, it can only be applied to
 */
 
 //Roadmap (traits)
-//TODO trait constrain framework
 //TODO trait function/field
 //TODO trait export
 //TODO import/export traits impl & test
@@ -142,6 +141,7 @@ Because constrains can only be applied on single type, it can only be applied to
 //TODO GenericDeclaration with parameter pack (see above)
 //TODO Support for variable sized object (string, array)
 //TODO Allow a function to use REF_SELF to refer to itself
+//TODO Add attribute support
 
 //Roadmap (interpreter)
 //TODO RuntimeObject layout
@@ -463,6 +463,35 @@ public:
 				}
 				if (args.GenericParameters != SIZE_MAX &&
 					a->Functions[e.InternalId].Generic.ParameterCount != args.GenericParameters)
+				{
+					return false;
+				}
+				result.Assembly = args.AssemblyName;
+				result.Id = e.InternalId;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool FindExportTrait(const AssemblyImport& args, LoadingArguments& result)
+	{
+		auto a = FindAssemblyThrow(args.AssemblyName);
+		for (auto& e : a->ExportTraits)
+		{
+			if (e.ExportName == args.ImportName)
+			{
+				if (e.InternalId >= a->Traits.size())
+				{
+					auto importId = e.InternalId - a->Traits.size();
+					if (importId >= a->ImportTraits.size())
+					{
+						return false;
+					}
+					return FindExportTrait(a->ImportTraits[importId], result);
+				}
+				if (args.GenericParameters != SIZE_MAX &&
+					a->Traits[e.InternalId].Generic.ParameterCount != args.GenericParameters)
 				{
 					return false;
 				}
@@ -1516,28 +1545,28 @@ private:
 	};
 	struct ConstrainUndeterminedTypeSource
 	{
-		ConstrainUndeterminedTypeSource* Parent = nullptr;
+		ConstrainUndeterminedTypeSource* SParent = nullptr;
 		std::vector<ConstrainUndeterminedTypeInfo> UndeterminedTypes;
 		std::size_t TotalSize = 0;
 		RuntimeType* GetDetermined(std::size_t i)
 		{
-			auto ps = Parent ? Parent->TotalSize : 0;
+			auto ps = SParent ? SParent->TotalSize : 0;
 			if (i >= ps)
 			{
 				return UndeterminedTypes[i - ps].Determined;
 			}
-			return Parent->GetDetermined(i);
+			return SParent->GetDetermined(i);
 		}
 		void Determined(std::size_t i, RuntimeType* t)
 		{
-			auto ps = Parent ? Parent->TotalSize : 0;
+			auto ps = SParent ? SParent->TotalSize : 0;
 			if (i >= ps)
 			{
 				UndeterminedTypes[i - ps].Determined = t;
 			}
 			else
 			{
-				Parent->Determined(i, t);
+				SParent->Determined(i, t);
 			}
 		}
 	};
@@ -1584,7 +1613,7 @@ private:
 
 		static ConstrainType UD(ConstrainUndeterminedTypeSource& src)
 		{
-			auto id = src.UndeterminedTypes.size() + (src.Parent ? src.Parent->TotalSize : 0);
+			auto id = src.UndeterminedTypes.size() + (src.SParent ? src.SParent->TotalSize : 0);
 			src.UndeterminedTypes.push_back({});
 			return { CTT_ANY, nullptr, {}, 0, {}, {}, { &src, id } };
 		}
@@ -1612,7 +1641,9 @@ private:
 		ConstrainCalculationCacheRoot* Root;
 		ConstrainCalculationCache* Parent;
 
+		GenericConstrain* Source;
 		std::vector<ConstrainType> CheckArguments;
+		ConstrainType CheckTarget;
 
 		std::string SrcAssembly;
 		ConstrainType Target;
@@ -1621,7 +1652,6 @@ private:
 	};
 	struct ConstrainCalculationCacheRoot
 	{
-		ConstrainCalculationCache Cache;
 		std::size_t Size;
 	};
 
@@ -1633,39 +1663,64 @@ private:
 		{
 			cargs.push_back(ConstrainType::RT(a));
 		}
-		return CheckConstrainsInternal(srcAssebly, g, cargs);
+		for (auto& constrain : g->Constrains)
+		{
+			ConstrainCalculationCacheRoot root;
+			auto c = CreateConstrainCache(constrain, srcAssebly, cargs, ConstrainType::Fail());
+			c->Root = &root;
+			if (!CheckConstrainCached(c.get()))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
-	bool CheckConstrainsInternal(const std::string& srcAssebly, GenericDeclaration* g,
-		const std::vector<ConstrainType>& args)
+	void CreateSubConstrainCache(const std::string& srcAssebly, GenericDeclaration* g,
+		ConstrainCalculationCache& parent)
 	{
 		for (auto& constrain : g->Constrains)
 		{
-			//TODO need a parent? (cache and undetermined src)
-			ConstrainCalculationCacheRoot cc;
-			auto& cache = cc.Cache;
-			cache.Parent = nullptr;
-			cache.Root = &cc;
-			cache.SrcAssembly = srcAssebly;
-			cache.CheckArguments = args; //TODO avoid copy?
-			cache.Target = ConstructConstrainArgumentType(cache, constrain, constrain.Target);
-			for (auto a : constrain.Arguments)
-			{
-				cache.Arguments.push_back(ConstructConstrainArgumentType(cache, constrain, a));
-			}
-			while (ListContainUndetermined(cache.Arguments, cache.Target))
-			{
-				auto check = TryDetermineConstrainArgument(constrain, cache);
-				if (check == 1) continue;
-				return false;
-			}
-			//All REF_ANY are resolved.
-			if (!CheckConstrainDetermined(constrain, cache))
-			{
-				return false;
-			}
-			//TODO calculate exportable references
+			parent.Children.emplace_back(CreateConstrainCache(constrain, srcAssebly,
+				parent.Arguments, parent.Target));
+			auto ptr = parent.Children.back().get();
+			ptr->Parent = &parent;
+			ptr->Root = parent.Root;
+			ptr->SParent = &parent;
 		}
+	}
+
+	//TODO separate create+basic fields from load argument/target types (reduce # of args)
+	std::unique_ptr<ConstrainCalculationCache> CreateConstrainCache(GenericConstrain& constrain,
+		const std::string& srcAssebly, const std::vector<ConstrainType>& args, ConstrainType checkTarget)
+	{
+		auto ret = std::make_unique<ConstrainCalculationCache>();
+		ret->Source = &constrain;
+		ret->SrcAssembly = srcAssebly;
+		ret->CheckArguments = args;
+		ret->CheckTarget = checkTarget;
+		ret->Target = ConstructConstrainArgumentType(*ret.get(), constrain, constrain.Target);
+		for (auto a : constrain.Arguments)
+		{
+			ret->Arguments.push_back(ConstructConstrainArgumentType(*ret.get(), constrain, a));
+		}
+		return ret;
+	}
+
+	bool CheckConstrainCached(ConstrainCalculationCache* cache)
+	{
+		while (ListContainUndetermined(cache->Arguments, cache->Target))
+		{
+			auto check = TryDetermineConstrainArgument(*cache);
+			if (check == 1) continue;
+			return false;
+		}
+		//All REF_ANY are resolved.
+		if (!CheckConstrainDetermined(*cache))
+		{
+			return false;
+		}
+		//TODO calculate exportable references
 		return true;
 	}
 
@@ -1694,6 +1749,12 @@ private:
 			return ConstructConstrainArgumentType(cache, constrain, t.Index);
 		case REF_ARGUMENT:
 			return cache.CheckArguments[t.Index];
+		case REF_SELF:
+			if (cache.CheckTarget.CType == CTT_FAIL)
+			{
+				throw RuntimeLoaderException("Invalid use of REF_SELF");
+			}
+			return cache.CheckTarget;
 		case REF_ASSEMBLY:
 		{
 			auto ret = ConstrainType::G(cache.SrcAssembly, t.Index);
@@ -1835,9 +1896,9 @@ private:
 		}
 	}
 
-	int TryDetermineConstrainArgument(GenericConstrain& c, ConstrainCalculationCache& cache)
+	int TryDetermineConstrainArgument(ConstrainCalculationCache& cache)
 	{
-		switch (c.Type)
+		switch (cache.Source->Type)
 		{
 		case CONSTRAIN_EXIST:
 		case CONSTRAIN_BASE:
@@ -1979,9 +2040,34 @@ private:
 		return true;
 	}
 
-	bool CheckConstrainDetermined(GenericConstrain& c, ConstrainCalculationCache& cache)
+	bool CheckTraitDetermined(const std::string& a, Trait* t, ConstrainCalculationCache& cache)
 	{
-		switch (c.Type)
+		//First sub-constrains
+		if (cache.Children.size() < t->Generic.Constrains.size())
+		{
+			if (cache.Arguments.size() != t->Generic.ParameterCount)
+			{
+				throw RuntimeLoaderException("Invalid generic arguments");
+			}
+			CreateSubConstrainCache(a, &t->Generic, cache);
+		}
+		assert(cache.Children.size() == t->Generic.Constrains.size());
+		for (auto& subconstrain : cache.Children)
+		{
+			//Not guaranteed to be determined, and we also need to calculate exports.
+			//Use CheckConstrainCached.
+			if (!CheckConstrainCached(subconstrain.get()))
+			{
+				return false;
+			}
+		}
+		//TODO check fields, functions
+		return true;
+	}
+
+	bool CheckConstrainDetermined(ConstrainCalculationCache& cache)
+	{
+		switch (cache.Source->Type)
 		{
 		case CONSTRAIN_EXIST:
 			if (cache.Arguments.size() != 0)
@@ -2022,9 +2108,34 @@ private:
 				return false;
 			}
 			return cache.Arguments[0].Determined->IsInterfaceOf(cache.Target.Determined);
-		//TODO other constrains
+		case CONSTRAIN_TRAIT_ASSEMBLY:
+		{
+			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
+			if (cache.Source->Index >= assembly->Traits.size())
+			{
+				throw RuntimeLoaderException("Invalid trait reference");
+			}
+			auto trait = &assembly->Traits[cache.Source->Index];
+			return CheckTraitDetermined(cache.SrcAssembly, trait, cache);
 		}
-		return false;
+		case CONSTRAIN_TRAIT_IMPORT:
+		{
+			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
+			LoadingArguments la;
+			if (cache.Source->Index >= assembly->ImportTraits.size())
+			{
+				throw RuntimeLoaderException("Invalid trait reference");
+			}
+			if (!FindExportTrait(assembly->ImportTraits[cache.Source->Index], la))
+			{
+				throw RuntimeLoaderException("Invalid trait reference");
+			}
+			auto trait = &FindAssemblyThrow(la.Assembly)->Traits[la.Id];
+			return CheckTraitDetermined(la.Assembly, trait, cache);
+		}
+		default:
+			throw RuntimeLoaderException("Invalid constrain type");
+		}
 	}
 
 #endif
