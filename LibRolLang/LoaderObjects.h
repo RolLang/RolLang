@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "Assembly.h"
+#include "Spinlock.h"
 
 class RuntimeLoader;
 struct RuntimeType;
@@ -17,6 +18,8 @@ struct LoadingArgumentElement
 	std::size_t Id;
 	std::size_t ArgumentCount;
 };
+
+//TODO use a separate class, support obtaining component name from loader
 typedef std::vector<LoadingArgumentElement> RuntimeObjectSymbol;
 
 struct LoadingArguments
@@ -169,4 +172,57 @@ struct RuntimeFunction : Initializable
 struct RuntimeFunctionCodeStorage
 {
 	std::vector<std::shared_ptr<RuntimeFunctionCode>> Data;
+};
+
+//TODO Move to some other place
+//Exception thrown internally within RuntimeLoader (and subclasses).
+class RuntimeLoaderException : public std::runtime_error
+{
+public:
+	RuntimeLoaderException(const std::string& msg)
+		: std::runtime_error(msg)
+	{
+	}
+};
+
+//TODO Move to some other place
+struct SubtypeLoadingArguments
+{
+	RuntimeType* Parent;
+	std::string Name;
+	std::vector<RuntimeType*> Arguments;
+
+	bool operator == (const SubtypeLoadingArguments &b) const
+	{
+		return Parent == b.Parent && Name == b.Name && Arguments == b.Arguments;
+	}
+
+	bool operator != (const SubtypeLoadingArguments &b) const
+	{
+		return !(*this == b);
+	}
+};
+
+//TODO move to some other place
+struct LoadingRefArguments
+{
+	const GenericDeclaration& Declaration;
+	const LoadingArguments& Arguments;
+	RuntimeType* SelfType;
+	const std::vector<RuntimeType*>* AdditionalArguments;
+
+	LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g)
+		: Declaration(g), Arguments(type->Args), SelfType(type), AdditionalArguments(nullptr)
+	{
+	}
+
+	LoadingRefArguments(RuntimeFunction* func, const GenericDeclaration& g)
+		: Declaration(g), Arguments(func->Args), SelfType(nullptr), AdditionalArguments(nullptr)
+	{
+	}
+
+	LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g, const std::vector<RuntimeType*>& aa)
+		: Declaration(g), Arguments(type->Args), SelfType(type), AdditionalArguments(&aa)
+	{
+	}
 };

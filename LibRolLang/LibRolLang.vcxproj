@@ -29,8 +29,13 @@
     <ClInclude Include="InterpreterRuntimeLoader.h" />
     <ClInclude Include="InterpreterStack.h" />
     <ClInclude Include="InterpreterStacktracer.h" />
-    <ClInclude Include="RuntimeLoader.h" />
+    <ClInclude Include="RuntimeLoader0.h" />
     <ClInclude Include="LoaderObjects.h" />
+    <ClInclude Include="RuntimeLoader.h" />
+    <ClInclude Include="RuntimeLoaderConstrain.h" />
+    <ClInclude Include="RuntimeLoaderCore.h" />
+    <ClInclude Include="RuntimeLoaderData.h" />
+    <ClInclude Include="RuntimeLoaderRefList.h" />
     <ClInclude Include="Serialization.h" />
     <ClInclude Include="Spinlock.h" />
     <ClInclude Include="Trait.h" />

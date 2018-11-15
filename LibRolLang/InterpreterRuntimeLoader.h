@@ -132,9 +132,9 @@ public:
 	bool GetNativeFunctionByName(const std::string& assemblyName, const std::string& name,
 		Function** f, std::size_t* id)
 	{
-		auto a = FindAssemblyNoThrow(assemblyName);
+		auto a = FindAssembly(assemblyName);
 		if (a == nullptr) return false;
-		auto i = FindNativeIdNoThrow(a->NativeFunctions, name);
+		auto i = FindNativeId(a->NativeFunctions, name);
 		if (i == SIZE_MAX) return false;
 		if (i >= a->Functions.size()) return false;
 		*f = &a->Functions[i];

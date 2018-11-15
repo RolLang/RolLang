@@ -112,7 +112,7 @@ namespace LibRolLangTest
 			int result;
 			Assert::IsTrue(i.Call(fid));
 			Assert::IsTrue(i.Pop(&result));
-			Assert::AreEqual(result, 101);
+			Assert::AreEqual(101, result);
 		}
 
 		TEST_METHOD(Redirect)
