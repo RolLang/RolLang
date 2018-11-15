@@ -11,6 +11,8 @@ enum Features : unsigned char
 	F_EXCEPTION,
 	//Pointer arithmetic and conversion (not including reference type conversion)
 	F_RAWPOINTER,
+	//Call a function by id (not ptr, which is F_RAWPOINTER)
+	F_INDIRECTCALL,
 };
 
 //TODO

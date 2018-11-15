@@ -44,7 +44,7 @@ struct Type
 	std::size_t Finalizer; //void(T)
 
 	std::vector<TypeSubitem> PublicSubTypes; //Id = index in generic declaration type list
-	//TODO instance/static functions?
+	//TODO instance/static functions? (after we add support for attribute)
 	std::vector<TypeSubitem> PublicFunctions; //Id = index in generic declaration function list
 	std::vector<TypeSubitem> PublicFields; //Id = index in field list
 };
@@ -53,6 +53,10 @@ FIELD_SERIALIZER_BEGIN(Type)
 	SERIALIZE_FIELD(GCMode)
 	SERIALIZE_FIELD(Fields)
 	SERIALIZE_FIELD(Base)
+	SERIALIZE_FIELD(Interfaces)
 	SERIALIZE_FIELD(Initializer)
 	SERIALIZE_FIELD(Finalizer)
+	SERIALIZE_FIELD(PublicSubTypes)
+	SERIALIZE_FIELD(PublicFunctions)
+	SERIALIZE_FIELD(PublicFields)
 FIELD_SERIALIZER_END()

@@ -128,15 +128,18 @@ Because constrains can only be applied on single type, it can only be applied to
 //Roadmap (traits)
 //TODO trait function/field
 //TODO trait export
-//TODO import/export traits impl & test
-
-//Roadmap (common)
-//TODO Traits (see above)
-//  for generic type's member, function must inherits parameters
-//  (when looking for members, these parameters are directly
-//  copied from type's parameters, before constrain is checked)
 //TODO Reference of trait function, type
 //TODO Type parital specialization
+
+//Roadmap (common)
+//TODO Add support for static/instance function/field.
+//  Modify declaration
+//  Modify referencing structs used for field and function
+//  Constrain requirements can simply refer to GenericDeclaration list (no FORCELOAD)
+//  SubFunction and field support (change to REF_TYPEMEMBER)
+//  Remove global type
+//TODO Traits (see above)
+//TODO Improve vtab (auto calculate and limit to functions), add v and i support for call
 //TODO Remove direct export of function and fields
 //TODO GenericDeclaration with parameter pack (see above)
 //TODO Support for variable sized object (string, array)
@@ -147,11 +150,14 @@ Because constrains can only be applied on single type, it can only be applied to
 //TODO RuntimeObject layout
 
 //Roadmap (low priority)
+//TODO Debug info support for RuntimeObjects
+//  Also improve LoadingArgumentElement to get name from RuntimeLoader
 //TODO Test cases for type loading with base/interfaces, box type
 //  test cyclic (class, valuetype, interface) inheritance check
 //TODO Public API for loading subtype
 //TODO Test cases for subtype loading, with cyclic reference
 //TODO Test for custom pointer size
+//TODO import/export traits test
 
 //New types of type reference in constrain type list
 //  Parent: parent type itself (only for type).
@@ -1924,6 +1930,21 @@ private:
 		}
 	}
 
+	bool TrySimplifyConstrainType(ConstrainType& t, ConstrainType& parent)
+	{
+		SimplifyConstrainType(t);
+		if (t.CType != CTT_RT)
+		{
+			if (t.CType == CTT_FAIL)
+			{
+				parent = ConstrainType::Fail();
+			}
+			return false;
+		}
+		assert(t.Determined);
+		return true;
+	}
+
 	void SimplifyConstrainType(ConstrainType& t)
 	{
 		switch (t.CType)
@@ -1940,23 +1961,13 @@ private:
 			return;
 		case CTT_GENERIC:
 		{
-			for (auto& arg : t.Args)
-			{
-				SimplifyConstrainType(arg);
-			}
 			LoadingArguments la = { t.TypeTemplateAssembly, t.TypeTemplateIndex };
 			for (auto& arg : t.Args)
 			{
-				//TODO use a separate function (3 uses)
-				if (arg.CType != CTT_RT)
+				if (!TrySimplifyConstrainType(arg, t))
 				{
-					if (arg.CType == CTT_FAIL)
-					{
-						t = ConstrainType::Fail();
-					}
 					return;
 				}
-				assert(arg.Determined);
 				la.Arguments.push_back(arg.Determined);
 			}
 			if (t.TryArgumentConstrain)
@@ -1973,33 +1984,22 @@ private:
 		}
 		case CTT_SUBTYPE:
 		{
-			for (auto& arg : t.Args)
-			{
-				SimplifyConstrainType(arg);
-			}
+			SubtypeLoadingArguments la;
 			assert(t.Args.size() > 0);
-			if (t.Args[0].CType != CTT_RT)
+			for (std::size_t i = 0; i < t.Args.size(); ++i)
 			{
-				if (t.Args[0].CType == CTT_FAIL)
+				if (!TrySimplifyConstrainType(t.Args[i], t))
 				{
-					t = ConstrainType::Fail();
-				}
-				return;
-			}
-			assert(t.Args[0].Determined);
-			SubtypeLoadingArguments la = { t.Args[0].Determined, t.Args[0].SubtypeName };
-			for (auto i = t.Args.begin() + 1; i < t.Args.end(); ++i)
-			{
-				if (i->CType != CTT_RT)
-				{
-					if (i->CType == CTT_FAIL)
-					{
-						t = ConstrainType::Fail();
-					}
 					return;
 				}
-				assert(i->Determined);
-				la.Arguments.push_back(i->Determined);
+				if (i == 0)
+				{
+					la = { t.Args[0].Determined, t.SubtypeName };
+				}
+				else
+				{
+					la.Arguments.push_back(t.Args[i].Determined);
+				}
 			}
 			//LoadSubtype is too complicated to separate the constrain check.
 			//We have to use a try block.
