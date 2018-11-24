@@ -194,5 +194,51 @@ namespace LibRolLangTest
 				//TODO use exception tracing, loader constrain API or type overload when any is available.
 			}
 		}
+
+		TEST_METHOD(TrySubTypeExist)
+		{
+			//class ParentType { alias S1<T> = GenericType<T>; } //no S2
+			//class CheckType1<T> requires ParentType::S1<T>;
+			//class CheckType2<T> requires ParentType::S2<T>;
+			//success: CheckType1<BasicType1>
+			//fail: CheckType1<BasicType2>
+			//fail: CheckType2<BasicType1>
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto t1 = b.BeginType(TSM_VALUE, "Core.BasicType1");
+				b.Link(true, false);
+				b.EndType();
+				auto t2 = b.BeginType(TSM_VALUE, "Core.BasicType2");
+				b.Link(true, false);
+				b.EndType();
+				auto tg = b.BeginType(TSM_VALUE, "Core.GenericType");
+				auto g1 = b.AddGenericParameter();
+				b.AddConstrain(g1, { t1 }, CONSTRAIN_SAME, 0);
+				b.EndType();
+				auto tp = b.BeginType(TSM_VALUE, "Core.ParentType");
+				b.AddSubType("S1", b.MakeType(tg, { b.AddAdditionalGenericParameter(0) }));
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.CheckType1");
+				b.Link(true, false);
+				auto g2 = b.AddGenericParameter();
+				b.AddConstrain(b.TryType(b.MakeSubtype(tp, "S1", { g2 })), {}, CONSTRAIN_EXIST, 0);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.CheckType2");
+				b.Link(true, false);
+				auto g3 = b.AddGenericParameter();
+				b.AddConstrain(b.TryType(b.MakeSubtype(tp, "S2", { g3 })), {}, CONSTRAIN_EXIST, 0);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				auto t1 = LoadType(&l, "Core", "Core.BasicType1", false);
+				auto t2 = LoadType(&l, "Core", "Core.BasicType2", false);
+				LoadType(&l, "Core", "Core.CheckType1", { t1 }, false);
+				LoadType(&l, "Core", "Core.CheckType1", { t2 }, true);
+				LoadType(&l, "Core", "Core.CheckType2", { t1 }, true);
+			}
+		}
 	};
 }

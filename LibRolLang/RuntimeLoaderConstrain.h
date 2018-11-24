@@ -459,7 +459,7 @@ private:
 		}
 		case CTT_SUBTYPE:
 		{
-			SubMemberLoadingArguments la;
+			SubMemberLoadingArguments lg;
 			assert(t.Args.size() > 0);
 			for (std::size_t i = 0; i < t.Args.size(); ++i)
 			{
@@ -469,35 +469,35 @@ private:
 				}
 				if (i == 0)
 				{
-					la = { t.Args[0].Determined, t.SubtypeName };
+					lg = { t.Args[0].Determined, t.SubtypeName };
 				}
 				else
 				{
-					la.Arguments.push_back(t.Args[i].Determined);
+					lg.Arguments.push_back(t.Args[i].Determined);
 				}
 			}
-			//LoadSubtype is too complicated to separate the constrain check.
-			//We have to use a try block.
-			//TODO maybe it's still better not to throw.
-			if (t.TryArgumentConstrain)
+
+			LoadingArguments la;
+			if (!FindSubType(lg, la))
 			{
-				try
+				if (t.TryArgumentConstrain)
 				{
-					t = ConstrainType::RT(LoadSubType(la));
+					t = ConstrainType::Fail();
 					return;
 				}
-				catch (...)
+				throw RuntimeLoaderException("Invalid subtype constrain");
+			}
+			if (t.TryArgumentConstrain)
+			{
+				auto tt = FindTypeTemplate(la);
+				if (!CheckGenericArguments(tt->Generic, la))
 				{
-					//TODO or at least make sure it's really caused by constrain checking.
 					t = ConstrainType::Fail();
 					return;
 				}
 			}
-			else
-			{
-				t = ConstrainType::RT(LoadSubType(la));
-				return;
-			}
+			t = ConstrainType::RT(LoadTypeInternal(la, t.TryArgumentConstrain));
+			return;
 		}
 		default:
 			assert(0);
