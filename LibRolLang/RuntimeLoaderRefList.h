@@ -4,7 +4,6 @@
 struct RuntimeLoaderRefList : RuntimeLoaderCore
 {
 public:
-	//RuntimeType* LoadRefTypeImpl(const LoadingRefArguments& lg, std::size_t typeId)
 	bool FindRefTypeImpl(const LoadingRefArguments& lg, std::size_t typeId, LoadingArguments& la)
 	{
 		if (typeId >= lg.Declaration.Types.size())
@@ -88,19 +87,18 @@ public:
 		}
 	}
 
-	RuntimeFunction* LoadRefFunctionImpl(const LoadingRefArguments& lg, std::size_t funcId)
+	bool FindRefFunctionImpl(const LoadingRefArguments& lg, std::size_t funcId, LoadingArguments& la)
 	{
 		if (funcId >= lg.Declaration.Functions.size())
 		{
 			throw RuntimeLoaderException("Invalid function reference");
 		}
 		auto func = lg.Declaration.Functions[funcId];
-		LoadingArguments la;
 	loadClone:
 		switch (func.Type & REF_REFTYPES)
 		{
 		case REF_EMPTY:
-			return nullptr;
+			return false;
 		case REF_CLONE:
 			if (func.Index >= lg.Declaration.Functions.size())
 			{
@@ -113,7 +111,7 @@ public:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = func.Index;
 			LoadRefFuncArgList(lg, funcId, la);
-			return LoadFunctionInternal(la);
+			return true;
 		case REF_IMPORT:
 		{
 			auto a = FindAssemblyThrow(lg.Arguments.Assembly);
@@ -131,10 +129,9 @@ public:
 			{
 				throw RuntimeLoaderException("Invalid function reference");
 			}
-			return LoadFunctionInternal(la);
+			return true;
 		}
 		case REF_CLONETYPE:
-			return nullptr;
 		case REF_ARGUMENT:
 		case REF_SELF:
 		case REF_SUBTYPE:
@@ -144,23 +141,8 @@ public:
 	}
 
 public:
-	bool FindSubTypeImpl(const SubtypeLoadingArguments& args, LoadingArguments& la)
+	bool FindSubTypeImpl(const SubMemberLoadingArguments& args, LoadingArguments& la)
 	{
-		for (auto& t : _loading->_loadingSubtypes)
-		{
-			if (t == args)
-			{
-				throw RuntimeLoaderException("Cyclic reference in subtype");
-			}
-		}
-		_loading->_loadingSubtypes.push_back(args);
-		//TODO move to LoadingData
-		if (_loading->_loadingTypes.size() + _loading->_loadingFunctions.size() +
-			_loading->_loadingSubtypes.size() > _loadingLimit)
-		{
-			throw RuntimeLoaderException("Loading object limit exceeded.");
-		}
-
 		auto tt = FindTypeTemplate(args.Parent->Args);
 		std::size_t id = SIZE_MAX;
 		for (auto& n : tt->PublicSubTypes)
@@ -176,10 +158,23 @@ public:
 			throw RuntimeLoaderException("Subtype name not found");
 		}
 
+		for (auto& t : _loading->_loadingSubtypes)
+		{
+			if (t == args)
+			{
+				throw RuntimeLoaderException("Circular reference in subtype");
+			}
+		}
+		_loading->_loadingSubtypes.push_back(args);
+		_loading->CheckLoadingSizeLimit(_loadingLimit);
+
+		//Possible circular reference here.
+		auto ret = FindRefType({ args.Parent, tt->Generic, args.Arguments }, id, la);
+
 		assert(_loading->_loadingSubtypes.back() == args);
 		_loading->_loadingSubtypes.pop_back();
 
-		return FindRefType({ args.Parent, tt->Generic, args.Arguments }, id, la);
+		return ret;
 	}
 
 private:
@@ -212,13 +207,13 @@ bool RuntimeLoaderCore::FindRefType(const LoadingRefArguments& lg, std::size_t t
 	return l->FindRefTypeImpl(lg, typeId, la);
 }
 
-RuntimeFunction* RuntimeLoaderCore::LoadRefFunction(const LoadingRefArguments& lg, std::size_t typeId)
+bool RuntimeLoaderCore::FindRefFunction(const LoadingRefArguments& lg, std::size_t funcId, LoadingArguments& la)
 {
 	auto l = static_cast<RuntimeLoaderRefList*>(this);
-	return l->LoadRefFunctionImpl(lg, typeId);
+	return l->FindRefFunctionImpl(lg, funcId, la);
 }
 
-bool RuntimeLoaderCore::FindSubType(const SubtypeLoadingArguments& args, LoadingArguments& la)
+bool RuntimeLoaderCore::FindSubType(const SubMemberLoadingArguments& args, LoadingArguments& la)
 {
 	auto l = static_cast<RuntimeLoaderRefList*>(this);
 	return l->FindSubTypeImpl(args, la);

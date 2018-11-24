@@ -459,7 +459,7 @@ private:
 		}
 		case CTT_SUBTYPE:
 		{
-			SubtypeLoadingArguments la;
+			SubMemberLoadingArguments la;
 			assert(t.Args.size() > 0);
 			for (std::size_t i = 0; i < t.Args.size(); ++i)
 			{

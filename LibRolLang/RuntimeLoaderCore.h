@@ -10,12 +10,13 @@ public: //Forward declaration
 		const std::vector<RuntimeType*>& args);
 
 	//TODO Find
-	inline bool FindSubType(const SubtypeLoadingArguments& args, LoadingArguments& la);
-	//inline RuntimeType* LoadSubFunction(const SubtypeLoadingArguments& args);
+	inline bool FindSubType(const SubMemberLoadingArguments& args, LoadingArguments& la);
+	//TODO we should check circular ref in subfunction as well.
+	inline bool FindSubFunction(const SubMemberLoadingArguments& args, LoadingArguments& la);
 
 	//TODO Find
 	inline bool FindRefType(const LoadingRefArguments& lg, std::size_t typeId, LoadingArguments& la);
-	inline RuntimeFunction* LoadRefFunction(const LoadingRefArguments& lg, std::size_t funcId);
+	inline bool FindRefFunction(const LoadingRefArguments& lg, std::size_t funcId, LoadingArguments& la);
 
 	RuntimeType* LoadRefType(const LoadingRefArguments& lg, std::size_t typeId)
 	{
@@ -27,7 +28,17 @@ public: //Forward declaration
 		return LoadTypeInternal(la, false);
 	}
 
-	RuntimeType* LoadSubType(const SubtypeLoadingArguments& args)
+	RuntimeFunction* LoadRefFunction(const LoadingRefArguments& lg, std::size_t funcId)
+	{
+		LoadingArguments la;
+		if (!FindRefFunction(lg, funcId, la))
+		{
+			return nullptr;
+		}
+		return LoadFunctionInternal(la);
+	}
+
+	RuntimeType* LoadSubType(const SubMemberLoadingArguments& args)
 	{
 		LoadingArguments la;
 		if (!FindSubType(args, la))
@@ -140,6 +151,15 @@ public: //Internal API (for other modules)
 
 	bool CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args)
 	{
+		for (auto& i : _loading->_constrainCheckingTypes)
+		{
+			if (i == args)
+			{
+				throw RuntimeLoaderException("Circular constrain reference");
+			}
+		}
+		_loading->_constrainCheckingTypes.push_back(args);
+
 		if (g.ParameterCount != args.Arguments.size())
 		{
 			return false;
@@ -149,7 +169,11 @@ public: //Internal API (for other modules)
 		{
 			return false;
 		}
-		return CheckConstrains(args.Assembly, &g, args.Arguments);
+		auto ret = CheckConstrains(args.Assembly, &g, args.Arguments);
+
+		assert(_loading->_constrainCheckingTypes.back() == args);
+		_loading->_constrainCheckingTypes.pop_back();
+		return ret;
 	}
 
 	RuntimeType* LoadTypeInternal(const LoadingArguments& args, bool skipArgumentCheck)
@@ -191,20 +215,10 @@ public: //Internal API (for other modules)
 		}
 
 		auto typeTemplate = FindTypeTemplate(args);
-		for (auto& i : _loading->_constrainCheckingTypes)
-		{
-			if (i == args)
-			{
-				throw RuntimeLoaderException("Cyclic constrain");
-			}
-		}
-		_loading->_constrainCheckingTypes.push_back(args);
 		if (!skipArgumentCheck && !CheckGenericArguments(typeTemplate->Generic, args))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
-		assert(_loading->_constrainCheckingTypes.back() == args);
-		_loading->_constrainCheckingTypes.pop_back();
 
 		if (typeTemplate->Generic.Fields.size() != 0)
 		{
@@ -235,7 +249,7 @@ public: //Internal API (for other modules)
 		}
 		else
 		{
-			//Note that interfaces also go here. We need to use LoadFields to check cyclic inheritance
+			//Note that interfaces also go here. We need to use LoadFields to check circular inheritance
 			//of interfaces.
 			return LoadFields(std::move(t), typeTemplate);
 		}
@@ -266,29 +280,21 @@ public: //Internal API (for other modules)
 		}
 
 		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
-
-		for (auto& i : _loading->_constrainCheckingFunctions)
-		{
-			if (i == args)
-			{
-				throw RuntimeLoaderException("Cyclic constrain");
-			}
-		}
-		_loading->_constrainCheckingFunctions.push_back(args);
 		if (!CheckGenericArguments(funcTemplate->Generic, args))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
-		assert(_loading->_constrainCheckingFunctions.back() == args);
-		_loading->_constrainCheckingFunctions.pop_back();
 
 		auto f = std::make_unique<RuntimeFunction>();
+		f->Args = args;
+		f->Parent = _loader;
+		f->FunctionId = _nextFunctionId++;
+		f->Code = GetCode(args.Assembly, args.Id);
+
 		auto ret = f.get();
 		_loading->_loadingFunctions.push_back(std::move(f));
-		ret->Args = args;
-		ret->Parent = _loader;
-		ret->FunctionId = _nextFunctionId++;
-		ret->Code = GetCode(args.Assembly, args.Id);
+		_loading->CheckLoadingSizeLimit(_loadingLimit);
+
 		return ret;
 	}
 
@@ -361,11 +367,7 @@ private:
 			assert(!(t->Args == type->Args));
 		}
 		_loading->_loadingTypes.push_back(type.get());
-		if (_loading->_loadingTypes.size() + _loading->_loadingFunctions.size() +
-			_loading->_loadingSubtypes.size() > _loadingLimit)
-		{
-			throw RuntimeLoaderException("Loading object limit exceeded.");
-		}
+		_loading->CheckLoadingSizeLimit(_loadingLimit);
 
 		Type* tt = typeTemplate;
 		if (tt == nullptr)
@@ -429,7 +431,7 @@ private:
 
 		if (type->Storage == TSM_INTERFACE)
 		{
-			//Within the range of _loadingTypes, we can avoid cyclic interface inheritance.
+			//Within the range of _loadingTypes, we can avoid circular interface inheritance.
 			LoadInterfaces(type.get(), type.get(), tt);
 		}
 
@@ -449,7 +451,7 @@ private:
 			{
 				assert(std::any_of(_loading->_loadingTypes.begin(), _loading->_loadingTypes.end(),
 					[fieldType](RuntimeType* t) { return t == fieldType; }));
-				throw RuntimeLoaderException("Cyclic type dependence");
+				throw RuntimeLoaderException("Circular type dependence");
 			}
 			fields.push_back(fieldType);
 		}

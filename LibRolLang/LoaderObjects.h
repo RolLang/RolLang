@@ -186,18 +186,18 @@ public:
 };
 
 //TODO Move to some other place
-struct SubtypeLoadingArguments
+struct SubMemberLoadingArguments
 {
 	RuntimeType* Parent;
 	std::string Name;
 	std::vector<RuntimeType*> Arguments;
 
-	bool operator == (const SubtypeLoadingArguments &b) const
+	bool operator == (const SubMemberLoadingArguments &b) const
 	{
 		return Parent == b.Parent && Name == b.Name && Arguments == b.Arguments;
 	}
 
-	bool operator != (const SubtypeLoadingArguments &b) const
+	bool operator != (const SubMemberLoadingArguments &b) const
 	{
 		return !(*this == b);
 	}

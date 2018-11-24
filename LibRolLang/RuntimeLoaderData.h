@@ -18,9 +18,18 @@ public:
 		_constrainCheckingFunctions.clear();
 	}
 
+	void CheckLoadingSizeLimit(std::size_t limit)
+	{
+		if (_loadingTypes.size() + _loadingFunctions.size() +
+			_loadingSubtypes.size() > limit)
+		{
+			throw RuntimeLoaderException("Loading object limit exceeded.");
+		}
+	}
+
 public:
 	std::vector<RuntimeType*> _loadingTypes;
-	std::vector<SubtypeLoadingArguments> _loadingSubtypes;
+	std::vector<SubMemberLoadingArguments> _loadingSubtypes;
 	std::vector<LoadingArguments> _constrainCheckingTypes;
 	std::vector<LoadingArguments> _constrainCheckingFunctions;
 
