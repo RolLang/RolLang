@@ -4,19 +4,19 @@
 struct RuntimeLoaderRefList : RuntimeLoaderCore
 {
 public:
-	RuntimeType* LoadRefTypeImpl(const LoadingRefArguments& lg, std::size_t typeId)
+	//RuntimeType* LoadRefTypeImpl(const LoadingRefArguments& lg, std::size_t typeId)
+	bool FindRefTypeImpl(const LoadingRefArguments& lg, std::size_t typeId, LoadingArguments& la)
 	{
 		if (typeId >= lg.Declaration.Types.size())
 		{
 			throw RuntimeLoaderException("Invalid type reference");
 		}
 		auto type = lg.Declaration.Types[typeId];
-		LoadingArguments la;
 	loadClone:
 		switch (type.Type & REF_REFTYPES)
 		{
 		case REF_EMPTY:
-			return nullptr;
+			return false;
 		case REF_CLONE:
 			if (type.Index >= lg.Declaration.Types.size())
 			{
@@ -29,7 +29,7 @@ public:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = type.Index;
 			LoadRefTypeArgList(lg, typeId, la);
-			return LoadTypeInternal(la, false);
+			return true;
 		case REF_IMPORT:
 		{
 			auto a = FindAssemblyThrow(lg.Arguments.Assembly);
@@ -47,7 +47,7 @@ public:
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
-			return LoadTypeInternal(la, false);
+			return true;
 		}
 		case REF_ARGUMENT:
 			if (type.Index >= lg.Arguments.Arguments.size())
@@ -57,21 +57,30 @@ public:
 				{
 					throw RuntimeLoaderException("Invalid type reference");
 				}
-				return (*lg.AdditionalArguments)[aaid];
+				la = (*lg.AdditionalArguments)[aaid]->Args;
+				return true;
 			}
-			return lg.Arguments.Arguments[type.Index];
+			//TODO Improve? Now we have to load again (although it's in the short path)
+			//Same for REF_SELF
+			la = lg.Arguments.Arguments[type.Index]->Args;
+			return true;
 		case REF_SELF:
 			if (lg.SelfType == nullptr)
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
-			return lg.SelfType;
+			la = lg.SelfType->Args;
+			return true;
 		case REF_SUBTYPE:
 		{
 			auto name = lg.Declaration.SubtypeNames[type.Index];
 			auto parent = LoadRefType(lg, typeId + 1);
-			LoadRefTypeArgList(lg, typeId + 1, la);
-			return LoadSubType({ parent, name, la.Arguments });
+			LoadRefTypeArgList(lg, typeId + 1, la); //Temporarily use la.Arguments.
+			if (!FindSubType({ parent, name, std::move(la.Arguments) }, la)) //Moved. No problem.
+			{
+				return false;
+			}
+			return true;
 		}
 		case REF_CLONETYPE:
 		default:
@@ -135,7 +144,7 @@ public:
 	}
 
 public:
-	RuntimeType* LoadSubTypeImpl(const SubtypeLoadingArguments& args)
+	bool FindSubTypeImpl(const SubtypeLoadingArguments& args, LoadingArguments& la)
 	{
 		for (auto& t : _loading->_loadingSubtypes)
 		{
@@ -167,13 +176,10 @@ public:
 			throw RuntimeLoaderException("Subtype name not found");
 		}
 
-		LoadingRefArguments la(args.Parent, tt->Generic, args.Arguments);
-		auto ret = LoadRefType(la, id);
-
 		assert(_loading->_loadingSubtypes.back() == args);
 		_loading->_loadingSubtypes.pop_back();
 
-		return ret;
+		return FindRefType({ args.Parent, tt->Generic, args.Arguments }, id, la);
 	}
 
 private:
@@ -200,10 +206,10 @@ private:
 	}
 };
 
-RuntimeType* RuntimeLoaderCore::LoadRefType(const LoadingRefArguments& lg, std::size_t typeId)
+bool RuntimeLoaderCore::FindRefType(const LoadingRefArguments& lg, std::size_t typeId, LoadingArguments& la)
 {
 	auto l = static_cast<RuntimeLoaderRefList*>(this);
-	return l->LoadRefTypeImpl(lg, typeId);
+	return l->FindRefTypeImpl(lg, typeId, la);
 }
 
 RuntimeFunction* RuntimeLoaderCore::LoadRefFunction(const LoadingRefArguments& lg, std::size_t typeId)
@@ -212,8 +218,8 @@ RuntimeFunction* RuntimeLoaderCore::LoadRefFunction(const LoadingRefArguments& l
 	return l->LoadRefFunctionImpl(lg, typeId);
 }
 
-RuntimeType* RuntimeLoaderCore::LoadSubType(const SubtypeLoadingArguments& args)
+bool RuntimeLoaderCore::FindSubType(const SubtypeLoadingArguments& args, LoadingArguments& la)
 {
 	auto l = static_cast<RuntimeLoaderRefList*>(this);
-	return l->LoadSubTypeImpl(args);
+	return l->FindSubTypeImpl(args, la);
 }

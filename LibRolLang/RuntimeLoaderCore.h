@@ -10,12 +10,32 @@ public: //Forward declaration
 		const std::vector<RuntimeType*>& args);
 
 	//TODO Find
-	inline RuntimeType* LoadSubType(const SubtypeLoadingArguments& args);
+	inline bool FindSubType(const SubtypeLoadingArguments& args, LoadingArguments& la);
 	//inline RuntimeType* LoadSubFunction(const SubtypeLoadingArguments& args);
 
 	//TODO Find
-	inline RuntimeType* LoadRefType(const LoadingRefArguments& lg, std::size_t typeId);
+	inline bool FindRefType(const LoadingRefArguments& lg, std::size_t typeId, LoadingArguments& la);
 	inline RuntimeFunction* LoadRefFunction(const LoadingRefArguments& lg, std::size_t funcId);
+
+	RuntimeType* LoadRefType(const LoadingRefArguments& lg, std::size_t typeId)
+	{
+		LoadingArguments la;
+		if (!FindRefType(lg, typeId, la))
+		{
+			return nullptr;
+		}
+		return LoadTypeInternal(la, false);
+	}
+
+	RuntimeType* LoadSubType(const SubtypeLoadingArguments& args)
+	{
+		LoadingArguments la;
+		if (!FindSubType(args, la))
+		{
+			return nullptr;
+		}
+		return LoadTypeInternal(la, false);
+	}
 
 	virtual void OnTypeLoaded(RuntimeType* type) = 0;
 	virtual void OnFunctionLoaded(RuntimeFunction* func) = 0;
