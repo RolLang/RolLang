@@ -29,7 +29,6 @@
     <ClInclude Include="InterpreterRuntimeLoader.h" />
     <ClInclude Include="InterpreterStack.h" />
     <ClInclude Include="InterpreterStacktracer.h" />
-    <ClInclude Include="RuntimeLoader0.h" />
     <ClInclude Include="LoaderObjects.h" />
     <ClInclude Include="RuntimeLoader.h" />
     <ClInclude Include="RuntimeLoaderConstrain.h" />
