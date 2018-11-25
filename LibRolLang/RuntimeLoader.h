@@ -59,7 +59,7 @@ public: //Public API
 		return LoadFunctionEntry(args, err);
 	}
 
-	RuntimeType* GetTypeById(std::uint32_t id)
+	RuntimeType* GetTypeById(std::size_t id)
 	{
 		std::lock_guard<Spinlock> lock(_loaderLock);
 		if (id >= _loadedTypes.size())
@@ -69,7 +69,7 @@ public: //Public API
 		return _loadedTypes[id].get();
 	}
 
-	RuntimeFunction* GetFunctionById(std::uint32_t id)
+	RuntimeFunction* GetFunctionById(std::size_t id)
 	{
 		std::lock_guard<Spinlock> lock(_loaderLock);
 		if (id > _loadedFunctions.size())

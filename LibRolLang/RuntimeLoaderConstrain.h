@@ -309,9 +309,10 @@ private:
 			ptr->SParent = &parent;
 
 			//Check circular constrain.
-			//Note that we only need to check trait-trait constrain loop.
-			//Trait-type or trait-function constrain loop can be resolved
-			//with type-type or function-function circular check. (TODO really?)
+			//Note that, same as what we do elsewhere in this project, 
+			//we only need to check trait-trait constrain loop.
+			//Trait-type or trait-function circular loop will trigger another
+			//trait-trait, type-type or function-function circular check.
 
 			//I have no better idea but to simplify and check.
 			ConstrainCalculationCache* p = &parent;

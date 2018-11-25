@@ -96,7 +96,7 @@ namespace LibRolLangTest
 			builder.Link(true, false);
 			builder.Signature(tInt32, { tInt32 });
 			auto kid = builder.AddFunctionImportConstant(tInt32, importId);
-			builder.AddInstruction(OP_CONST, kid);
+			builder.AddInstruction(OP_CONST, (std::uint32_t)kid);
 			builder.AddInstruction(OP_LOAD, 0);
 			builder.AddInstruction(OP_RET, 0);
 			builder.EndFunction();

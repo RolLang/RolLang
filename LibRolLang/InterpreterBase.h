@@ -50,8 +50,8 @@ public:
 	}
 
 public: //Loader API
-	std::uint32_t GetType(const std::string& assemblyName, const std::string& exportName,
-		const std::vector<std::uint32_t>& genericArgs)
+	std::size_t GetType(const std::string& assemblyName, const std::string& exportName,
+		const std::vector<std::size_t>& genericArgs)
 	{
 		LoadingArguments args;
 		AssemblyImport importInfo = { assemblyName, exportName, genericArgs.size() };
@@ -74,8 +74,8 @@ public: //Loader API
 		return ret->TypeId;
 	}
 
-	std::uint32_t GetFunction(const std::string& assemblyName, const std::string& exportName,
-		const std::vector<std::uint32_t>& genericArgs)
+	std::size_t GetFunction(const std::string& assemblyName, const std::string& exportName,
+		const std::vector<std::size_t>& genericArgs)
 	{
 		LoadingArguments args;
 		AssemblyImport importInfo = { assemblyName, exportName, genericArgs.size() };

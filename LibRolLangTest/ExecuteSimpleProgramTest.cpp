@@ -65,9 +65,9 @@ namespace LibRolLangTest
 			auto constantId = builder.AddFunctionConstant(tInt32, 100);
 			builder.AddInstruction(OP_ARG, 0);
 			builder.AddInstruction(OP_LOAD, 0);
-			builder.AddInstruction(OP_CONST, constantId);
+			builder.AddInstruction(OP_CONST, (std::uint32_t)constantId);
 			builder.AddInstruction(OP_LOAD, 0);
-			builder.AddInstruction(OP_CALL, funcAddId);
+			builder.AddInstruction(OP_CALL, (std::uint32_t)funcAddId);
 			builder.AddInstruction(OP_RET, 0);
 			builder.EndFunction();
 

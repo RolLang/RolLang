@@ -150,6 +150,7 @@ public: //Internal API (for other modules)
 
 	bool CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args)
 	{
+		//TODO We should use different list for type and functions. (low priority)
 		for (auto& i : _loading->_constrainCheckingTypes)
 		{
 			if (i == args)

@@ -365,7 +365,7 @@ public:
 	std::vector<std::unique_ptr<RuntimeFunction>> _loadedFunctions;
 	RuntimeFunctionCodeStorage _codeStorage;
 
-	std::uint32_t _nextFunctionId = 1, _nextTypeId = 1;
+	std::size_t _nextFunctionId = 1, _nextTypeId = 1;
 	std::size_t _pointerTypeId, _boxTypeId;
 
 	RuntimeLoaderLoadingData* _loading;

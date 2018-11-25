@@ -240,5 +240,31 @@ namespace LibRolLangTest
 				LoadType(&l, "Core", "Core.CheckType2", { t1 }, true);
 			}
 		}
+
+		TEST_METHOD(CircularConstrain_TypeExist)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				b.BeginType(TSM_VALUE, "Core.BasicType");
+				b.Link(true, false);
+				b.EndType();
+				auto t1 = b.ForwardDeclareType();
+				auto trait = b.BeginTrait("TestTrait");
+				b.AddConstrain(b.MakeType(t1, { b.SelfType() }), {}, CONSTRAIN_EXIST, 0);
+				b.EndTrait();
+				b.BeginType(TSM_VALUE, "Core.TestType", t1);
+				b.Link(true, false);
+				auto g = b.AddGenericParameter();
+				b.AddConstrain(g, {}, CONSTRAIN_TRAIT_ASSEMBLY, trait.Id);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				auto t = LoadType(&l, "Core", "Core.BasicType", false);
+				LoadType(&l, "Core", "Core.TestType", { t }, true);
+			}
+		}
 	};
 }
