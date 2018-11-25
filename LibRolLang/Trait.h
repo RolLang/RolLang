@@ -1,14 +1,40 @@
 #pragma once
 #include "GenericDeclaration.h"
 
-struct TraitSubItem
+struct TraitField
 {
 	std::string ElementName;
+	std::size_t Type;
+
+	std::string ExportName;
+};
+FIELD_SERIALIZER_BEGIN(TraitField)
+	SERIALIZE_FIELD(ElementName)
+	SERIALIZE_FIELD(Type)
+	SERIALIZE_FIELD(ExportName)
+FIELD_SERIALIZER_END()
+
+struct TraitFunction
+{
+	std::string ElementName;
+	std::size_t ReturnType;
+	std::vector<std::size_t> ParameterTypes;
+
+	std::string ExportName;
+};
+FIELD_SERIALIZER_BEGIN(TraitFunction)
+	SERIALIZE_FIELD(ElementName)
+	SERIALIZE_FIELD(ReturnType)
+	SERIALIZE_FIELD(ParameterTypes)
+	SERIALIZE_FIELD(ExportName)
+FIELD_SERIALIZER_END()
+
+struct TraitExportItem
+{
 	std::string ExportName;
 	std::size_t Index;
 };
-FIELD_SERIALIZER_BEGIN(TraitSubItem)
-	SERIALIZE_FIELD(ElementName)
+FIELD_SERIALIZER_BEGIN(TraitExportItem)
 	SERIALIZE_FIELD(ExportName)
 	SERIALIZE_FIELD(Index)
 FIELD_SERIALIZER_END()
@@ -17,11 +43,10 @@ struct Trait
 {
 	GenericDeclaration Generic;
 
-	//TODO use a different struct
-	std::vector<TraitSubItem> Traits; //ElementName not used, only for export
-	std::vector<TraitSubItem> Types; //ElementName not used, only for export
-	std::vector<TraitSubItem> Functions;
-	std::vector<TraitSubItem> Fields;
+	std::vector<TraitExportItem> Traits;
+	std::vector<TraitExportItem> Types;
+	std::vector<TraitFunction> Functions;
+	std::vector<TraitField> Fields;
 };
 FIELD_SERIALIZER_BEGIN(Trait)
 	SERIALIZE_FIELD(Generic)

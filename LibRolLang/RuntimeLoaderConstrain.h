@@ -137,6 +137,11 @@ private:
 			return ret;
 		}
 	};
+	struct TraitCacheFieldInfo
+	{
+		ConstrainType Type;
+		std::size_t FieldIndex;
+	};
 	struct ConstrainCalculationCacheRoot;
 	struct ConstrainCalculationCache : ConstrainUndeterminedTypeSource
 	{
@@ -151,6 +156,13 @@ private:
 		ConstrainType Target;
 		std::vector<ConstrainType> Arguments;
 		std::vector<std::unique_ptr<ConstrainCalculationCache>> Children;
+
+		//Following fields are only for trait constrains.
+		bool TraitCacheCreated;
+		bool TraitMemberResolved;
+		Trait* Trait;
+		std::string TraitAssembly;
+		std::vector<TraitCacheFieldInfo> TraitFields;
 	};
 	struct ConstrainCalculationCacheRoot
 	{
@@ -158,20 +170,220 @@ private:
 	};
 
 private:
-	void CreateSubConstrainCache(const std::string& srcAssebly, GenericDeclaration* g,
-		ConstrainCalculationCache& parent)
+	void InitTraitConstrainCache(ConstrainCalculationCache& cache)
 	{
+		switch (cache.Source->Type)
+		{
+		case CONSTRAIN_TRAIT_ASSEMBLY:
+		{
+			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
+			if (cache.Source->Index >= assembly->Traits.size())
+			{
+				throw RuntimeLoaderException("Invalid trait reference");
+			}
+			cache.Trait = &assembly->Traits[cache.Source->Index];
+			cache.TraitAssembly = cache.SrcAssembly;
+			break;
+		}
+		case CONSTRAIN_TRAIT_IMPORT:
+		{
+			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
+			LoadingArguments la;
+			if (cache.Source->Index >= assembly->ImportTraits.size())
+			{
+				throw RuntimeLoaderException("Invalid trait reference");
+			}
+			if (!FindExportTrait(assembly->ImportTraits[cache.Source->Index], la))
+			{
+				throw RuntimeLoaderException("Invalid trait reference");
+			}
+			cache.Trait = &FindAssemblyThrow(la.Assembly)->Traits[la.Id];
+			cache.TraitAssembly = la.Assembly;
+			break;
+		}
+		default:
+			assert(0);
+		}
+
+		//We don't create cache here (higher chance to fail elsewhere).
+		cache.TraitCacheCreated = false;
+		cache.TraitMemberResolved = false;
+	}
+
+	bool AreConstrainTypesEqual(ConstrainType& a, ConstrainType& b)
+	{
+		SimplifyConstrainType(a);
+		SimplifyConstrainType(b);
+
+		//Note that different CType may produce same determined type, but
+		//in a circular loading stack, there must be 2 to have exactly 
+		//the same value (including CType, Args, etc).
+		if (a.CType != b.CType) return false;
+
+		switch (a.CType)
+		{
+		case CTT_FAIL:
+			//Although we don't know whether they come from the same type,
+			//since they both fail, they will lead to the same result (and
+			//keep failing in children).
+			return true;
+		case CTT_ANY:
+			return a.Undetermined.Parent == b.Undetermined.Parent &&
+				a.Undetermined.Index == b.Undetermined.Index;
+		case CTT_RT:
+			return a.Determined == b.Determined;
+		case CTT_GENERIC:
+			if (a.TypeTemplateAssembly != b.TypeTemplateAssembly ||
+				a.TypeTemplateIndex != b.TypeTemplateIndex)
+			{
+				return false;
+			}
+			break;
+		case CTT_SUBTYPE:
+			if (a.SubtypeName != b.SubtypeName)
+			{
+				return false;
+			}
+			break;
+		default:
+			assert(0);
+		}
+
+		//Unfortunately we cannot use operator== for std::vector: our comparison
+		//requires non-constant reference to simplify.
+		if (a.Args.size() != b.Args.size()) return false;
+		for (std::size_t i = 0; i < a.Args.size(); ++i)
+		{
+			if (!AreConstrainTypesEqual(a.Args[i], b.Args[i])) return false;
+		}
+
+		return true;
+	}
+
+	bool AreConstrainsEqual(ConstrainCalculationCache& a, ConstrainCalculationCache& b)
+	{
+		if (a.Source != b.Source) return false;
+		if (a.CheckArguments.size() != b.CheckArguments.size())
+		{
+			//This should not happen, but we don't want to limit it here.
+			return false;
+		}
+		for (std::size_t i = 0; i < a.CheckArguments.size(); ++i)
+		{
+			if (!AreConstrainTypesEqual(a.CheckArguments[i], b.CheckArguments[i]))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	void EnsureSubConstrainCached(ConstrainCalculationCache& parent)
+	{
+		auto trait = parent.Trait;
+		auto g = &trait->Generic;
+
+		if (parent.TraitCacheCreated)
+		{
+			assert(parent.Children.size() == g->Constrains.size());
+			assert(parent.TraitFields.size() == trait->Fields.size());
+			//TODO other checks
+			return;
+		}
+
+		assert(!parent.TraitMemberResolved);
+
+		//Children (sub-constrains)
+		assert(parent.Children.size() == 0);
+		if (parent.Arguments.size() != g->ParameterCount)
+		{
+			throw RuntimeLoaderException("Invalid generic arguments");
+		}
 		for (auto& constrain : g->Constrains)
 		{
-			parent.Children.emplace_back(CreateConstrainCache(constrain, srcAssebly,
+			parent.Children.emplace_back(CreateConstrainCache(constrain, parent.TraitAssembly,
 				parent.Arguments, parent.Target));
 			auto ptr = parent.Children.back().get();
 			ptr->Parent = &parent;
 			ptr->Root = parent.Root;
 			ptr->SParent = &parent;
+
+			//Check circular constrain.
+			//Note that we only need to check trait-trait constrain loop.
+			//Trait-type or trait-function constrain loop can be resolved
+			//with type-type or function-function circular check. (TODO really?)
+
+			//I have no better idea but to simplify and check.
+			ConstrainCalculationCache* p = &parent;
+			while (p != nullptr)
+			{
+				if (AreConstrainsEqual(*p, *ptr))
+				{
+					//Circular constrain is always considered as a program error.
+					throw RuntimeLoaderException("Circular constrain check");
+				}
+				p = p->Parent;
+			}
 		}
+
+		//Fields
+		assert(parent.TraitCacheCreated == 0);
+		for (auto& field : trait->Fields)
+		{
+			parent.TraitFields.push_back({ ConstructConstrainArgumentType(parent, *parent.Source, field.Type), 0 });
+		}
+
+		//TODO Functions?
+
+		parent.TraitMemberResolved = false;
+		parent.TraitCacheCreated = true;
 	}
 
+	//ret 1: all members successfully resolved. 0: cannot resolve (not determined). -1: constrain fails
+	int TryCalculateTraitSubMember(ConstrainCalculationCache& parent)
+	{
+		assert(parent.TraitCacheCreated);
+
+		auto trait = parent.Trait;
+
+		if (parent.TraitMemberResolved) return 1;
+
+		SimplifyConstrainType(parent.Target);
+		if (parent.Target.CType != CTT_RT) return 0;
+
+		auto target = parent.Target.Determined;
+		assert(target);
+
+		//TODO IMPORTANT! Ensure fields for ref types are loaded (including circular check).
+
+		auto tt = FindTypeTemplate(target->Args);
+
+		for (std::size_t i = 0; i < trait->Fields.size(); ++i)
+		{
+			auto& f = trait->Fields[i];
+			std::size_t fid = SIZE_MAX;
+			for (auto& ft : tt->PublicFields)
+			{
+				if (ft.Name == f.ElementName)
+				{
+					fid = ft.Id;
+					break;
+				}
+			}
+			if (fid == SIZE_MAX)
+			{
+				return -1;
+			}
+			parent.TraitFields[i].FieldIndex = fid;
+		}
+
+		//TODO function
+
+		parent.TraitMemberResolved = true;
+		return 1;
+	}
+
+private:
 	//TODO separate create+basic fields from load argument/target types (reduce # of args)
 	std::unique_ptr<ConstrainCalculationCache> CreateConstrainCache(GenericConstrain& constrain,
 		const std::string& srcAssebly, const std::vector<ConstrainType>& args, ConstrainType checkTarget)
@@ -185,6 +397,12 @@ private:
 		for (auto a : constrain.Arguments)
 		{
 			ret->Arguments.push_back(ConstructConstrainArgumentType(*ret.get(), constrain, a));
+		}
+
+		if (constrain.Type == CONSTRAIN_TRAIT_ASSEMBLY ||
+			constrain.Type == CONSTRAIN_TRAIT_IMPORT)
+		{
+			InitTraitConstrainCache(*ret.get());
 		}
 		return ret;
 	}
@@ -205,6 +423,7 @@ private:
 		//TODO calculate exportable references
 		return true;
 	}
+
 	bool ListContainUndetermined(std::vector<ConstrainType>& l, ConstrainType& t)
 	{
 		for (auto& a : l)
@@ -377,6 +596,7 @@ private:
 		}
 	}
 
+	//Return 0, 1, or -1 (see TryDetermineEqualTypes)
 	int TryDetermineConstrainArgument(ConstrainCalculationCache& cache)
 	{
 		switch (cache.Source->Type)
@@ -393,13 +613,35 @@ private:
 			return TryDetermineEqualTypes(cache.Arguments[0], cache.Target);
 		case CONSTRAIN_TRAIT_ASSEMBLY:
 		case CONSTRAIN_TRAIT_IMPORT:
-			if (cache.Target.CType == CTT_RT)
+		{
+			EnsureSubConstrainCached(cache);
+			auto resolveMembers = TryCalculateTraitSubMember(cache);
+			if (resolveMembers <= 0) return resolveMembers;
+
+			auto trait = cache.Trait;
+			auto target = cache.Target.Determined;
+			assert(target);
+
+			//Note that we create cache for sub-constrains but do not use it
+			//for determining REF_ANY. This is because linked traits with any 
+			//type can easily lead to infinite constrain chain, which is not 
+			//circular (because of the new REF_ANY) and difficult to check.
+			//We simplify the situation by not checking it. Because of the 
+			//undetermined REF_ANY, the constrain will fail at the parent level.
+			//Example:
+			//  class A requires some_trait<any>(A)
+			//  some_trait<T1>(T) requires some_trait<any>(T1) (and ...)
+
+			for (auto& f : cache.TraitFields)
 			{
-				//Only check member components if the parent (target) has been fully determined.
+				auto target_type = ConstrainType::RT(target->Fields[f.FieldIndex].Type);
+				auto& trait_type = f.Type;
+				auto ret = TryDetermineEqualTypes(target_type, trait_type);
+				if (ret != 0) return ret;
 			}
-			//for each clause (subconstrain, field, subtype, function)
-			//  for subconstrain, create cache if necessary
-			//  try determine something
+
+			//TODO functions
+		}
 		default:
 			return 0;
 		}
@@ -517,28 +759,45 @@ private:
 		return true;
 	}
 
-	bool CheckTraitDetermined(const std::string& a, Trait* t, ConstrainCalculationCache& cache)
+	bool CheckTraitDetermined(ConstrainCalculationCache& cache)
 	{
-		//First sub-constrains
-		if (cache.Children.size() < t->Generic.Constrains.size())
+		EnsureSubConstrainCached(cache);
+		if (TryCalculateTraitSubMember(cache) != 1)
 		{
-			if (cache.Arguments.size() != t->Generic.ParameterCount)
-			{
-				throw RuntimeLoaderException("Invalid generic arguments");
-			}
-			CreateSubConstrainCache(a, &t->Generic, cache);
+			//Resolving submember only requires Target to be determined,
+			//which should be success if it goes here.
+			return false;
 		}
-		assert(cache.Children.size() == t->Generic.Constrains.size());
+
+		//Sub-constrains in trait
 		for (auto& subconstrain : cache.Children)
 		{
-			//Not guaranteed to be determined, and we also need to calculate exports.
-			//Use CheckConstrainCached.
+			//Not guaranteed to be determined, and we also need to calculate exports,
+			//so use CheckConstrainCached.
 			if (!CheckConstrainCached(subconstrain.get()))
 			{
 				return false;
 			}
 		}
-		//TODO check fields, functions
+
+		auto target = cache.Target.Determined;
+		assert(target);
+
+		//Field
+		for (std::size_t i = 0; i < cache.TraitFields.size(); ++i)
+		{
+			auto& tf = cache.TraitFields[i];
+			if (!CheckSimplifiedConstrainType(tf.Type)) return false;
+			auto field_type_target = target->Fields[tf.FieldIndex].Type;
+			auto field_type_trait = tf.Type.Determined;
+			if (field_type_target != field_type_trait)
+			{
+				return false;
+			}
+		}
+
+		//TODO Function
+
 		return true;
 	}
 
@@ -586,30 +845,8 @@ private:
 			}
 			return cache.Arguments[0].Determined->IsInterfaceOf(cache.Target.Determined);
 		case CONSTRAIN_TRAIT_ASSEMBLY:
-		{
-			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
-			if (cache.Source->Index >= assembly->Traits.size())
-			{
-				throw RuntimeLoaderException("Invalid trait reference");
-			}
-			auto trait = &assembly->Traits[cache.Source->Index];
-			return CheckTraitDetermined(cache.SrcAssembly, trait, cache);
-		}
 		case CONSTRAIN_TRAIT_IMPORT:
-		{
-			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
-			LoadingArguments la;
-			if (cache.Source->Index >= assembly->ImportTraits.size())
-			{
-				throw RuntimeLoaderException("Invalid trait reference");
-			}
-			if (!FindExportTrait(assembly->ImportTraits[cache.Source->Index], la))
-			{
-				throw RuntimeLoaderException("Invalid trait reference");
-			}
-			auto trait = &FindAssemblyThrow(la.Assembly)->Traits[la.Id];
-			return CheckTraitDetermined(la.Assembly, trait, cache);
-		}
+			return CheckTraitDetermined(cache);
 		default:
 			throw RuntimeLoaderException("Invalid constrain type");
 		}

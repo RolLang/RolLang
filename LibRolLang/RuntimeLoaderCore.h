@@ -9,12 +9,11 @@ public: //Forward declaration
 	inline bool CheckConstrains(const std::string& srcAssebly, GenericDeclaration* g,
 		const std::vector<RuntimeType*>& args);
 
-	//TODO Find
 	inline bool FindSubType(const SubMemberLoadingArguments& args, LoadingArguments& la);
-	//TODO we should check circular ref in subfunction as well.
-	inline bool FindSubFunction(const SubMemberLoadingArguments& args, LoadingArguments& la);
+	//No SubFunction. All member function reference is exported from trait.
+	//(Because choosing the correct overload candidate is more difficult for functions,
+	//we do it only in trait.)
 
-	//TODO Find
 	inline bool FindRefType(const LoadingRefArguments& lg, std::size_t typeId, LoadingArguments& la);
 	inline bool FindRefFunction(const LoadingRefArguments& lg, std::size_t funcId, LoadingArguments& la);
 
