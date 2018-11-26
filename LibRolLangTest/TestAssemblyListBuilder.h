@@ -170,10 +170,15 @@ namespace
 			}
 		}
 
-		void AddField(const TypeReference& type)
+		void AddField(const TypeReference& type, const std::string& name = "")
 		{
-			auto id = WriteTypeRef(_assembly.Types[_currentType].Generic, type);
-			_assembly.Types[_currentType].Fields.push_back(id);
+			auto type_id = WriteTypeRef(_assembly.Types[_currentType].Generic, type);
+			auto field_id = _assembly.Types[_currentType].Fields.size();
+			_assembly.Types[_currentType].Fields.push_back(type_id);
+			if (name.length() > 0)
+			{
+				_assembly.Types[_currentType].PublicFields.push_back({ name, field_id });
+			}
 		}
 
 		void AddSubType(const std::string& name, const TypeReference& type)
@@ -417,6 +422,12 @@ namespace
 				return r;
 			}
 			return {};
+		}
+
+		void AddTraitField(const TypeReference& type, const std::string& name, const std::string& export_name)
+		{
+			auto type_id = WriteTypeRef(_assembly.Traits[_currentTrait].Generic, type);
+			_assembly.Traits[_currentTrait].Fields.push_back({ name, type_id, export_name });
 		}
 
 		void EndTrait()

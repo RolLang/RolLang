@@ -266,5 +266,77 @@ namespace LibRolLangTest
 				LoadType(&l, "Core", "Core.TestType", { t }, true);
 			}
 		}
+
+		TEST_METHOD(Field)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto ft1 = b.BeginType(TSM_VALUE, "Core.FieldType1");
+				b.Link(true, false);
+				b.EndType();
+				auto ft2 = b.BeginType(TSM_VALUE, "Core.FieldType2");
+				b.Link(true, false);
+				b.EndType();
+				auto ft3 = b.BeginType(TSM_VALUE, "Core.FieldType3");
+				b.Link(true, false);
+				b.AddGenericParameter();
+				b.EndType();
+
+				auto target = b.BeginType(TSM_VALUE, "Core.CompoundType");
+				b.Link(true, false);
+				b.AddField(ft1, "FieldA");
+				b.AddField(b.MakeType(ft3, { ft2 }), "FieldB");
+				b.EndType();
+
+				auto t1 = b.BeginTrait("Core.Trait1");
+				b.AddTraitField(ft1, "FieldA", "FieldA");
+				b.EndTrait();
+				auto t2 = b.BeginTrait("Core.Trait2");
+				b.AddTraitField(ft2, "FieldA", "FieldA");
+				b.EndTrait();
+				auto t3 = b.BeginTrait("Core.Trait3");
+				b.AddTraitField(ft1, "FieldC", "FieldC");
+				b.EndTrait();
+				auto t4 = b.BeginTrait("Core.Trait4");
+				auto g = b.AddGenericParameter();
+				b.AddTraitField(b.MakeType(ft3, { g }), "FieldB", "FieldB");
+				b.EndTrait();
+
+				b.BeginType(TSM_VALUE, "Core.TestType1");
+				b.Link(true, false);
+				b.AddConstrain(target, {}, CONSTRAIN_TRAIT_ASSEMBLY, t1.Id);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType2");
+				b.Link(true, false);
+				b.AddConstrain(target, {}, CONSTRAIN_TRAIT_ASSEMBLY, t2.Id);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType3");
+				b.Link(true, false);
+				b.AddConstrain(target, {}, CONSTRAIN_TRAIT_ASSEMBLY, t3.Id);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType4");
+				b.Link(true, false);
+				b.AddConstrain(target, { b.AnyType() }, CONSTRAIN_TRAIT_ASSEMBLY, t4.Id);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType5");
+				b.Link(true, false);
+				auto gx = b.AddGenericParameter();
+				b.AddConstrain(target, { gx }, CONSTRAIN_TRAIT_ASSEMBLY, t4.Id);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				auto t1 = LoadType(&l, "Core", "Core.FieldType1", false);
+				auto t2 = LoadType(&l, "Core", "Core.FieldType2", false);
+				auto t3 = LoadType(&l, "Core", "Core.FieldType3", { t2 }, false);
+				LoadType(&l, "Core", "Core.TestType1", false);
+				LoadType(&l, "Core", "Core.TestType2", true);
+				LoadType(&l, "Core", "Core.TestType3", true);
+				LoadType(&l, "Core", "Core.TestType4", false);
+				LoadType(&l, "Core", "Core.TestType5", { t2 }, false);
+			}
+		}
 	};
 }
