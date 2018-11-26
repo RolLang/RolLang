@@ -14,6 +14,12 @@ class InterpreterStacktracer
 	};
 
 public:
+	InterpreterStacktracer(RuntimeLoader* loader)
+		: _loader(loader)
+	{
+	}
+
+public:
 	void BeginFrameInterpreted(RuntimeFunction* func)
 	{
 		_stack.push_back({ func, 0, 0, nullptr });
@@ -52,11 +58,12 @@ public:
 		StacktraceInfo ret;
 		for (auto& f : _stack)
 		{
-			ret.push_back({ f.Function->Args.ConvertToSymbol(), f.PC });
+			ret.push_back({ f.Function->Args.ConvertToSymbol(_loader), f.PC });
 		}
 		return std::move(ret);
 	}
 
 private:
+	RuntimeLoader* _loader;
 	std::vector<StacktracerFrameInfo> _stack;
 };

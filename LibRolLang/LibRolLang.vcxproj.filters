@@ -90,4 +90,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="RuntimeObjectsDebug.natvis">
+      <Filter>Source Files</Filter>
+    </Natvis>
+  </ItemGroup>
 </Project>

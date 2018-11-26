@@ -19,8 +19,11 @@ struct LoadingArgumentElement
 	std::size_t ArgumentCount;
 };
 
-//TODO use a separate class, support obtaining component name from loader
-typedef std::vector<LoadingArgumentElement> RuntimeObjectSymbol;
+struct RuntimeObjectSymbol
+{
+	RuntimeLoader* Loader;
+	std::vector<LoadingArgumentElement> Hierarchy;
+};
 
 struct LoadingArguments
 {
@@ -38,15 +41,16 @@ struct LoadingArguments
 		return !(*this == b);
 	}
 
-	RuntimeObjectSymbol ConvertToSymbol()
+	RuntimeObjectSymbol ConvertToSymbol(RuntimeLoader* loader)
 	{
 		RuntimeObjectSymbol ret;
+		ret.Loader = loader;
 		AppendToSymbol(ret);
 		return ret;
 	}
 
 private:
-	inline void AppendToSymbol(RuntimeObjectSymbol s);
+	inline void AppendToSymbol(RuntimeObjectSymbol& s);
 };
 
 struct Initializable
@@ -107,6 +111,10 @@ struct RuntimeType : Initializable
 	RuntimeType* VirtualTableType;
 	std::vector<InterfaceInfo> Interfaces;
 
+#if _DEBUG
+	std::string Fullname;
+#endif
+
 	inline std::size_t GetStorageSize();
 	inline std::size_t GetStorageAlignment();
 
@@ -132,12 +140,14 @@ struct RuntimeType : Initializable
 		}
 		return false;
 	}
+
+	inline std::string GetFullname();
 };
 
 //TODO move RuntimeObjectSymbol to after LoadingArguments
-inline void LoadingArguments::AppendToSymbol(RuntimeObjectSymbol s)
+inline void LoadingArguments::AppendToSymbol(RuntimeObjectSymbol& s)
 {
-	s.push_back({ Assembly, Id, Arguments.size() });
+	s.Hierarchy.push_back({ Assembly, Id, Arguments.size() });
 	for (std::size_t i = 0; i < Arguments.size(); ++i)
 	{
 		Arguments[i]->Args.AppendToSymbol(s);
@@ -167,6 +177,12 @@ struct RuntimeFunction : Initializable
 
 	RuntimeType* ReturnValue;
 	std::vector<RuntimeType*> Parameters;
+
+#if _DEBUG
+	std::string Fullname;
+#endif
+
+	inline std::string GetFullname();
 };
 
 struct RuntimeFunctionCodeStorage

@@ -99,6 +99,75 @@ public: //Public API
 		return nullptr;
 	}
 
+private:
+	std::string GetTypeArgNameInternal(const RuntimeObjectSymbol& sym, std::size_t& x)
+	{
+		if (x >= sym.Hierarchy.size()) return "[error]";
+
+		auto& t = sym.Hierarchy[x++];
+		auto a = FindAssemblyNoThrow(t.Assembly);
+		if (a == nullptr) return "[error]";
+		if (t.Id >= a->Types.size()) return "[error]";
+		std::string name = "[" + t.Assembly + ":" + std::to_string(t.Id) + "]";
+		for (auto& e : a->ExportTypes)
+		{
+			if (e.InternalId == t.Id)
+			{
+				name = e.ExportName;
+				break;
+			}
+		}
+		if (t.ArgumentCount != 0)
+		{
+			name = name + "<";
+			for (std::size_t i = 0; i < t.ArgumentCount; ++i)
+			{
+				if (i != 0) name += ", ";
+				name += GetTypeArgNameInternal(sym, x);
+			}
+			name += ">";
+		}
+		return name;
+	}
+
+public:
+	std::string GetTypeArgName(const RuntimeObjectSymbol& sym)
+	{
+		if (sym.Loader != this) return "[unknown]";
+		std::size_t i = 0;
+		return GetTypeArgNameInternal(sym, i);
+	}
+
+	std::string GetFunctionArgName(const RuntimeObjectSymbol& sym)
+	{
+		if (sym.Loader != this) return "[unknown]";
+		if (sym.Hierarchy.size() == 0) return "[error]";
+		auto& f = sym.Hierarchy[0];
+		auto a = FindAssemblyNoThrow(f.Assembly);
+		if (a == nullptr) return "[error]";
+		if (f.Id >= a->Functions.size()) return "[error]";
+		std::string name = "[" + f.Assembly + ":" + std::to_string(f.Id) + "]";
+		for (auto& e : a->ExportFunctions)
+		{
+			if (e.InternalId == f.Id)
+			{
+				name = e.ExportName;
+				break;
+			}
+		}
+		if (f.ArgumentCount != 0)
+		{
+			name += "<";
+			for (std::size_t i = 0, j = 1; i < f.ArgumentCount; ++i)
+			{
+				if (i != 0) name += ", ";
+				name += GetTypeArgNameInternal(sym, j);
+			}
+			name += ">";
+		}
+		return name;
+	}
+
 public:
 	RuntimeType* LoadPointerType(RuntimeType* t, std::string& err)
 	{
@@ -151,4 +220,22 @@ inline std::size_t RuntimeType::GetStorageAlignment()
 {
 	return Storage == TSM_REFERENCE || Storage == TSM_INTERFACE ?
 		Parent->GetPointerSize() : Alignment;
+}
+
+std::string RuntimeType::GetFullname()
+{
+	return Parent->GetTypeArgName(Args.ConvertToSymbol(Parent));
+}
+
+std::string RuntimeFunction::GetFullname()
+{
+	auto fullname = Parent->GetFunctionArgName(Args.ConvertToSymbol(Parent));
+	fullname += "(";
+	for (std::size_t i = 0; i < Parameters.size(); ++i)
+	{
+		if (i != 0) fullname += ", ";
+		fullname += Parameters[i]->GetFullname();
+	}
+	fullname += ")";
+	return fullname;
 }

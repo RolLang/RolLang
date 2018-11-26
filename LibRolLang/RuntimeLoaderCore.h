@@ -138,6 +138,9 @@ public: //External API (for RuntimeLoader external API)
 		rt->Initializer = nullptr;
 		rt->Finalizer = nullptr;
 		rt->VirtualTableType = nullptr;
+#if _DEBUG
+		rt->Fullname = rt->GetFullname();
+#endif
 
 		auto ret = rt.get();
 		FinalCheckType(ret);
@@ -240,6 +243,9 @@ public: //Internal API (for other modules)
 		t->TypeId = _nextTypeId++;
 		t->Storage = typeTemplate->GCMode;
 		t->PointerType = nullptr;
+#if _DEBUG
+		t->Fullname = t->GetFullname();
+#endif
 
 		if (typeTemplate->GCMode == TSM_REFERENCE)
 		{
@@ -580,6 +586,10 @@ private:
 		{
 			func->Parameters.push_back(func->References.Types[funcTemplate->Parameters[i].TypeId]);
 		}
+#if _DEBUG
+		func->Fullname = func->GetFullname();
+#endif
+
 		auto ptr = func.get();
 		_loading->_finishedLoadingFunctions.emplace_back(std::move(func));
 	}

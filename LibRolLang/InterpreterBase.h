@@ -13,6 +13,7 @@ protected:
 public:
 	InterpreterBase(AssemblyList assemblies, Interpreter* i, NativeFunction interpreterEntry)
 		: _loader(std::make_shared<InterpreterRuntimeLoader>(interpreterEntry, std::move(assemblies))),
+			_stacktracer(_loader.get()),
 			_stack(i)
 	{
 		RegisterNativeTypes();
