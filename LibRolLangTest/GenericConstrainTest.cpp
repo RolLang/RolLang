@@ -84,18 +84,16 @@ namespace LibRolLangTest
 				b.Link(true, false);
 				b.EndType();
 
-				auto vtab = b.BeginType(TSM_GLOBAL, "Core.VTabType");
-				b.EndType();
 				auto i1 = b.BeginType(TSM_INTERFACE, "Core.Interface1");
-				b.SetBaseType({}, vtab);
+				b.SetBaseType({}, {});
 				b.EndType();
 				b.BeginType(TSM_INTERFACE, "Core.Interface2");
-				b.SetBaseType({}, vtab);
+				b.SetBaseType({}, {});
 				b.AddInterface(i1, {});
 				b.Link(true, false);
 				b.EndType();
 				b.BeginType(TSM_INTERFACE, "Core.Interface3");
-				b.SetBaseType({}, vtab);
+				b.SetBaseType({}, {});
 				b.Link(true, false);
 				b.EndType();
 
@@ -105,7 +103,7 @@ namespace LibRolLangTest
 				b.BeginType(TSM_REFERENCE, "Core.RefType2");
 				b.Link(true, false);
 				b.SetBaseType(r1, {});
-				b.AddInterface(i1, vtab);
+				b.AddInterface(i1, {});
 				b.EndType();
 
 				b.BeginType(TSM_VALUE, "Core.TestType1");

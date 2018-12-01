@@ -194,18 +194,18 @@ namespace
 			t.Finalizer = WriteFunctionRef(t.Generic, finalizer);
 		}
 
-		void SetBaseType(const TypeReference& itype, const TypeReference& vtab)
+		void SetBaseType(const TypeReference& itype, const std::vector<FunctionReference>& vtab)
 		{
 			auto id1 = WriteTypeRef(_assembly.Types[_currentType].Generic, itype);
-			auto id2 = WriteTypeRef(_assembly.Types[_currentType].Generic, vtab);
-			_assembly.Types[_currentType].Base = { id1, id2 };
+			auto tab = WriteVirtualTable(_assembly.Types[_currentType].Generic, vtab);
+			_assembly.Types[_currentType].Base = { id1, std::move(tab) };
 		}
 
-		void AddInterface(const TypeReference& itype, const TypeReference& vtab)
+		void AddInterface(const TypeReference& itype, const std::vector<FunctionReference>& vtab)
 		{
 			auto id1 = WriteTypeRef(_assembly.Types[_currentType].Generic, itype);
-			auto id2 = WriteTypeRef(_assembly.Types[_currentType].Generic, vtab);
-			_assembly.Types[_currentType].Interfaces.push_back({ id1, id2 });
+			auto tab = WriteVirtualTable(_assembly.Types[_currentType].Generic, vtab);
+			_assembly.Types[_currentType].Interfaces.push_back({ id1, std::move(tab) });
 		}
 
 		void EndType()
@@ -450,7 +450,6 @@ namespace
 		void InitType(Type& t)
 		{
 			t.Base.InheritedType = SIZE_MAX;
-			t.Base.VirtualTableType = SIZE_MAX;
 			t.Initializer = SIZE_MAX;
 			t.Finalizer = SIZE_MAX;
 		}
@@ -461,10 +460,6 @@ namespace
 			if (t.Base.InheritedType == SIZE_MAX)
 			{
 				t.Base.InheritedType = WriteTypeRef(t.Generic, {});
-			}
-			if (t.Base.VirtualTableType == SIZE_MAX)
-			{
-				t.Base.VirtualTableType = WriteTypeRef(t.Generic, {});
 			}
 			if (t.Initializer == SIZE_MAX)
 			{
@@ -594,6 +589,16 @@ namespace
 				g.Types.push_back({ REF_CLONE, args[i] });
 			}
 			g.Types.push_back({ REF_EMPTY, 0 });
+			return ret;
+		}
+
+		std::vector<std::size_t> WriteVirtualTable(GenericDeclaration& g, const std::vector<FunctionReference>& tab)
+		{
+			std::vector<std::size_t> ret;
+			for (auto& f : tab)
+			{
+				ret.push_back(WriteFunctionRef(g, f));
+			}
 			return ret;
 		}
 

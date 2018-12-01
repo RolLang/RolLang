@@ -13,11 +13,11 @@ enum TypeStorageMode : unsigned char
 struct TypeInheritance
 {
 	std::size_t InheritedType;
-	std::size_t VirtualTableType;
+	std::vector<std::size_t> VirtualFunctions;
 };
 FIELD_SERIALIZER_BEGIN(TypeInheritance)
 	SERIALIZE_FIELD(InheritedType)
-	SERIALIZE_FIELD(VirtualTableType)
+	SERIALIZE_FIELD(VirtualFunctions)
 FIELD_SERIALIZER_END()
 
 struct TypeSubitem

@@ -34,8 +34,6 @@ public:
 	struct InterpreterRuntimeTypeInfo
 	{
 		void* StaticPointer; //Memory block for TSM_GLOBAL.
-		void* StaticPointerVtab; //Additional memory block for TSM_GLOBAL for vtab. Internal access only.
-		void* VirtualTablePointer;
 		bool Valid; //Remove this once we have other fields to use
 	};
 
@@ -49,20 +47,6 @@ protected:
 		if (type->Storage == TSM_GLOBAL)
 		{
 			info.StaticPointer = AllocateNewGlobalStorage(type);
-		}
-
-		if (type->VirtualTableType != nullptr)
-		{
-			InterpreterRuntimeTypeInfo vtabInfo;
-			auto vtabLoaded = TryFindTypeInfoById(type->VirtualTableType->TypeId, &vtabInfo);
-			assert(vtabLoaded);
-
-			//Allocate a new block of memory which will be initialized right before using.
-			if (vtabInfo.StaticPointerVtab == nullptr)
-			{
-				vtabInfo.StaticPointerVtab = AllocateNewGlobalStorage(type->VirtualTableType);
-			}
-			info.VirtualTablePointer = vtabInfo.StaticPointerVtab;
 		}
 
 		if (type->TypeId >= _interpreterTypeInfo.size())
@@ -117,7 +101,6 @@ protected:
 	}
 
 private:
-	//Multiple objects might be allocated if the type is used as a vtab.
 	static void* AllocateNewGlobalStorage(RuntimeType* type)
 	{
 		std::size_t alignment = type->GetStorageAlignment();

@@ -137,7 +137,7 @@ public: //External API (for RuntimeLoader external API)
 		rt->Alignment = alignment;
 		rt->Initializer = nullptr;
 		rt->Finalizer = nullptr;
-		rt->VirtualTableType = nullptr;
+		rt->BaseType.Type = nullptr;
 #if _DEBUG
 		rt->Fullname = rt->GetFullname();
 #endif
@@ -356,6 +356,12 @@ private:
 			if (_loading->_loadingFunctions.size())
 			{
 				auto t = std::move(_loading->_loadingFunctions.front());
+				if (t == nullptr)
+				{
+					//We sometimes need to force function loading, in which case
+					//the unique_ptr is moved out. See EnsureFunctionLoaded.
+					continue;
+				}
 				_loading->_loadingFunctions.pop_front();
 				PostLoadFunction(std::move(t));
 				assert(_loading->_loadingTypes.size() == 0);
@@ -389,29 +395,6 @@ private:
 			}
 		}
 
-		//Virtual table
-		auto vtabType = LoadRefType({ type.get(), tt->Generic }, tt->Base.VirtualTableType);
-		if (vtabType != nullptr)
-		{
-			if (vtabType->Storage != TSM_GLOBAL)
-			{
-				throw RuntimeLoaderException("Vtab type must be global storage");
-			}
-			if (type->Storage == TSM_GLOBAL || type->Storage == TSM_VALUE)
-			{
-				throw RuntimeLoaderException("Global and value type cannot have vtab");
-			}
-
-			type->VirtualTableType = vtabType;
-		}
-		else
-		{
-			if (type->Storage == TSM_INTERFACE)
-			{
-				throw RuntimeLoaderException("Interface must have vtab");
-			}
-		}
-
 		//Base type
 		auto baseType = LoadRefType({ type.get(), tt->Generic }, tt->Base.InheritedType);
 		if (baseType != nullptr)
@@ -431,9 +414,8 @@ private:
 					throw RuntimeLoaderException("Base type storage must be same as the derived type");
 				}
 			}
-			type->BaseType = baseType;
 		}
-		CheckVirtualTable(baseType, vtabType);
+		type->BaseType = LoadVirtualTable(type.get(), tt->Generic, tt->Base.VirtualFunctions, baseType);
 
 		if (type->Storage == TSM_INTERFACE)
 		{
@@ -639,22 +621,6 @@ private:
 		}
 		for (auto& i : srcTemplate->Interfaces)
 		{
-			RuntimeType::InterfaceInfo ii = {};
-
-			auto vtabType = LoadRefType({ src, srcTemplate->Generic }, i.VirtualTableType);
-			if (vtabType == nullptr && src->Storage != TSM_INTERFACE)
-			{
-				throw RuntimeLoaderException("Vtab type not specified for interface");
-			}
-			if (vtabType != nullptr)
-			{
-				if (vtabType->Storage != TSM_GLOBAL)
-				{
-					throw RuntimeLoaderException("Vtab type must be global storage");
-				}
-				ii.VirtualTable = vtabType;
-			}
-
 			auto baseType = LoadRefType({ src, srcTemplate->Generic }, i.InheritedType);
 			if (baseType == nullptr)
 			{
@@ -664,50 +630,60 @@ private:
 			{
 				throw RuntimeLoaderException("Interface must be interface storage");
 			}
-			ii.Type = baseType;
 
-			if (src->Storage == TSM_INTERFACE)
-			{
-				if (ii.VirtualTable != nullptr)
-				{
-					throw RuntimeLoaderException("Interface cannot have implementation");
-				}
-			}
-			else
-			{
-				CheckVirtualTable(ii.Type, ii.VirtualTable);
-			}
-			dest->Interfaces.push_back(ii);
+			dest->Interfaces.emplace_back(LoadVirtualTable(src, srcTemplate->Generic, i.VirtualFunctions, baseType));
 		}
 	}
 
-	void CheckVirtualTable(RuntimeType* baseType, RuntimeType* vtabType)
+	void EnsureFunctionLoaded(RuntimeFunction* f)
 	{
-		if (baseType && baseType->VirtualTableType && vtabType == nullptr)
+		for (auto& func : _loading->_loadingFunctions)
 		{
-			throw RuntimeLoaderException("Vtab not matching base type");
-		}
-		if (vtabType && baseType && baseType->VirtualTableType)
-		{
-			auto tbase = baseType->VirtualTableType;
-			if (tbase->Fields.size() > vtabType->Fields.size())
+			if (func.get() == f)
 			{
-				throw RuntimeLoaderException("Vtab not matching base type");
-			}
-			for (std::size_t i = 0; i < tbase->Fields.size(); ++i)
-			{
-				auto& fbase = tbase->Fields[i];
-				auto& fderived = vtabType->Fields[i];
-				if (fbase.Type != fderived.Type)
-				{
-					throw RuntimeLoaderException("Vtab not matching base type");
-				}
-				assert(fbase.Offset == fderived.Offset);
-				assert(fbase.Length == fderived.Length);
+				PostLoadFunction(std::move(func));
 			}
 		}
 	}
 
-private: //Module internal
+	//TODO not tested
+	bool CheckVirtualFunctionEqual(RuntimeFunction* a, RuntimeFunction* b)
+	{
+		EnsureFunctionLoaded(a);
+		EnsureFunctionLoaded(b);
+		if (a->ReturnValue != b->ReturnValue) return false;
+		if (a->Parameters.size() != b->Parameters.size()) return false;
+		for (std::size_t i = 0; i < a->Parameters.size(); ++i)
+		{
+			if (a->Parameters[i] != b->Parameters[i]) return false;
+		}
+		return true;
+	}
 
+	RuntimeType::InheritanceInfo LoadVirtualTable(RuntimeType* type, GenericDeclaration& g,
+		const std::vector<std::size_t>& types, RuntimeType* baseType)
+	{
+		RuntimeType::InheritanceInfo ret = {};
+		ret.Type = baseType;
+		for (auto fid : types)
+		{
+			ret.VirtualFunctions.push_back(LoadRefFunction({ type, g }, fid));
+		}
+		if (baseType != nullptr)
+		{
+			auto& baseVtab = baseType->BaseType.VirtualFunctions;
+			if (ret.VirtualFunctions.size() < baseVtab.size())
+			{
+				throw RuntimeLoaderException("Virtual table not matching");
+			}
+			for (std::size_t i = 0; i < baseVtab.size(); ++i)
+			{
+				if (!CheckVirtualFunctionEqual(ret.VirtualFunctions[i], baseVtab[i]))
+				{
+					throw RuntimeLoaderException("Virtual table not matching");
+				}
+			}
+		}
+		return ret;
+	}
 };

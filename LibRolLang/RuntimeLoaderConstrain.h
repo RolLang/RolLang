@@ -888,9 +888,9 @@ private:
 		if (typeChecked == typeBase) return true;
 
 		//Loaded
-		if (typeChecked->BaseType != nullptr)
+		if (typeChecked->BaseType.Type != nullptr)
 		{
-			return CheckLoadingTypeBase(typeChecked->BaseType, typeBase);
+			return CheckLoadingTypeBase(typeChecked->BaseType.Type, typeBase);
 		}
 
 		//Not yet, or no base type. Load using LoadRefType.

@@ -343,10 +343,17 @@ private:
 				std::memset(info.StaticPointer, 0, t->GetStorageSize());
 			}
 
-			//Init vtab type first
-			if (info.VirtualTablePointer != nullptr)
+			//Init vtab functions first
+			for (auto f : t->BaseType.VirtualFunctions)
 			{
-				CheckInitType(t->VirtualTableType);
+				CheckInitFunction(f);
+			}
+			for (auto& i : t->Interfaces)
+			{
+				for (auto f : i.VirtualFunctions)
+				{
+					CheckInitFunction(f);
+				}
 			}
 
 			//Call initializer
@@ -361,12 +368,6 @@ private:
 				{
 					throw InterpreterException(this, ERR_PROGRAM, "Type fails to initialize");
 				}
-			}
-
-			//Copy vtab data
-			if (t->Storage == TSM_GLOBAL && info.StaticPointerVtab != nullptr)
-			{
-				std::memcpy(info.StaticPointerVtab, info.StaticPointer, t->GetStorageSize());
 			}
 		}
 	}

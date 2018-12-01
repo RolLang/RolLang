@@ -86,10 +86,10 @@ struct RuntimeType : Initializable
 		std::size_t Length;
 	};
 
-	struct InterfaceInfo
+	struct InheritanceInfo
 	{
 		RuntimeType* Type;
-		RuntimeType* VirtualTable;
+		std::vector<RuntimeFunction*> VirtualFunctions;
 	};
 
 	RuntimeLoader* Parent;
@@ -107,9 +107,8 @@ struct RuntimeType : Initializable
 	RuntimeFunction* Finalizer;
 	RuntimeType* PointerType;
 
-	RuntimeType* BaseType;
-	RuntimeType* VirtualTableType;
-	std::vector<InterfaceInfo> Interfaces;
+	InheritanceInfo BaseType;
+	std::vector<InheritanceInfo> Interfaces;
 
 #if _DEBUG
 	std::string Fullname;
@@ -126,7 +125,7 @@ struct RuntimeType : Initializable
 			{
 				return true;
 			}
-		} while ((rt = rt->BaseType));
+		} while ((rt = rt->BaseType.Type));
 		return false;
 	}
 
