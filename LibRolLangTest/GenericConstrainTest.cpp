@@ -99,6 +99,15 @@ namespace LibRolLangTest
 				b.Link(true, false);
 				b.EndType();
 
+				auto r1 = b.BeginType(TSM_REFERENCE, "Core.RefType1");
+				b.Link(true, false);
+				b.EndType();
+				b.BeginType(TSM_REFERENCE, "Core.RefType2");
+				b.Link(true, false);
+				b.SetBaseType(r1, {});
+				b.AddInterface(i1, vtab);
+				b.EndType();
+
 				b.BeginType(TSM_VALUE, "Core.TestType1");
 				auto t1g = b.AddGenericParameter();
 				b.AddConstrain(t1g, { v1 }, CONSTRAIN_BASE, 0);
@@ -109,6 +118,11 @@ namespace LibRolLangTest
 				b.AddConstrain(t2g, { i1 }, CONSTRAIN_INTERFACE, 0);
 				b.Link(true, false);
 				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType3");
+				auto t3g = b.AddGenericParameter();
+				b.AddConstrain(t3g, { r1 }, CONSTRAIN_BASE, 0);
+				b.Link(true, false);
+				b.EndType();
 				b.EndAssembly();
 			}
 			RuntimeLoader l(b.Build());
@@ -117,11 +131,45 @@ namespace LibRolLangTest
 				auto v3 = LoadType(&l, "Core", "Core.ValueType3", false);
 				auto i2 = LoadType(&l, "Core", "Core.Interface2", false);
 				auto i3 = LoadType(&l, "Core", "Core.Interface3", false);
+				auto r1 = LoadType(&l, "Core", "Core.RefType1", false);
+				auto r2 = LoadType(&l, "Core", "Core.RefType2", false);
 
 				LoadType(&l, "Core", "Core.TestType1", { v2 }, false);
 				LoadType(&l, "Core", "Core.TestType1", { v3 }, true);
 				LoadType(&l, "Core", "Core.TestType2", { i2 }, false);
 				LoadType(&l, "Core", "Core.TestType2", { i3 }, true);
+				LoadType(&l, "Core", "Core.TestType2", { r1 }, true);
+				LoadType(&l, "Core", "Core.TestType2", { r2 }, false);
+				LoadType(&l, "Core", "Core.TestType3", { r2 }, false);
+			}
+		}
+
+		TEST_METHOD(NestedLoadedInheritance)
+		{
+			//The difference of this test is that the referenced type is not loaded
+			//until used in the loading process (by a field). In the SimpleInheritance,
+			//the type has been fully loaded so base/interfaces are already there.
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto r1 = b.BeginType(TSM_REFERENCE, "Core.RefType1");
+				b.EndType();
+				auto r2 = b.BeginType(TSM_REFERENCE, "Core.RefType2");
+				b.SetBaseType(r1, {});
+				b.EndType();
+				auto ct = b.BeginType(TSM_VALUE, "Core.ConstrainedType");
+				auto g = b.AddGenericParameter();
+				b.AddConstrain(g, { r1 }, CONSTRAIN_BASE, 0);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType");
+				b.Link(true, false);
+				b.AddField(b.MakeType(ct, { r2 }));
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType", false);
 			}
 		}
 

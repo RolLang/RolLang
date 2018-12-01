@@ -435,7 +435,6 @@ private:
 		return false;
 	}
 
-
 	ConstrainType ConstructConstrainTraitType(ConstrainCalculationCache& cache, std::size_t i)
 	{
 		auto trait = cache.Trait;
@@ -884,6 +883,47 @@ private:
 		return true;
 	}
 
+	bool CheckLoadingTypeBase(RuntimeType* typeChecked, RuntimeType* typeBase)
+	{
+		if (typeChecked == typeBase) return true;
+
+		//Loaded
+		if (typeChecked->BaseType != nullptr)
+		{
+			return CheckLoadingTypeBase(typeChecked->BaseType, typeBase);
+		}
+
+		//Not yet, or no base type. Load using LoadRefType.
+		auto tt = FindTypeTemplate(typeChecked->Args);
+		auto loadedBase = LoadRefType({ typeChecked, tt->Generic }, tt->Base.InheritedType);
+
+		return loadedBase != nullptr && CheckLoadingTypeBase(loadedBase, typeBase);
+	}
+
+	bool CheckLoadingTypeInterface(RuntimeType* typeChecked, RuntimeType* typeBase)
+	{
+		if (typeChecked == typeBase) return true;
+
+		//Loaded
+		if (typeChecked->Interfaces.size() > 0)
+		{
+			for (auto& i : typeChecked->Interfaces)
+			{
+				if (CheckLoadingTypeInterface(i.Type, typeBase)) return true;
+			}
+			return false;
+		}
+
+		//Not yet, or no interfaces. Load using LoadRefType.
+		auto tt = FindTypeTemplate(typeChecked->Args);
+		for (auto& i : tt->Interfaces)
+		{
+			auto loadedInterface = LoadRefType({ typeChecked, tt->Generic }, i.InheritedType);
+			if (CheckLoadingTypeInterface(loadedInterface, typeBase)) return true;
+		}
+		return false;
+	}
+
 	bool CheckConstrainDetermined(ConstrainCalculationCache& cache)
 	{
 		switch (cache.Source->Type)
@@ -915,7 +955,7 @@ private:
 			{
 				return false;
 			}
-			return cache.Arguments[0].Determined->IsBaseTypeOf(cache.Target.Determined);
+			return CheckLoadingTypeBase(cache.Target.Determined, cache.Arguments[0].Determined);
 		case CONSTRAIN_INTERFACE:
 			if (cache.Arguments.size() != 1)
 			{
@@ -926,7 +966,7 @@ private:
 			{
 				return false;
 			}
-			return cache.Arguments[0].Determined->IsInterfaceOf(cache.Target.Determined);
+			return CheckLoadingTypeInterface(cache.Target.Determined, cache.Arguments[0].Determined);
 		case CONSTRAIN_TRAIT_ASSEMBLY:
 		case CONSTRAIN_TRAIT_IMPORT:
 			return CheckTraitDetermined(cache);
