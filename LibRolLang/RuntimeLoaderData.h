@@ -355,7 +355,7 @@ public:
 	}
 
 public:
-	RuntimeLoader* _loader; //TODO
+	RuntimeLoader* _loader;
 	AssemblyList _assemblies;
 
 	std::size_t _ptrSize, _itabPtrSize;

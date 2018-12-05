@@ -1,6 +1,18 @@
 #pragma once
 #include "RuntimeLoaderConstrain.h"
 
+//TODO Trait function
+//TODO Trait component export
+//TODO Consider put constrain on imported types (automatically checked and exported by member name)?
+//TODO Parameter pack
+//TODO Variable sized object (array, string)
+//TODO Field index reference (no need to import index as constant) in GenericDeclaration
+//TODO Multiple type template (partial specialization)
+//TODO Attribute
+//TODO Public API for subtype and constrain
+//TODO Test for pointer size
+//TODO Test for import trait
+
 class RuntimeLoader : RuntimeLoaderConstrain
 {
 public:

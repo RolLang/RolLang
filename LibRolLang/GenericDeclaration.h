@@ -13,6 +13,7 @@ enum ReferenceType : unsigned char
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
 	REF_SELF, //for type, the type itself. for trait, the target type
 	REF_SUBTYPE, //sub type of the given type. index = index in name list
+	//Note: REF_SUBTYPE can be used to implement reference to static type. (name = '.static')
 
 	//Following 2 are only for constrain type list only
 	REF_TRY, //same as CLONE except for that it allow the refered calculation to fail (not an error)

@@ -15,8 +15,7 @@ public:
 		for (auto& constrain : g->Constrains)
 		{
 			ConstrainCalculationCacheRoot root;
-			auto c = CreateConstrainCache(constrain, srcAssebly, cargs, ConstrainType::Fail());
-			c->Root = &root;
+			auto c = CreateConstrainCache(constrain, srcAssebly, cargs, ConstrainType::Fail(), &root);
 			if (!CheckConstrainCached(c.get()))
 			{
 				return false;
@@ -47,29 +46,14 @@ private:
 	};
 	struct ConstrainUndeterminedTypeSource
 	{
-		ConstrainUndeterminedTypeSource* SParent = nullptr;
 		std::vector<ConstrainUndeterminedTypeInfo> UndeterminedTypes;
-		std::size_t TotalSize = 0;
 		RuntimeType* GetDetermined(std::size_t i)
 		{
-			auto ps = SParent ? SParent->TotalSize : 0;
-			if (i >= ps)
-			{
-				return UndeterminedTypes[i - ps].Determined;
-			}
-			return SParent->GetDetermined(i);
+			return UndeterminedTypes[i].Determined;
 		}
 		void Determined(std::size_t i, RuntimeType* t)
 		{
-			auto ps = SParent ? SParent->TotalSize : 0;
-			if (i >= ps)
-			{
-				UndeterminedTypes[i - ps].Determined = t;
-			}
-			else
-			{
-				SParent->Determined(i, t);
-			}
+			UndeterminedTypes[i].Determined = t;
 		}
 	};
 	struct ConstrainType
@@ -115,7 +99,7 @@ private:
 
 		static ConstrainType UD(ConstrainUndeterminedTypeSource& src)
 		{
-			auto id = src.UndeterminedTypes.size() + (src.SParent ? src.SParent->TotalSize : 0);
+			auto id = src.UndeterminedTypes.size();
 			src.UndeterminedTypes.push_back({});
 			return { CTT_ANY, nullptr, {}, 0, {}, {}, { &src, id } };
 		}
@@ -142,8 +126,18 @@ private:
 		ConstrainType Type;
 		std::size_t FieldIndex;
 	};
+	struct TraitCacheFunctionOverloadInfo
+	{
+		std::size_t Index;
+		ConstrainType ReturnType;
+		std::vector<ConstrainType> ParameterTypes;
+	};
+	struct TraitCacheFunctionInfo
+	{
+		std::vector<TraitCacheFunctionOverloadInfo> Overloads;
+	};
 	struct ConstrainCalculationCacheRoot;
-	struct ConstrainCalculationCache : ConstrainUndeterminedTypeSource
+	struct ConstrainCalculationCache
 	{
 		ConstrainCalculationCacheRoot* Root;
 		ConstrainCalculationCache* Parent;
@@ -164,7 +158,7 @@ private:
 		std::string TraitAssembly;
 		std::vector<TraitCacheFieldInfo> TraitFields;
 	};
-	struct ConstrainCalculationCacheRoot
+	struct ConstrainCalculationCacheRoot : ConstrainUndeterminedTypeSource
 	{
 		std::size_t Size;
 	};
@@ -302,11 +296,9 @@ private:
 		for (auto& constrain : g->Constrains)
 		{
 			parent.Children.emplace_back(CreateConstrainCache(constrain, parent.TraitAssembly,
-				parent.Arguments, parent.Target));
+				parent.Arguments, parent.Target, parent.Root));
 			auto ptr = parent.Children.back().get();
 			ptr->Parent = &parent;
-			ptr->Root = parent.Root;
-			ptr->SParent = &parent;
 
 			//Check circular constrain.
 			//Note that, same as what we do elsewhere in this project, 
@@ -387,9 +379,11 @@ private:
 private:
 	//TODO separate create+basic fields from load argument/target types (reduce # of args)
 	std::unique_ptr<ConstrainCalculationCache> CreateConstrainCache(GenericConstrain& constrain,
-		const std::string& srcAssebly, const std::vector<ConstrainType>& args, ConstrainType checkTarget)
+		const std::string& srcAssebly, const std::vector<ConstrainType>& args, ConstrainType checkTarget,
+		ConstrainCalculationCacheRoot* root)
 	{
 		auto ret = std::make_unique<ConstrainCalculationCache>();
+		ret->Root = root;
 		ret->Source = &constrain;
 		ret->SrcAssembly = srcAssebly;
 		ret->CheckArguments = args;
@@ -524,7 +518,7 @@ private:
 		switch (t.Type)
 		{
 		case REF_ANY:
-			return ConstrainType::UD(cache);
+			return ConstrainType::UD(*cache.Root);
 		case REF_TRY:
 			return ConstrainType::Try(ConstructConstrainArgumentType(cache, constrain, t.Index));
 		case REF_CLONE:
@@ -723,6 +717,9 @@ private:
 			}
 
 			//TODO functions
+			//Determining REF_ANY with functions is a NP-hard problem. So we
+			//can only try with all possible combination at the end.
+
 		}
 		default:
 			return 0;

@@ -44,7 +44,6 @@ struct Type
 	std::size_t Finalizer; //void(T)
 
 	std::vector<TypeSubitem> PublicSubTypes; //Id = index in generic declaration type list
-	//TODO instance/static functions? (after we add support for attribute)
 	std::vector<TypeSubitem> PublicFunctions; //Id = index in generic declaration function list
 	std::vector<TypeSubitem> PublicFields; //Id = index in field list
 };
