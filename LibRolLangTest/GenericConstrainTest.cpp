@@ -384,5 +384,38 @@ namespace LibRolLangTest
 				LoadType(&l, "Core", "Core.TestType5", { t2 }, false);
 			}
 		}
+
+		TEST_METHOD(ReferenceTypeField)
+		{
+			//A quite complicated test case testing interface, any, and ref field.
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto vt = b.BeginType(TSM_VALUE, "Core.ValueType");
+				b.EndType();
+				auto i = b.BeginType(TSM_INTERFACE, "Core.Interface");
+				auto g1 = b.AddGenericParameter();
+				b.EndType();
+				auto rt = b.BeginType(TSM_REFERENCE, "Core.RefType");
+				auto g2 = b.AddGenericParameter();
+				b.AddInterface(b.MakeType(i, { g2 }), {});
+				b.AddField(b.MakeType(rt, { g2 }), "FieldA");
+				b.EndType();
+				auto tr = b.BeginTrait("Core.Trait");
+				auto g3 = b.AddGenericParameter();
+				b.AddConstrain(g3, { b.MakeType(i, { vt }) }, CONSTRAIN_INTERFACE, 0);
+				b.AddTraitField(g3, "FieldA", "FieldA");
+				b.EndTrait();
+				b.BeginType(TSM_VALUE, "Core.TestType");
+				b.Link(true, false);
+				b.AddConstrain(b.MakeType(rt, { vt }), { b.AnyType() }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType", false);
+			}
+		}
 	};
 }

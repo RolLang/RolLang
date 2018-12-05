@@ -124,6 +124,7 @@ private:
 	struct TraitCacheFieldInfo
 	{
 		ConstrainType Type;
+		ConstrainType TypeInTarget;
 		std::size_t FieldIndex;
 	};
 	struct TraitCacheFunctionOverloadInfo
@@ -323,7 +324,7 @@ private:
 		assert(parent.TraitCacheCreated == 0);
 		for (auto& field : trait->Fields)
 		{
-			parent.TraitFields.push_back({ ConstructConstrainTraitType(parent, field.Type), 0 });
+			parent.TraitFields.push_back({ ConstructConstrainTraitType(parent, field.Type), {}, 0 });
 		}
 
 		//TODO Functions?
@@ -347,8 +348,6 @@ private:
 		auto target = parent.Target.Determined;
 		assert(target);
 
-		//TODO IMPORTANT! Ensure fields for ref types are loaded (including circular check).
-
 		auto tt = FindTypeTemplate(target->Args);
 
 		for (std::size_t i = 0; i < trait->Fields.size(); ++i)
@@ -368,6 +367,26 @@ private:
 				return -1;
 			}
 			parent.TraitFields[i].FieldIndex = fid;
+
+			if (target->Fields.size() == 0)
+			{
+				//We found the filed in type template, but now there is no field
+				//loaded (can happen to reference types). We have to use template.
+				//Fortunately, the target has determined generic arguments and has
+				//passes its constrain check, which means we can simply use LoadRefType.
+				//Note that we may still have constrain check failure when loading field
+				//types, but that is considered as a program error instead of constrain
+				//check failure of this constrain we are testing, and we can simply let 
+				//it throws.
+
+				auto type_id = tt->Fields[fid];
+				auto field_type = LoadRefType({ target, tt->Generic }, type_id);
+				parent.TraitFields[i].TypeInTarget = ConstrainType::RT(field_type);
+			}
+			else
+			{
+				parent.TraitFields[i].TypeInTarget = ConstrainType::RT(target->Fields[fid].Type);
+			}
 		}
 
 		//TODO function
@@ -710,9 +729,7 @@ private:
 
 			for (auto& f : cache.TraitFields)
 			{
-				auto target_type = ConstrainType::RT(target->Fields[f.FieldIndex].Type);
-				auto& trait_type = f.Type;
-				auto ret = TryDetermineEqualTypes(target_type, trait_type);
+				auto ret = TryDetermineEqualTypes(f.TypeInTarget, f.Type);
 				if (ret != 0) return ret;
 			}
 
@@ -867,8 +884,9 @@ private:
 		{
 			auto& tf = cache.TraitFields[i];
 			if (!CheckSimplifiedConstrainType(tf.Type)) return false;
-			auto field_type_target = target->Fields[tf.FieldIndex].Type;
+			auto field_type_target = tf.TypeInTarget.Determined;
 			auto field_type_trait = tf.Type.Determined;
+			assert(field_type_target && field_type_trait);
 			if (field_type_target != field_type_trait)
 			{
 				return false;
