@@ -62,6 +62,7 @@ public:
 					{
 						//This is actually an error, but we don't want to throw in ctor.
 						//Let's wait for the type loading to fail.
+						_pointerTypeId = _boxTypeId = SIZE_MAX;
 						return;
 					}
 					_pointerTypeId = e.InternalId;
@@ -72,6 +73,7 @@ public:
 						!CheckBoxTypeTemplate(&a->Types[e.InternalId]) ||
 						_boxTypeId != SIZE_MAX)
 					{
+						_pointerTypeId = _boxTypeId = SIZE_MAX;
 						return;
 					}
 					_boxTypeId = e.InternalId;

@@ -8,18 +8,19 @@ public:
 		const std::vector<RuntimeType*>& args)
 	{
 		std::vector<ConstrainType> cargs;
+		ConstrainCalculationCacheRoot root;
 		for (auto a : args)
 		{
-			cargs.push_back(ConstrainType::RT(a));
+			cargs.push_back(ConstrainType::RT(&root, a));
 		}
 		for (auto& constrain : g->Constrains)
 		{
-			ConstrainCalculationCacheRoot root;
-			auto c = CreateConstrainCache(constrain, srcAssebly, cargs, ConstrainType::Fail(), &root);
+			auto c = CreateConstrainCache(constrain, srcAssebly, cargs, ConstrainType::Fail(&root), &root);
 			if (!CheckConstrainCached(c.get()))
 			{
 				return false;
 			}
+			root.Clear();
 		}
 		return true;
 	}
@@ -35,11 +36,6 @@ private:
 	};
 
 	struct ConstrainUndeterminedTypeSource;
-	struct ConstrainUndeterminedTypeRef
-	{
-		ConstrainUndeterminedTypeSource* Parent;
-		std::size_t Index;
-	};
 	struct ConstrainUndeterminedTypeInfo
 	{
 		RuntimeType* Determined;
@@ -56,62 +52,49 @@ private:
 			UndeterminedTypes[i].Determined = t;
 		}
 	};
+	struct ConstrainCalculationCacheRoot;
 	struct ConstrainType
 	{
+		ConstrainCalculationCacheRoot* Root;
 		ConstrainTypeType CType;
 		RuntimeType* Determined;
 		std::string TypeTemplateAssembly;
 		std::size_t TypeTemplateIndex;
 		std::string SubtypeName;
 		std::vector<ConstrainType> Args;
-		ConstrainUndeterminedTypeRef Undetermined;
+		std::size_t Undetermined;
 		bool TryArgumentConstrain;
 
-		bool ContainsUndetermined()
+
+		//Following 2 fields are related to backtracking.
+		ConstrainTypeType OType;
+		std::size_t CLevel;
+
+		static ConstrainType Fail(ConstrainCalculationCacheRoot* root)
 		{
-			switch (CType)
-			{
-			case CTT_RT: return false;
-			case CTT_GENERIC:
-			case CTT_SUBTYPE:
-				for (auto& a : Args)
-				{
-					if (a.ContainsUndetermined()) return true;
-				}
-				return false;
-			case CTT_ANY:
-				return !Undetermined.Parent->GetDetermined(Undetermined.Index);
-			default:
-				assert(0);
-				return false;
-			}
+			return { root, CTT_FAIL };
 		}
 
-		static ConstrainType Fail()
+		static ConstrainType RT(ConstrainCalculationCacheRoot* root, RuntimeType* rt)
 		{
-			return { CTT_FAIL };
+			return { root, CTT_RT, rt };
 		}
 
-		static ConstrainType RT(RuntimeType* rt)
+		static ConstrainType UD(ConstrainCalculationCacheRoot* root)
 		{
-			return { CTT_RT, rt };
+			auto id = root->UndeterminedTypes.size();
+			root->UndeterminedTypes.push_back({});
+			return { root, CTT_ANY, nullptr, {}, 0, {}, {}, id };
 		}
 
-		static ConstrainType UD(ConstrainUndeterminedTypeSource& src)
+		static ConstrainType G(ConstrainCalculationCacheRoot* root, const std::string& a, std::size_t i)
 		{
-			auto id = src.UndeterminedTypes.size();
-			src.UndeterminedTypes.push_back({});
-			return { CTT_ANY, nullptr, {}, 0, {}, {}, { &src, id } };
+			return { root, CTT_GENERIC, nullptr, a, i };
 		}
 
-		static ConstrainType G(const std::string& a, std::size_t i)
+		static ConstrainType SUB(ConstrainCalculationCacheRoot* root, const std::string& n)
 		{
-			return { CTT_GENERIC, nullptr, a, i };
-		}
-
-		static ConstrainType SUB(const std::string& n)
-		{
-			return { CTT_SUBTYPE, nullptr, {}, {}, n };
+			return { root, CTT_SUBTYPE, nullptr, {}, {}, n };
 		}
 
 		static ConstrainType Try(ConstrainType&& t)
@@ -119,6 +102,25 @@ private:
 			auto ret = ConstrainType(std::move(t));
 			ret.TryArgumentConstrain = true;
 			return ret;
+		}
+
+		void DeductFail()
+		{
+			assert(CLevel == 0);
+			OType = CType;
+			CLevel = Root->GetCurrentLevel();
+			CType = CTT_FAIL;
+			Root->BacktrackList.push_back(this);
+		}
+
+		void DeductRT(RuntimeType* rt)
+		{
+			assert(CLevel == 0);
+			OType = CType;
+			CLevel = Root->GetCurrentLevel();
+			CType = CTT_RT;
+			Determined = rt;
+			Root->BacktrackList.push_back(this);
 		}
 	};
 	struct TraitCacheFieldInfo
@@ -137,7 +139,6 @@ private:
 	{
 		std::vector<TraitCacheFunctionOverloadInfo> Overloads;
 	};
-	struct ConstrainCalculationCacheRoot;
 	struct ConstrainCalculationCache
 	{
 		ConstrainCalculationCacheRoot* Root;
@@ -162,6 +163,67 @@ private:
 	struct ConstrainCalculationCacheRoot : ConstrainUndeterminedTypeSource
 	{
 		std::size_t Size;
+
+		std::vector<ConstrainType*> BacktrackList;
+		std::vector<std::size_t> BacktrackListSize;
+
+		void Clear()
+		{
+			Size = 0;
+			BacktrackList.clear();
+			BacktrackListSize.clear();
+		}
+
+		bool IsUndeterminedType(ConstrainType& ct)
+		{
+			switch (ct.CType)
+			{
+			case CTT_RT: return false;
+			case CTT_GENERIC:
+			case CTT_SUBTYPE:
+				for (auto& a : ct.Args)
+				{
+					if (IsUndeterminedType(a)) return true;
+				}
+				return false;
+			case CTT_ANY:
+				return !GetDetermined(ct.Undetermined);
+			default:
+				assert(0);
+				return false;
+			}
+		}
+
+		std::size_t StartBacktrackPoint()
+		{
+			auto id = BacktrackListSize.size();
+			BacktrackListSize.push_back(BacktrackList.size());
+			return id;
+		}
+
+		void DoBacktrack(std::size_t level)
+		{
+			assert(level < BacktrackListSize.size());
+			auto size = BacktrackListSize[level];
+			assert(size < BacktrackList.size());
+			auto num = BacktrackListSize.size() - size;
+			for (std::size_t i = 0; i < num; ++i)
+			{
+				auto t = BacktrackList.back();
+				if (t->CLevel > level)
+				{
+					t->CType = t->OType;
+					t->CLevel = 0;
+					t->Determined = nullptr;
+				}
+				BacktrackList.pop_back();
+			}
+		}
+
+		std::size_t GetCurrentLevel()
+		{
+			return BacktrackListSize.size();
+		}
 	};
 
 private:
@@ -207,6 +269,8 @@ private:
 
 	bool AreConstrainTypesEqual(ConstrainType& a, ConstrainType& b)
 	{
+		//TODO Probably we don't need to simplify it.
+
 		SimplifyConstrainType(a);
 		SimplifyConstrainType(b);
 
@@ -223,8 +287,7 @@ private:
 			//keep failing in children).
 			return true;
 		case CTT_ANY:
-			return a.Undetermined.Parent == b.Undetermined.Parent &&
-				a.Undetermined.Index == b.Undetermined.Index;
+			return a.Root == b.Root && a.Undetermined == b.Undetermined;
 		case CTT_RT:
 			return a.Determined == b.Determined;
 		case CTT_GENERIC:
@@ -381,11 +444,12 @@ private:
 
 				auto type_id = tt->Fields[fid];
 				auto field_type = LoadRefType({ target, tt->Generic }, type_id);
-				parent.TraitFields[i].TypeInTarget = ConstrainType::RT(field_type);
+				parent.TraitFields[i].TypeInTarget = ConstrainType::RT(parent.Root, field_type);
 			}
 			else
 			{
-				parent.TraitFields[i].TypeInTarget = ConstrainType::RT(target->Fields[fid].Type);
+				parent.TraitFields[i].TypeInTarget = 
+					ConstrainType::RT(parent.Root, target->Fields[fid].Type);
 			}
 		}
 
@@ -401,6 +465,9 @@ private:
 		const std::string& srcAssebly, const std::vector<ConstrainType>& args, ConstrainType checkTarget,
 		ConstrainCalculationCacheRoot* root)
 	{
+		root->Size += 1;
+		//TODO check loading limit (low priority)
+
 		auto ret = std::make_unique<ConstrainCalculationCache>();
 		ret->Root = root;
 		ret->Source = &constrain;
@@ -423,7 +490,7 @@ private:
 
 	bool CheckConstrainCached(ConstrainCalculationCache* cache)
 	{
-		while (ListContainUndetermined(cache->Arguments, cache->Target))
+		while (ListContainUndetermined(cache->Root, cache->Arguments, cache->Target))
 		{
 			auto check = TryDetermineConstrainArgument(*cache);
 			if (check == 1) continue;
@@ -438,13 +505,14 @@ private:
 		return true;
 	}
 
-	bool ListContainUndetermined(std::vector<ConstrainType>& l, ConstrainType& t)
+	static bool ListContainUndetermined(ConstrainCalculationCacheRoot* root,
+		std::vector<ConstrainType>& l, ConstrainType& t)
 	{
 		for (auto& a : l)
 		{
-			if (a.ContainsUndetermined()) return true;
+			if (root->IsUndeterminedType(a)) return true;
 		}
-		if (t.ContainsUndetermined()) return true;
+		if (root->IsUndeterminedType(t)) return true;
 		return false;
 	}
 
@@ -468,7 +536,7 @@ private:
 			return cache.Target;
 		case REF_ASSEMBLY:
 		{
-			auto ret = ConstrainType::G(cache.TraitAssembly, t.Index);
+			auto ret = ConstrainType::G(cache.Root, cache.TraitAssembly, t.Index);
 			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
 			{
 				if (i + j == list.size())
@@ -488,7 +556,7 @@ private:
 			}
 			LoadingArguments la;
 			FindExportType(assembly->ImportTypes[t.Index], la);
-			auto ret = ConstrainType::G(la.Assembly, la.Id);
+			auto ret = ConstrainType::G(cache.Root, la.Assembly, la.Id);
 			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
 			{
 				if (i + j == list.size())
@@ -509,7 +577,7 @@ private:
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
-			auto ret = ConstrainType::SUB(trait->Generic.SubtypeNames[t.Index]);
+			auto ret = ConstrainType::SUB(cache.Root, trait->Generic.SubtypeNames[t.Index]);
 			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
 			{
 				if (i + j == list.size())
@@ -537,7 +605,7 @@ private:
 		switch (t.Type)
 		{
 		case REF_ANY:
-			return ConstrainType::UD(*cache.Root);
+			return ConstrainType::UD(cache.Root);
 		case REF_TRY:
 			return ConstrainType::Try(ConstructConstrainArgumentType(cache, constrain, t.Index));
 		case REF_CLONE:
@@ -552,7 +620,7 @@ private:
 			return cache.CheckTarget;
 		case REF_ASSEMBLY:
 		{
-			auto ret = ConstrainType::G(cache.SrcAssembly, t.Index);
+			auto ret = ConstrainType::G(cache.Root, cache.SrcAssembly, t.Index);
 			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
 			{
 				if (i + j == list.size())
@@ -572,7 +640,7 @@ private:
 			}
 			LoadingArguments la;
 			FindExportType(assembly->ImportTypes[t.Index], la);
-			auto ret = ConstrainType::G(la.Assembly, la.Id);
+			auto ret = ConstrainType::G(cache.Root, la.Assembly, la.Id);
 			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
 			{
 				if (i + j == list.size())
@@ -593,7 +661,7 @@ private:
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
-			auto ret = ConstrainType::SUB(constrain.SubtypeNames[t.Index]);
+			auto ret = ConstrainType::SUB(cache.Root, constrain.SubtypeNames[t.Index]);
 			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
 			{
 				if (i + j == list.size())
@@ -613,9 +681,11 @@ private:
 		}
 	}
 
-	//ret: 1: determined something. 0: no change. -1: impossible (constrain check fails)
+	//ret: 1: determined something. 0: no change. -1: impossible (constrain check fails).
 	int TryDetermineEqualTypes(ConstrainType& a, ConstrainType& b)
 	{
+		//Should not modify a or b except for calling SimplifyConstrainType at the beginning.
+
 		SimplifyConstrainType(a);
 		SimplifyConstrainType(b);
 		if (a.CType == CTT_FAIL || b.CType == CTT_FAIL) return -1;
@@ -623,12 +693,12 @@ private:
 		{
 			if (a.CType == CTT_RT)
 			{
-				b.Undetermined.Parent->Determined(b.Undetermined.Index, a.Determined);
+				b.Root->Determined(b.Undetermined, a.Determined);
 				return 1;
 			}
 			else if (b.CType == CTT_RT)
 			{
-				a.Undetermined.Parent->Determined(a.Undetermined.Index, b.Determined);
+				a.Root->Determined(a.Undetermined, b.Determined);
 				return 1;
 			}
 			else
@@ -667,7 +737,7 @@ private:
 			}
 			for (std::size_t i = 0; i < b.Args.size(); ++i)
 			{
-				ConstrainType ct = ConstrainType::RT(a.Determined->Args.Arguments[i]);
+				auto ct = ConstrainType::RT(b.Args[i].Root, a.Determined->Args.Arguments[i]);
 				int r = TryDetermineEqualTypes(b.Args[i], ct);
 				if (r != 0) return r;
 			}
@@ -683,7 +753,7 @@ private:
 			}
 			for (std::size_t i = 0; i < a.Args.size(); ++i)
 			{
-				ConstrainType ct = ConstrainType::RT(b.Determined->Args.Arguments[i]);
+				auto ct = ConstrainType::RT(a.Args[i].Root, b.Determined->Args.Arguments[i]);
 				int r = TryDetermineEqualTypes(a.Args[i], ct);
 				if (r != 0) return r;
 			}
@@ -743,6 +813,7 @@ private:
 		}
 	}
 
+	//Can only be used in SimplifyConstrainType.
 	bool TrySimplifyConstrainType(ConstrainType& t, ConstrainType& parent)
 	{
 		SimplifyConstrainType(t);
@@ -750,7 +821,7 @@ private:
 		{
 			if (t.CType == CTT_FAIL)
 			{
-				parent = ConstrainType::Fail();
+				parent.DeductFail();
 			}
 			return false;
 		}
@@ -767,9 +838,9 @@ private:
 			//Elemental type. Can't simplify.
 			return;
 		case CTT_ANY:
-			if (auto rt = t.Undetermined.Parent->GetDetermined(t.Undetermined.Index))
+			if (auto rt = t.Root->GetDetermined(t.Undetermined))
 			{
-				t = ConstrainType::RT(rt);
+				t.DeductRT(rt);
 			}
 			return;
 		case CTT_GENERIC:
@@ -788,11 +859,11 @@ private:
 				auto tt = FindTypeTemplate(la);
 				if (!CheckGenericArguments(tt->Generic, la))
 				{
-					t = ConstrainType::Fail();
+					t.DeductFail();
 					return;
 				}
 			}
-			t = ConstrainType::RT(LoadTypeInternal(la, t.TryArgumentConstrain));
+			t.DeductRT(LoadTypeInternal(la, t.TryArgumentConstrain));
 			return;
 		}
 		case CTT_SUBTYPE:
@@ -820,7 +891,7 @@ private:
 			{
 				if (t.TryArgumentConstrain)
 				{
-					t = ConstrainType::Fail();
+					t.DeductFail();
 					return;
 				}
 				throw RuntimeLoaderException("Invalid subtype constrain");
@@ -830,11 +901,11 @@ private:
 				auto tt = FindTypeTemplate(la);
 				if (!CheckGenericArguments(tt->Generic, la))
 				{
-					t = ConstrainType::Fail();
+					t.DeductFail();
 					return;
 				}
 			}
-			t = ConstrainType::RT(LoadTypeInternal(la, t.TryArgumentConstrain));
+			t.DeductRT(LoadTypeInternal(la, t.TryArgumentConstrain));
 			return;
 		}
 		default:
@@ -920,7 +991,9 @@ private:
 		if (typeChecked == typeBase) return true;
 
 		//Loaded
-		if (typeChecked->Interfaces.size() > 0)
+		//Note that for value type as we are loading interfaces to Box type, we have to
+		//check template.
+		if (typeChecked->Interfaces.size() > 0 || typeChecked->Storage == TSM_VALUE)
 		{
 			for (auto& i : typeChecked->Interfaces)
 			{
