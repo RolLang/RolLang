@@ -17,6 +17,7 @@ public:
 		case REF_EMPTY:
 			return false;
 		case REF_CLONE:
+			//TODO detect circular REF_CLONE
 			if (type.Index >= lg.Declaration.Types.size())
 			{
 				throw RuntimeLoaderException("Invalid type reference");
@@ -183,6 +184,10 @@ private:
 		for (std::size_t i = index + 1; i < lg.Declaration.Types.size(); ++i)
 		{
 			if (lg.Declaration.Types[i].Type == REF_EMPTY) break; //Use REF_Empty as the end of arg list
+			if (i == lg.Declaration.Types.size() - 1)
+			{
+				throw RuntimeLoaderException("Invalid type reference");
+			}
 			la.Arguments.push_back(LoadRefType(lg, i));
 		}
 	}
@@ -192,6 +197,10 @@ private:
 		for (std::size_t i = index + 1; i < lg.Declaration.Functions.size(); ++i)
 		{
 			if (lg.Declaration.Functions[i].Type == REF_EMPTY) break;
+			if (i == lg.Declaration.Functions.size() - 1)
+			{
+				throw RuntimeLoaderException("Invalid function reference");
+			}
 			if (lg.Declaration.Functions[i].Type != REF_CLONETYPE)
 			{
 				throw RuntimeLoaderException("Invalid generic function argument");
