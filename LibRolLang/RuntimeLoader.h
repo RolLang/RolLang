@@ -6,6 +6,7 @@
 //TODO Consider put constrain on imported types (automatically checked and exported by member name)?
 //TODO Parameter pack
 //TODO Variable sized object (array, string)
+//TODO Embed ref types
 //TODO Field index reference (no need to import index as constant) in GenericDeclaration
 //TODO Multiple type template (partial specialization)
 //TODO Attribute

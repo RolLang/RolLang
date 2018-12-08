@@ -33,6 +33,7 @@ private:
 		CTT_GENERIC,
 		CTT_SUBTYPE,
 		CTT_RT,
+		CTT_EMPTY,
 	};
 
 	struct ConstrainUndeterminedTypeSource;
@@ -102,6 +103,11 @@ private:
 			auto ret = ConstrainType(std::move(t));
 			ret.TryArgumentConstrain = true;
 			return ret;
+		}
+
+		static ConstrainType Empty(ConstrainCalculationCacheRoot* root)
+		{
+			return { root, CTT_EMPTY };
 		}
 
 		void DeductFail()
@@ -182,7 +188,9 @@ private:
 		{
 			switch (ct.CType)
 			{
-			case CTT_RT: return false;
+			case CTT_RT:
+			case CTT_EMPTY:
+				return false;
 			case CTT_GENERIC:
 			case CTT_SUBTYPE:
 				for (auto& a : ct.Args)
@@ -285,6 +293,7 @@ private:
 
 		switch (a.CType)
 		{
+		case CTT_EMPTY:
 		case CTT_FAIL:
 			//Although we don't know whether they come from the same type,
 			//since they both fail, they will lead to the same result (and
@@ -418,7 +427,10 @@ private:
 		auto trait = parent.Trait;
 
 		SimplifyConstrainType(parent.Target);
-		if (parent.Target.CType != CTT_RT) return 0;
+		if (parent.Target.CType != CTT_RT && parent.Target.CType != CTT_EMPTY)
+		{
+			return 0;
+		}
 
 		auto target = parent.Target.Determined;
 		assert(target);
@@ -794,7 +806,7 @@ private:
 		switch (g.Types[i].Type & REF_REFTYPES)
 		{
 		case REF_EMPTY:
-			return ConstrainType::Fail(root);
+			return ConstrainType::Empty(root);
 		case REF_ARGUMENT:
 			assert(g.Types[i].Index < arguments.size());
 			return arguments[g.Types[i].Index];
@@ -922,6 +934,8 @@ private:
 			}
 			return ret;
 		}
+		case REF_EMPTY:
+			return ConstrainType::Empty(cache.Root);
 		case REF_ANY:
 		case REF_TRY:
 		default:
@@ -1022,6 +1036,10 @@ private:
 	{
 		//We only need a quick check to eliminate most overloads. Don't simplify.
 		if (a.CType == CTT_FAIL || a.CType == CTT_FAIL) return false;
+		if (a.CType == CTT_EMPTY || b.CType == CTT_EMPTY)
+		{
+			return a.CType == b.CType;
+		}
 		if (a.CType == CTT_ANY || b.CType == CTT_ANY) return true;
 		if (a.CType == CTT_SUBTYPE || b.CType == CTT_SUBTYPE) return true;
 		if (a.CType == CTT_RT && b.CType == CTT_RT)
@@ -1081,6 +1099,11 @@ private:
 
 		SimplifyConstrainType(a);
 		SimplifyConstrainType(b);
+		if (a.CType == CTT_EMPTY || b.CType == CTT_EMPTY)
+		{
+			//We don't allow CTT_ANY to be empty.
+			return 0;
+		}
 		if (a.CType == CTT_FAIL || b.CType == CTT_FAIL) return -1;
 		if (a.CType == CTT_ANY || b.CType == CTT_ANY)
 		{
@@ -1255,6 +1278,7 @@ private:
 	bool TrySimplifyConstrainType(ConstrainType& t, ConstrainType& parent)
 	{
 		SimplifyConstrainType(t);
+		//Note that we only allow RT. EMPTY cannot be a valid argument.
 		if (t.CType != CTT_RT)
 		{
 			if (t.CType == CTT_FAIL)
@@ -1272,6 +1296,7 @@ private:
 		switch (t.CType)
 		{
 		case CTT_RT:
+		case CTT_EMPTY:
 		case CTT_FAIL:
 			//Elemental type. Can't simplify.
 			return;
@@ -1355,12 +1380,12 @@ private:
 	bool CheckSimplifiedConstrainType(ConstrainType& t)
 	{
 		SimplifyConstrainType(t);
-		if (t.CType != CTT_RT)
+		if (t.CType != CTT_RT && t.CType != CTT_EMPTY)
 		{
 			assert(t.CType == CTT_FAIL);
 			return false;
 		}
-		assert(t.Determined);
+		assert(t.Determined || t.CType == CTT_EMPTY);
 		return true;
 	}
 
@@ -1421,7 +1446,8 @@ private:
 	{
 		if (!CheckSimplifiedConstrainType(a)) return false;
 		if (!CheckSimplifiedConstrainType(b)) return false;
-		assert(a.Determined && b.Determined);
+		assert(a.Determined || a.CType == CTT_EMPTY);
+		assert(b.Determined || b.CType == CTT_EMPTY);
 		return a.Determined == b.Determined;
 	}
 
