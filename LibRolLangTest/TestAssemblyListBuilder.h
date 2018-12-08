@@ -187,6 +187,12 @@ namespace
 			_assembly.Types[_currentType].PublicSubTypes.push_back({ name, id });
 		}
 
+		void AddMemberFunction(const std::string& name, const FunctionReference& func)
+		{
+			auto id = WriteFunctionRef(_assembly.Types[_currentType].Generic, func);
+			_assembly.Types[_currentType].PublicFunctions.push_back({ name, id });
+		}
+
 		void SetTypeHandlers(const FunctionReference& initializer, const FunctionReference& finalizer)
 		{
 			auto& t = _assembly.Types[_currentType];
@@ -428,6 +434,20 @@ namespace
 		{
 			auto type_id = WriteTypeRef(_assembly.Traits[_currentTrait].Generic, type);
 			_assembly.Traits[_currentTrait].Fields.push_back({ name, type_id, export_name });
+		}
+
+		void AddTraitFunction(const TypeReference& ret, const std::vector<TypeReference>& p,
+			const std::string& name, const std::string& export_name)
+		{
+			TraitFunction f = {};
+			f.ElementName = name;
+			f.ExportName = export_name;
+			f.ReturnType = WriteTypeRef(_assembly.Traits[_currentTrait].Generic, ret);
+			for (auto& pp : p)
+			{
+				f.ParameterTypes.push_back(WriteTypeRef(_assembly.Traits[_currentTrait].Generic, pp));
+			}
+			_assembly.Traits[_currentTrait].Functions.emplace_back(std::move(f));
 		}
 
 		void EndTrait()

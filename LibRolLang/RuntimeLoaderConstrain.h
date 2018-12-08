@@ -8,7 +8,7 @@ public:
 		const std::vector<RuntimeType*>& args)
 	{
 		std::vector<ConstrainType> cargs;
-		ConstrainCalculationCacheRoot root;
+		ConstrainCalculationCacheRoot root = {};
 		for (auto a : args)
 		{
 			cargs.push_back(ConstrainType::RT(&root, a));
@@ -138,6 +138,7 @@ private:
 	struct TraitCacheFunctionInfo
 	{
 		std::vector<TraitCacheFunctionOverloadInfo> Overloads;
+		std::size_t CurrentOverload;
 		ConstrainType TraitReturnType;
 		std::vector<ConstrainType> TraitParameterTypes;
 	};
@@ -208,8 +209,8 @@ private:
 		{
 			assert(level < BacktrackListSize.size());
 			auto size = BacktrackListSize[level];
-			assert(size < BacktrackList.size());
-			auto num = BacktrackListSize.size() - size;
+			assert(size <= BacktrackList.size());
+			auto num = BacktrackList.size() - size;
 			for (std::size_t i = 0; i < num; ++i)
 			{
 				auto t = BacktrackList.back();
@@ -476,6 +477,23 @@ private:
 				{
 					continue;
 				}
+				//TODO handle parameter pack
+				if (fi.ParameterTypes.size() != f.ParameterTypes.size())
+				{
+					continue;
+				}
+				if (!CheckTypePossiblyEqual(fi.ReturnType, parent.TraitFunctions[i].TraitReturnType))
+				{
+					continue;
+				}
+				for (std::size_t k = 0; k < fi.ParameterTypes.size(); ++k)
+				{
+					if (!CheckTypePossiblyEqual(fi.ParameterTypes[k],
+						parent.TraitFunctions[i].TraitParameterTypes[k]))
+					{
+						continue;
+					}
+				}
 				parent.TraitFunctions[i].Overloads.emplace_back(std::move(fi));
 			}
 			if (parent.TraitFunctions[i].Overloads.size() == 0)
@@ -516,7 +534,7 @@ private:
 
 		//Find the function template.
 		LoadingArguments la;
-		switch (g.Functions[id].Type)
+		switch (g.Functions[id].Type & REF_REFTYPES)
 		{
 		case REF_ASSEMBLY:
 			la.Assembly = src_assembly;
@@ -592,7 +610,7 @@ private:
 			throw RuntimeLoaderException("Invalid function reference");
 		}
 		std::size_t ret = 0;
-		switch (g.Functions[id].Type)
+		switch (g.Functions[id].Type & REF_REFTYPES)
 		{
 		case REF_CLONE:
 			//TODO detect circular REF_CLONE
@@ -604,7 +622,7 @@ private:
 				auto a = GetTypeAdditionalArgumentNumber(g, g.Functions[id].Index);
 				if (a > ret) ret = a;
 			}
-			if (id < g.Functions.size())
+			if (id == g.Functions.size())
 			{
 				throw RuntimeLoaderException("Invalid function reference");
 			}
@@ -623,7 +641,7 @@ private:
 		}
 		std::size_t ret = 0;
 		auto t = g.Types[id];
-		switch (t.Type)
+		switch (t.Type & REF_REFTYPES)
 		{
 		case REF_CLONE:
 			//TODO detect circular REF_CLONE
@@ -674,7 +692,8 @@ private:
 		return ret;
 	}
 
-	bool CheckConstrainCached(ConstrainCalculationCache* cache)
+	//Check without changing function overload candidates.
+	bool CheckConstrainCachedSinglePass(ConstrainCalculationCache* cache)
 	{
 		while (ListContainUndetermined(cache->Root, cache->Arguments, cache->Target))
 		{
@@ -689,6 +708,44 @@ private:
 		}
 		//TODO calculate exportable references
 		return true;
+	}
+
+	bool CheckConstrainCached(ConstrainCalculationCache* cache)
+	{
+		do
+		{
+			auto id = cache->Root->StartBacktrackPoint();
+			if (CheckConstrainCachedSinglePass(cache)) return true;
+			cache->Root->DoBacktrack(id);
+		} while (MoveToNextCandidates(cache));
+		return false;
+	}
+
+	bool MoveToNextCandidates(ConstrainCalculationCache* cache)
+	{
+		//First move children (they may cause parent to fail).
+		//But we don't need to create the children if they don't exist,
+		//because if so, they can't make parent to fail.
+		for (auto& t : cache->Children)
+		{
+			if (MoveToNextCandidates(t.get()))
+			{
+				return true;
+			}
+		}
+		for (std::size_t i = 0; i < cache->TraitFunctions.size(); ++i)
+		{
+			//Reverse iterate
+			auto& f = cache->TraitFunctions[cache->TraitFunctions.size() - 1 - i];
+			if (++f.CurrentOverload < f.Overloads.size())
+			{
+				return true;
+			}
+			f.CurrentOverload = 0;
+		}
+
+		//Failed (no more overloads). Note that all have been set back to 0.
+		return false;
 	}
 
 	static bool ListContainUndetermined(ConstrainCalculationCacheRoot* root,
@@ -707,7 +764,7 @@ private:
 	void LoadConstrainTypeArgList(ConstrainType& type, GenericDeclaration& g, std::size_t index,
 		const std::string& src, std::vector<ConstrainType>& arguments, RuntimeType* selfType)
 	{
-		for (std::size_t i = index; i < g.Types.size(); ++i)
+		for (std::size_t i = index + 1; i < g.Types.size(); ++i)
 		{
 			if (g.Types[i].Type == REF_EMPTY) break;
 			if (i == g.Types.size() - 1)
@@ -734,7 +791,7 @@ private:
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 		}
-		switch (g.Types[i].Type)
+		switch (g.Types[i].Type & REF_REFTYPES)
 		{
 		case REF_EMPTY:
 			return ConstrainType::Fail(root);
@@ -877,7 +934,7 @@ private:
 	{
 		auto& list = constrain.TypeReferences;
 		auto& t = list[i];
-		switch (t.Type)
+		switch (t.Type & REF_REFTYPES)
 		{
 		case REF_ANY:
 			return ConstrainType::UD(cache.Root);
@@ -1139,14 +1196,59 @@ private:
 				if (ret != 0) return ret;
 			}
 
-			//TODO functions
 			//Determining REF_ANY with functions is a NP-hard problem. So we
-			//can only try with all possible combination at the end.
+			//can only try with all possible combination at the end. 
+			//Basic idea is to apply the CurrentOverload for each function here
+			//if it fails, or any other checks fails because of it, the 
+			//CurrentOverload will move to the next overload and repeat again.
 
+			//First check functions with only one candidate.
+			for (auto& f : cache.TraitFunctions)
+			{
+				if (f.Overloads.size() == 0)
+				{
+					return -1;
+				}
+				if (f.Overloads.size() == 1)
+				{
+					auto ret = TryDetermineEqualFunctions(f, 0);
+					if (ret != 0) return ret;
+				}
+			}
+
+			//Then with multiple candidates.
+			//To simplify, we always apply all functions, although some
+			//or most of them actually have been applied already.
+			//TODO add a flag to indicate the starting point of applying.
+			for (auto& f : cache.TraitFunctions)
+			{
+				if (f.Overloads.size() <= 1) continue;
+				auto ret = TryDetermineEqualFunctions(f, f.CurrentOverload);
+				if (ret != 0) return ret;
+			}
 		}
 		default:
 			return 0;
 		}
+	}
+
+	//Returns 0, -1, 1.
+	int TryDetermineEqualFunctions(TraitCacheFunctionInfo& f, std::size_t id)
+	{
+		TraitCacheFunctionOverloadInfo& overload = f.Overloads[id];
+		int ret = 0;
+		
+		ret = TryDetermineEqualTypes(f.TraitReturnType, overload.ReturnType);
+		if (ret != 0) return ret;
+
+		assert(f.TraitParameterTypes.size() == overload.ParameterTypes.size());
+		for (std::size_t i = 0; i < f.TraitParameterTypes.size(); ++i)
+		{
+			ret = TryDetermineEqualTypes(f.TraitParameterTypes[i], overload.ParameterTypes[i]);
+			if (ret != 0) return ret;
+		}
+
+		return 0;
 	}
 
 	//Can only be used in SimplifyConstrainType.
@@ -1287,22 +1389,40 @@ private:
 		assert(target);
 
 		//Field
-		for (std::size_t i = 0; i < cache.TraitFields.size(); ++i)
+		for (auto& tf : cache.TraitFields)
 		{
-			auto& tf = cache.TraitFields[i];
-			if (!CheckSimplifiedConstrainType(tf.Type)) return false;
-			auto field_type_target = tf.TypeInTarget.Determined;
-			auto field_type_trait = tf.Type.Determined;
-			assert(field_type_target && field_type_trait);
-			if (field_type_target != field_type_trait)
+			if (!CheckDeterminedTypesEqual(tf.Type, tf.TypeInTarget))
 			{
 				return false;
 			}
 		}
 
-		//TODO Function
+		for (auto& tf : cache.TraitFunctions)
+		{
+			auto& overload = tf.Overloads[tf.CurrentOverload];
+			if (!CheckDeterminedTypesEqual(tf.TraitReturnType, overload.ReturnType))
+			{
+				return false;
+			}
+			assert(tf.TraitParameterTypes.size() == overload.ParameterTypes.size());
+			for (std::size_t i = 0; i < tf.TraitParameterTypes.size(); ++i)
+			{
+				if (!CheckDeterminedTypesEqual(tf.TraitParameterTypes[i], overload.ParameterTypes[i]))
+				{
+					return false;
+				}
+			}
+		}
 
 		return true;
+	}
+
+	bool CheckDeterminedTypesEqual(ConstrainType& a, ConstrainType& b)
+	{
+		if (!CheckSimplifiedConstrainType(a)) return false;
+		if (!CheckSimplifiedConstrainType(b)) return false;
+		assert(a.Determined && b.Determined);
+		return a.Determined == b.Determined;
 	}
 
 	bool CheckLoadingTypeBase(RuntimeType* typeChecked, RuntimeType* typeBase)
