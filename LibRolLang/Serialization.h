@@ -5,6 +5,8 @@
 #include <string>
 #include <cassert>
 
+namespace RolLang {
+
 template <typename T>
 struct SimpleSerializer
 {
@@ -192,3 +194,5 @@ struct FieldSerializerFields<type> \
 		return ret; \
 	} \
 };
+
+}

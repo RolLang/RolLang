@@ -2,6 +2,8 @@
 #include <atomic>
 #include <mutex>
 
+namespace RolLang {
+
 class Spinlock
 {
 private:
@@ -23,3 +25,5 @@ public:
 		_lockFlag.clear(std::memory_order_release);
 	}
 };
+
+}

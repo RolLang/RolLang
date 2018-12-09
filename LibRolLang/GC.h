@@ -4,6 +4,8 @@
 #include <atomic>
 #include <cassert>
 
+namespace RolLang {
+
 struct GCGlobalState
 {
 	std::mutex GlobalLock;
@@ -55,3 +57,5 @@ public:
 private:
 	std::shared_ptr<GCGlobalState> _g;
 };
+
+}

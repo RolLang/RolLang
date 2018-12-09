@@ -1,6 +1,8 @@
 #pragma once
 #include "Serialization.h"
 
+namespace RolLang {
+
 enum ReferenceType : unsigned char
 {
 	//For REF_Assembly and REF_Import, the items after this item is the generic arguments
@@ -88,3 +90,5 @@ FIELD_SERIALIZER_BEGIN(GenericDeclaration)
 	SERIALIZE_FIELD(Fields)
 	SERIALIZE_FIELD(NamesList)
 FIELD_SERIALIZER_END()
+
+}

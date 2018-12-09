@@ -3,6 +3,8 @@
 #include "Spinlock.h"
 #include <deque>
 
+namespace RolLang {
+
 struct RuntimeLoaderLoadingData
 {
 public:
@@ -372,3 +374,5 @@ public:
 
 	RuntimeLoaderLoadingData* _loading;
 };
+
+}

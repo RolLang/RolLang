@@ -1,6 +1,8 @@
 #pragma once
 #include "RuntimeLoaderRefList.h"
 
+namespace RolLang {
+
 struct RuntimeLoaderConstrain : RuntimeLoaderRefList
 {
 public:
@@ -1795,4 +1797,6 @@ inline bool RuntimeLoaderCore::CheckConstrains(const std::string& srcAssebly, Ge
 {
 	auto l = static_cast<RuntimeLoaderConstrain*>(this);
 	return l->CheckConstrainsImpl(srcAssebly, g, args, exportList);
+}
+
 }

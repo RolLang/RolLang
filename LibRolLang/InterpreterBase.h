@@ -4,6 +4,8 @@
 #include "InterpreterStacktracer.h"
 #include "InterpreterStack.h"
 
+namespace RolLang {
+
 class InterpreterBase
 {
 protected:
@@ -434,3 +436,5 @@ protected:
 	//TODO custom exception object
 	RuntimeType* _nativeTypes[NT_COUNT];
 };
+
+}

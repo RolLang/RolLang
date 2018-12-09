@@ -2,6 +2,8 @@
 #include "RuntimeLoader.h"
 #include "InterpreterCommon.h"
 
+namespace RolLang {
+
 class InterpreterStack
 {
 public:
@@ -136,3 +138,5 @@ private:
 	std::vector<RuntimeType*> _typeInfo;
 	std::size_t _popLimit = 0;
 };
+
+}

@@ -1,6 +1,8 @@
 #pragma once
 #include "GenericDeclaration.h"
 
+namespace RolLang {
+
 struct TraitField
 {
 	std::string ElementName;
@@ -113,3 +115,5 @@ For type and <object_name> = '.target', export the target type. This is very
 useful for CONSTRAIN_EXIST.
 
 */
+
+}

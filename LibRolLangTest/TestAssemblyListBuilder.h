@@ -2,6 +2,8 @@
 
 namespace
 {
+	using namespace RolLang;
+
 	//TODO support for FR_INST/FR_INSTI
 	//TODO add test for import
 	class TestAssemblyListBuilder

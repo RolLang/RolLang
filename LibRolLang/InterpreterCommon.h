@@ -1,6 +1,8 @@
 #pragma once
 #include "LoaderObjects.h"
 
+namespace RolLang {
+
 enum ErrorClass : unsigned char
 {
 	ERR_UNSPECIFIED,
@@ -71,3 +73,5 @@ public:
 	StacktraceInfo Stacktrace;
 	ErrorClass ErrorCode;
 };
+
+}

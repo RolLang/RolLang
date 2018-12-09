@@ -1,6 +1,8 @@
 #pragma once
 #include "RuntimeLoaderCore.h"
 
+namespace RolLang {
+
 struct RuntimeLoaderRefList : RuntimeLoaderCore
 {
 public:
@@ -270,4 +272,6 @@ bool RuntimeLoaderCore::FindSubType(const SubMemberLoadingArguments& args, Loadi
 {
 	auto l = static_cast<RuntimeLoaderRefList*>(this);
 	return l->FindSubTypeImpl(args, la);
+}
+
 }

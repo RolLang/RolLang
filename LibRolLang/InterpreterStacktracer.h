@@ -3,6 +3,8 @@
 #include "RuntimeLoader.h"
 #include "InterpreterCommon.h"
 
+namespace RolLang {
+
 class InterpreterStacktracer
 {
 	struct StacktracerFrameInfo
@@ -67,3 +69,5 @@ private:
 	RuntimeLoader* _loader;
 	std::vector<StacktracerFrameInfo> _stack;
 };
+
+}

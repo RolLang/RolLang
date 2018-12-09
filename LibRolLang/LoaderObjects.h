@@ -3,6 +3,8 @@
 #include "Assembly.h"
 #include "Spinlock.h"
 
+namespace RolLang {
+
 class RuntimeLoader;
 struct RuntimeType;
 struct RuntimeFunction;
@@ -271,3 +273,5 @@ struct LoadingRefArguments
 	{
 	}
 };
+
+}

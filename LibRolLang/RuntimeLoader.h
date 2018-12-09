@@ -14,6 +14,8 @@
 //TODO Test for pointer size
 //TODO Test for import trait
 
+namespace RolLang {
+
 class RuntimeLoader : RuntimeLoaderConstrain
 {
 public:
@@ -251,4 +253,6 @@ std::string RuntimeFunction::GetFullname()
 	}
 	fullname += ")";
 	return fullname;
+}
+
 }

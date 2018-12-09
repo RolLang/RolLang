@@ -4,6 +4,8 @@ namespace LibRolLangTest
 {
 	namespace RuntimeLoaderHelper
 	{
+		using namespace RolLang;
+
 		static RuntimeType* LoadType(RuntimeLoader* loader,
 			const std::string& a, const std::string& n,
 			std::vector<RuntimeType*> args, bool shouldFail)

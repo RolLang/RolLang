@@ -2,6 +2,8 @@
 #include "RuntimeLoaderData.h"
 #include <algorithm>
 
+namespace RolLang {
+
 struct RuntimeLoaderCore : RuntimeLoaderData
 {
 public: //Forward declaration
@@ -724,3 +726,5 @@ private:
 		}
 	}
 };
+
+}

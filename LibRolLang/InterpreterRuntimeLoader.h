@@ -3,6 +3,8 @@
 #include "RuntimeLoader.h"
 #include "InterpreterCommon.h"
 
+namespace RolLang {
+
 struct NativeWrapperData
 {
 	virtual ~NativeWrapperData() {}
@@ -185,3 +187,5 @@ private:
 	std::vector<InterpreterRuntimeTypeInfo> _interpreterTypeInfo;
 	std::vector<std::unique_ptr<NativeWrapperData>> _nativeWrapperData;
 };
+
+}

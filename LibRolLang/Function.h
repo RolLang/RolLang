@@ -1,6 +1,8 @@
 #pragma once
 #include "GenericDeclaration.h"
 
+namespace RolLang {
+
 enum Features : unsigned char
 {
 	//All others
@@ -143,3 +145,5 @@ FIELD_SERIALIZER_BEGIN(Function)
 	SERIALIZE_FIELD(ConstantData)
 	SERIALIZE_FIELD(ConstantTable)
 FIELD_SERIALIZER_END()
+
+}

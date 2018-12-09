@@ -1,6 +1,8 @@
 #pragma once
 #include "GenericDeclaration.h"
 
+namespace RolLang {
+
 enum TypeStorageMode : unsigned char
 {
 	TSM_INVALID,
@@ -59,3 +61,5 @@ FIELD_SERIALIZER_BEGIN(Type)
 	SERIALIZE_FIELD(PublicFunctions)
 	SERIALIZE_FIELD(PublicFields)
 FIELD_SERIALIZER_END()
+
+}

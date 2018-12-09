@@ -1,6 +1,8 @@
 #pragma once
 #include "InterpreterBase.h"
 
+namespace RolLang {
+
 class Interpreter : public InterpreterBase
 {
 public:
@@ -381,3 +383,5 @@ private:
 		return i->_stacktracer.GetStacktrace();
 	}
 };
+
+}

@@ -3,6 +3,8 @@
 #include "Function.h"
 #include "Trait.h"
 
+namespace RolLang {
+
 struct AssemblyImport
 {
 	std::string AssemblyName;
@@ -55,3 +57,5 @@ FIELD_SERIALIZER_BEGIN(Assembly)
 	SERIALIZE_FIELD(Types)
 	SERIALIZE_FIELD(Traits)
 FIELD_SERIALIZER_END()
+
+}
