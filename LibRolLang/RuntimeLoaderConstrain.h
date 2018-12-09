@@ -823,7 +823,10 @@ private:
 		case REF_EMPTY:
 			return ConstrainType::Empty(root);
 		case REF_ARGUMENT:
-			assert(g.Types[i].Index < arguments.size());
+			if (g.Types[i].Index >= arguments.size())
+			{
+				throw RuntimeLoaderException("Invalid type reference");
+			}
 			return arguments[g.Types[i].Index];
 		case REF_SELF:
 			if (selfType != nullptr)

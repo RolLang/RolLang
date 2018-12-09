@@ -164,5 +164,67 @@ namespace LibRolLangTest
 				LoadType(&l, "Core", "Core.TestType3", true);
 			}
 		}
+
+		TEST_METHOD(MultipleFunctions)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto tint = b.BeginType(TSM_VALUE, "Core.Int");
+				b.EndType();
+				auto tele = b.BeginType(TSM_VALUE, "Core.Element");
+				b.EndType();
+				auto tlist = b.ForwardDeclareType();
+				Builder::FunctionReference f_add, f_remove, f_get, f_set;
+				{
+					f_add = b.BeginFunction("Core.List<1>.Add");
+					auto g = b.AddGenericParameter();
+					b.Signature({}, { b.MakeType(tlist, { g }), g });
+					b.EndFunction();
+				}
+				{
+					f_remove = b.BeginFunction("Core.List<1>.Remove");
+					auto g = b.AddGenericParameter();
+					b.Signature({}, { b.MakeType(tlist, { g }), tint });
+					b.EndFunction();
+				}
+				{
+					f_get = b.BeginFunction("Core.List<1>.Get");
+					auto g = b.AddGenericParameter();
+					b.Signature(g, { b.MakeType(tlist, { g }), tint });
+					b.EndFunction();
+				}
+				{
+					f_set = b.BeginFunction("Core.List<1>.Set");
+					auto g = b.AddGenericParameter();
+					b.Signature({}, { b.MakeType(tlist, { g }), tint, g });
+					b.EndFunction();
+				}
+				b.BeginType(TSM_REFERENCE, "Core.List", tlist);
+				auto tg = b.AddGenericParameter();
+				b.AddMemberFunction("Add", b.MakeFunction(f_add, { b.AddAdditionalGenericParameter(0) }));
+				b.AddMemberFunction("Remove", b.MakeFunction(f_remove, { b.AddAdditionalGenericParameter(0) }));
+				b.AddMemberFunction("Get", b.MakeFunction(f_get, { b.AddAdditionalGenericParameter(0) }));
+				b.AddMemberFunction("Set", b.MakeFunction(f_set, { b.AddAdditionalGenericParameter(0) }));
+				b.EndType();
+				auto tr = b.BeginTrait("Core.Trait");
+				auto trg = b.AddGenericParameter();
+				b.AddTraitFunction({}, { b.SelfType(), trg }, "Add", "Add");
+				b.AddTraitFunction({}, { b.SelfType(), tint }, "Remove", "Remove");
+				b.AddTraitFunction(trg, { b.SelfType(), tint }, "Get", "Get");
+				b.AddTraitFunction({}, { b.SelfType(), tint, trg }, "Set", "Set");
+				b.EndTrait();
+
+				b.BeginType(TSM_VALUE, "Core.TestType");
+				b.Link(true, false);
+				b.AddConstrain(b.MakeType(tlist, { tele }), { b.AnyType() }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType", false);
+			}
+		}
 	};
 }
