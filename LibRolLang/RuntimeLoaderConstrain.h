@@ -547,37 +547,55 @@ private:
 		std::vector<ConstrainType> ud;
 		for (std::size_t i = 0; i < trait->Functions.size(); ++i)
 		{
-			auto& f = trait->Functions[i];
-			for (std::size_t j = 0; j < tt->PublicFunctions.size(); ++j)
+			//Search in public function list.
+			for (auto& func : tt->PublicFunctions)
 			{
-				if (tt->PublicFunctions[j].Name != f.ElementName) continue;
+				if (func.Name != trait->Functions[i].ElementName) continue;
 				TraitCacheFunctionOverloadInfo fi = {};
-				fi.Index = tt->PublicFunctions[j].Id;
+				fi.Index = func.Id;
 				ud.clear();
-				if (!LoadTraitFunctionCacheInfo(parent, tt->Generic, target->Args.Assembly, fi, ud))
+				if (!CheckTraitTargetFunctionOverload(parent, i, tt, ud, fi))
 				{
 					continue;
-				}
-				//TODO handle parameter pack
-				if (fi.ParameterTypes.size() != f.ParameterTypes.size())
-				{
-					continue;
-				}
-				if (!CheckTypePossiblyEqual(fi.ReturnType, parent.TraitFunctions[i].TraitReturnType))
-				{
-					continue;
-				}
-				for (std::size_t k = 0; k < fi.ParameterTypes.size(); ++k)
-				{
-					if (!CheckTypePossiblyEqual(fi.ParameterTypes[k],
-						parent.TraitFunctions[i].TraitParameterTypes[k]))
-					{
-						continue;
-					}
 				}
 				parent.TraitFunctions[i].Overloads.emplace_back(std::move(fi));
 				parent.TraitFunctionUndetermined.insert(parent.TraitFunctionUndetermined.end(),
 					ud.begin(), ud.end());
+			}
+			//Search in type virtual function table.
+			for (auto& func : tt->Base.VirtualFunctions)
+			{
+				if (func.Name != trait->Functions[i].ElementName) continue;
+				TraitCacheFunctionOverloadInfo fi = {};
+				//Bind to the virtual version.
+				fi.Index = func.VirtualFunction;
+				ud.clear();
+				if (!CheckTraitTargetFunctionOverload(parent, i, tt, ud, fi))
+				{
+					continue;
+				}
+				parent.TraitFunctions[i].Overloads.emplace_back(std::move(fi));
+				parent.TraitFunctionUndetermined.insert(parent.TraitFunctionUndetermined.end(),
+					ud.begin(), ud.end());
+			}
+			//Search in interface virtual function table.
+			for (auto& interfaceInfo : tt->Interfaces)
+			{
+				for (auto& func : interfaceInfo.VirtualFunctions)
+				{
+					if (func.Name != trait->Functions[i].ElementName) continue;
+					TraitCacheFunctionOverloadInfo fi = {};
+					//Bind to the virtual version.
+					fi.Index = func.VirtualFunction;
+					ud.clear();
+					if (!CheckTraitTargetFunctionOverload(parent, i, tt, ud, fi))
+					{
+						continue;
+					}
+					parent.TraitFunctions[i].Overloads.emplace_back(std::move(fi));
+					parent.TraitFunctionUndetermined.insert(parent.TraitFunctionUndetermined.end(),
+						ud.begin(), ud.end());
+				}
 			}
 			if (parent.TraitFunctions[i].Overloads.size() == 0)
 			{
@@ -588,6 +606,36 @@ private:
 
 		parent.TraitMemberResolved = true;
 		return 1;
+	}
+
+	bool CheckTraitTargetFunctionOverload(ConstrainCalculationCache& parent, std::size_t i, Type* tt,
+		std::vector<ConstrainType>& ud, TraitCacheFunctionOverloadInfo& fi)
+	{
+		auto target = parent.Target.Determined;
+		auto trait = parent.Trait;
+		auto& f = trait->Functions[i];
+		if (!LoadTraitFunctionCacheInfo(parent, tt->Generic, target->Args.Assembly, fi, ud))
+		{
+			return false;
+		}
+		//TODO handle parameter pack
+		if (fi.ParameterTypes.size() != f.ParameterTypes.size())
+		{
+			return false;
+		}
+		if (!CheckTypePossiblyEqual(fi.ReturnType, parent.TraitFunctions[i].TraitReturnType))
+		{
+			return false;
+		}
+		for (std::size_t k = 0; k < fi.ParameterTypes.size(); ++k)
+		{
+			if (!CheckTypePossiblyEqual(fi.ParameterTypes[k],
+				parent.TraitFunctions[i].TraitParameterTypes[k]))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
 	bool LoadTraitFunctionCacheInfo(ConstrainCalculationCache& parent, GenericDeclaration& g,
