@@ -202,10 +202,10 @@ namespace LibRolLangTest
 				}
 				b.BeginType(TSM_REFERENCE, "Core.List", tlist);
 				auto tg = b.AddGenericParameter();
-				b.AddMemberFunction("Add", b.MakeFunction(f_add, { b.AddAdditionalGenericParameter(0) }));
-				b.AddMemberFunction("Remove", b.MakeFunction(f_remove, { b.AddAdditionalGenericParameter(0) }));
-				b.AddMemberFunction("Get", b.MakeFunction(f_get, { b.AddAdditionalGenericParameter(0) }));
-				b.AddMemberFunction("Set", b.MakeFunction(f_set, { b.AddAdditionalGenericParameter(0) }));
+				b.AddMemberFunction("Add", b.MakeFunction(f_add, { tg }));
+				b.AddMemberFunction("Remove", b.MakeFunction(f_remove, { tg }));
+				b.AddMemberFunction("Get", b.MakeFunction(f_get, { tg }));
+				b.AddMemberFunction("Set", b.MakeFunction(f_set, { tg }));
 				b.EndType();
 				auto tr = b.BeginTrait("Core.Trait");
 				auto trg = b.AddGenericParameter();
