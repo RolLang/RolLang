@@ -105,5 +105,64 @@ namespace LibRolLangTest
 				LoadType(&l, "Core", "Core.TestType2", true);
 			}
 		}
+
+		TEST_METHOD(GenericMemberFunction)
+		{
+			//class A<T> { void F<T1>(T, t3<T1>); }
+			//A<t1>.F(t1, t3<t2>) //success
+			//A<t1>.F(t2, t3<t2>) //fail
+			//A<t1>.F(t1, t2) //fail
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto vt1 = b.BeginType(TSM_VALUE, "Core.ValueType1");
+				b.EndType();
+				auto vt2 = b.BeginType(TSM_VALUE, "Core.ValueType2");
+				b.EndType();
+				auto vt3 = b.BeginType(TSM_VALUE, "Core.ValueType3");
+				b.AddGenericParameter();
+				b.EndType();
+				
+				auto f = b.BeginFunction("Core.Function");
+				auto fg1 = b.AddGenericParameter();
+				auto fg2 = b.AddGenericParameter();
+				b.Signature({}, { fg1, b.MakeType(vt3, { fg2 }) });
+				b.EndFunction();
+
+				auto tr = b.BeginTrait("Core.Trait");
+				auto trg1 = b.AddGenericParameter();
+				auto trg2 = b.AddGenericParameter();
+				b.AddTraitFunction({}, { trg1, trg2 }, "F", "F");
+				b.EndTrait();
+
+				auto tt = b.BeginType(TSM_VALUE, "Core.TargetType");
+				auto tg1 = b.AddGenericParameter();
+				b.AddMemberFunction("F", b.MakeFunction(f, { tg1, b.AddAdditionalGenericParameter(0) }));
+				b.EndType();
+
+				b.BeginType(TSM_VALUE, "Core.TestType1");
+				b.Link(true, false);
+				b.AddConstrain(b.MakeType(tt, { vt1 }), 
+					{ vt1, b.MakeType(vt3, { vt2 }) }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType2");
+				b.Link(true, false);
+				b.AddConstrain(b.MakeType(tt, { vt1 }),
+					{ vt2, b.MakeType(vt3, { vt2 }) }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType3");
+				b.Link(true, false);
+				b.AddConstrain(b.MakeType(tt, { vt1 }),
+					{ vt1, vt2 }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType1", false);
+				LoadType(&l, "Core", "Core.TestType2", true);
+				LoadType(&l, "Core", "Core.TestType3", true);
+			}
+		}
 	};
 }

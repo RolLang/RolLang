@@ -169,6 +169,7 @@ private:
 		std::string TraitAssembly;
 		std::vector<TraitCacheFieldInfo> TraitFields;
 		std::vector<TraitCacheFunctionInfo> TraitFunctions;
+		std::vector<ConstrainType> TraitFunctionUndetermined;
 	};
 	struct ConstrainCalculationCacheRoot : ConstrainUndeterminedTypeSource
 	{
@@ -477,6 +478,7 @@ private:
 			}
 		}
 
+		std::vector<ConstrainType> ud;
 		for (std::size_t i = 0; i < trait->Functions.size(); ++i)
 		{
 			auto& f = trait->Functions[i];
@@ -485,7 +487,8 @@ private:
 				if (tt->PublicFunctions[j].Name != f.ElementName) continue;
 				TraitCacheFunctionOverloadInfo fi = {};
 				fi.Index = tt->PublicFunctions[j].Id;
-				if (!LoadTraitFunctionCacheInfo(parent, tt->Generic, target->Args.Assembly, fi))
+				ud.clear();
+				if (!LoadTraitFunctionCacheInfo(parent, tt->Generic, target->Args.Assembly, fi, ud))
 				{
 					continue;
 				}
@@ -507,6 +510,8 @@ private:
 					}
 				}
 				parent.TraitFunctions[i].Overloads.emplace_back(std::move(fi));
+				parent.TraitFunctionUndetermined.insert(parent.TraitFunctionUndetermined.end(),
+					ud.begin(), ud.end());
 			}
 			if (parent.TraitFunctions[i].Overloads.size() == 0)
 			{
@@ -520,7 +525,8 @@ private:
 	}
 
 	bool LoadTraitFunctionCacheInfo(ConstrainCalculationCache& parent, GenericDeclaration& g,
-		const std::string& src_assembly, TraitCacheFunctionOverloadInfo& result)
+		const std::string& src_assembly, TraitCacheFunctionOverloadInfo& result,
+		std::vector<ConstrainType> additionalUd)
 	{
 		assert(&g == &FindTypeTemplate(parent.Target.Determined->Args)->Generic);
 
@@ -585,7 +591,9 @@ private:
 		//Note that additional arguments are appended to type arguments.
 		for (std::size_t i = typeArgs.size(); i < additional; ++i)
 		{
-			typeArgs.emplace_back(ConstrainType::UD(parent.Root));
+			auto t = ConstrainType::UD(parent.Root);
+			typeArgs.emplace_back(t);
+			additionalUd.emplace_back(t);
 		}
 
 		std::vector<ConstrainType> funcArgs;
@@ -668,7 +676,7 @@ private:
 			}
 			return ret;
 		case REF_ARGUMENT:
-			return t.Index;
+			return t.Index + 1;
 		case REF_SELF:
 			return 0; //In case this function is used with type's GenericDeclaration.
 		default:
@@ -707,7 +715,10 @@ private:
 	//Check without changing function overload candidates.
 	bool CheckConstrainCachedSinglePass(ConstrainCalculationCache* cache)
 	{
-		while (ListContainUndetermined(cache->Root, cache->Arguments, cache->Target))
+		//TODO we only need to  do it for trait
+		//One pass to create function list (will produce more REF_ANY).
+		if (TryDetermineConstrainArgument(*cache) == -1) return false;
+		while (ListContainUndetermined(cache->Root, cache))
 		{
 			auto check = TryDetermineConstrainArgument(*cache);
 			if (check == 1) continue;
@@ -761,13 +772,17 @@ private:
 	}
 
 	static bool ListContainUndetermined(ConstrainCalculationCacheRoot* root,
-		std::vector<ConstrainType>& l, ConstrainType& t)
+		ConstrainCalculationCache* cache)
 	{
-		for (auto& a : l)
+		for (auto& a : cache->Arguments)
 		{
 			if (root->IsUndeterminedType(a)) return true;
 		}
-		if (root->IsUndeterminedType(t)) return true;
+		for (auto& a : cache->TraitFunctionUndetermined)
+		{
+			if (root->IsUndeterminedType(a)) return true;
+		}
+		if (root->IsUndeterminedType(cache->Target)) return true;
 		return false;
 	}
 

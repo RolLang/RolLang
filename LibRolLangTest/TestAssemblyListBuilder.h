@@ -189,7 +189,7 @@ namespace
 
 		void AddMemberFunction(const std::string& name, const FunctionReference& func)
 		{
-			auto id = WriteFunctionRef(_assembly.Types[_currentType].Generic, func);
+			auto id = WriteFunctionRef(_assembly.Types[_currentType].Generic, func, false);
 			_assembly.Types[_currentType].PublicFunctions.push_back({ name, id });
 		}
 
@@ -622,28 +622,28 @@ namespace
 			return ret;
 		}
 
-		std::size_t WriteFunctionRef(GenericDeclaration& g, const FunctionReference& f)
+		std::size_t WriteFunctionRef(GenericDeclaration& g, const FunctionReference& f, bool forceLoad = true)
 		{
 			std::size_t ret = g.Functions.size();
 			switch (f.Type)
 			{
 			case FR_EMPTY:
-				g.Functions.push_back({ ForceLoad(REF_EMPTY, true), 0 });
+				g.Functions.push_back({ ForceLoad(REF_EMPTY, forceLoad), 0 });
 				return ret;
 			case FR_TEMP:
 			case FR_INST:
-				g.Functions.push_back({ ForceLoad(REF_ASSEMBLY, true), f.Id });
+				g.Functions.push_back({ ForceLoad(REF_ASSEMBLY, forceLoad), f.Id });
 				break;
 			case FR_TEMPI:
 			case FR_INSTI:
-				g.Functions.push_back({ ForceLoad(REF_IMPORT, true), f.Id });
+				g.Functions.push_back({ ForceLoad(REF_IMPORT, forceLoad), f.Id });
 				break;
 			default:
 				return SIZE_MAX;
 			}
 			for (std::size_t i = 0; i < f.Arguments.size(); ++i)
 			{
-				g.Functions.push_back({ REF_CLONETYPE, WriteTypeRef(g, f.Arguments[i]) });
+				g.Functions.push_back({ REF_CLONETYPE, WriteTypeRef(g, f.Arguments[i], false) });
 			}
 			g.Functions.push_back({ REF_EMPTY, 0 });
 			return ret;
