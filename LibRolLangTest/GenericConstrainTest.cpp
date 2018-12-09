@@ -77,7 +77,7 @@ namespace LibRolLangTest
 				auto v1 = b.BeginType(TSM_VALUE, "Core.ValueType1");
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.ValueType2");
-				b.SetBaseType(v1, {});
+				b.SetBaseType(v1, {}, {});
 				b.Link(true, false);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.ValueType3");
@@ -85,15 +85,15 @@ namespace LibRolLangTest
 				b.EndType();
 
 				auto i1 = b.BeginType(TSM_INTERFACE, "Core.Interface1");
-				b.SetBaseType({}, {});
+				b.SetBaseType({}, {}, {});
 				b.EndType();
 				b.BeginType(TSM_INTERFACE, "Core.Interface2");
-				b.SetBaseType({}, {});
-				b.AddInterface(i1, {});
+				b.SetBaseType({}, {}, {});
+				b.AddInterface(i1, {}, {});
 				b.Link(true, false);
 				b.EndType();
 				b.BeginType(TSM_INTERFACE, "Core.Interface3");
-				b.SetBaseType({}, {});
+				b.SetBaseType({}, {}, {});
 				b.Link(true, false);
 				b.EndType();
 
@@ -102,8 +102,8 @@ namespace LibRolLangTest
 				b.EndType();
 				b.BeginType(TSM_REFERENCE, "Core.RefType2");
 				b.Link(true, false);
-				b.SetBaseType(r1, {});
-				b.AddInterface(i1, {});
+				b.SetBaseType(r1, {}, {});
+				b.AddInterface(i1, {}, {});
 				b.EndType();
 
 				b.BeginType(TSM_VALUE, "Core.TestType1");
@@ -153,7 +153,7 @@ namespace LibRolLangTest
 				auto r1 = b.BeginType(TSM_REFERENCE, "Core.RefType1");
 				b.EndType();
 				auto r2 = b.BeginType(TSM_REFERENCE, "Core.RefType2");
-				b.SetBaseType(r1, {});
+				b.SetBaseType(r1, {}, {});
 				b.EndType();
 				auto ct = b.BeginType(TSM_VALUE, "Core.ConstrainedType");
 				auto g = b.AddGenericParameter();
@@ -398,7 +398,7 @@ namespace LibRolLangTest
 				b.EndType();
 				auto rt = b.BeginType(TSM_REFERENCE, "Core.RefType");
 				auto g2 = b.AddGenericParameter();
-				b.AddInterface(b.MakeType(i, { g2 }), {});
+				b.AddInterface(b.MakeType(i, { g2 }), {}, {});
 				b.AddField(b.MakeType(rt, { g2 }), "FieldA");
 				b.EndType();
 				auto tr = b.BeginTrait("Core.Trait");

@@ -422,7 +422,11 @@ private:
 				}
 			}
 		}
-		type->BaseType = LoadVirtualTable(type.get(), tt->Generic, tt->Base.VirtualFunctions, baseType);
+		type->BaseType = LoadVirtualTable(type.get(), type.get(), tt->Generic, tt->Base.VirtualFunctions, baseType);
+		if (type->Storage == TSM_VALUE && type->BaseType.VirtualFunctions.size() > 0)
+		{
+			throw RuntimeLoaderException("Value type cannot have virtual functions");
+		}
 
 		if (type->Storage == TSM_INTERFACE)
 		{
@@ -637,7 +641,8 @@ private:
 				throw RuntimeLoaderException("Interface must be interface storage");
 			}
 
-			dest->Interfaces.emplace_back(LoadVirtualTable(src, srcTemplate->Generic, i.VirtualFunctions, baseType));
+			dest->Interfaces.emplace_back(LoadVirtualTable(src, dest, srcTemplate->Generic,
+				i.VirtualFunctions, baseType));
 		}
 	}
 
@@ -666,29 +671,41 @@ private:
 		return true;
 	}
 
-	RuntimeType::InheritanceInfo LoadVirtualTable(RuntimeType* type, GenericDeclaration& g,
-		const std::vector<std::size_t>& types, RuntimeType* baseType)
+	RuntimeType::InheritanceInfo LoadVirtualTable(RuntimeType* type, RuntimeType* target, GenericDeclaration& g,
+		const std::vector<InheritanceVirtualFunctionInfo>& types, RuntimeType* baseType)
 	{
 		RuntimeType::InheritanceInfo ret = {};
 		ret.Type = baseType;
-		for (auto fid : types)
+		Type* tt = FindTypeTemplate(type->Args);
+
+		for (std::size_t i = 0; i < types.size(); ++i)
 		{
-			ret.VirtualFunctions.push_back(LoadRefFunction({ type, g }, fid));
-		}
-		if (baseType != nullptr)
-		{
-			auto& baseVtab = baseType->BaseType.VirtualFunctions;
-			if (ret.VirtualFunctions.size() < baseVtab.size())
+			auto& fid = types[i];
+			auto virt = LoadRefFunction({ type, g }, fid.VirtualFunction);
+			auto& name = tt->Base.VirtualFunctions[i].Name;
+			if (baseType && baseType->BaseType.VirtualFunctions.size() > i)
 			{
-				throw RuntimeLoaderException("Virtual table not matching");
+				if (baseType->BaseType.VirtualFunctions[i].Name != name ||
+					baseType->BaseType.VirtualFunctions[i].V != virt)
+				{
+					throw RuntimeLoaderException("Virtual table not matching");
+				}
+				assert(virt->Virtual->Slot == i);
 			}
-			for (std::size_t i = 0; i < baseVtab.size(); ++i)
+			else
 			{
-				if (!CheckVirtualFunctionEqual(ret.VirtualFunctions[i], baseVtab[i]))
+				virt->Virtual = std::make_unique<RuntimeVirtualFunction>(RuntimeVirtualFunction{ target, i });
+			}
+
+			auto impl = LoadRefFunction({ type, g }, fid.Implementation);
+			if (impl != nullptr)
+			{
+				if (virt == nullptr || !CheckVirtualFunctionEqual(virt, impl))
 				{
 					throw RuntimeLoaderException("Virtual table not matching");
 				}
 			}
+			ret.VirtualFunctions.push_back({ name, virt, impl });
 		}
 		return ret;
 	}

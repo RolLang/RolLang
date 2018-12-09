@@ -12,10 +12,22 @@ enum TypeStorageMode : unsigned char
 	TSM_INTERFACE,
 };
 
+struct InheritanceVirtualFunctionInfo
+{
+	std::string Name;
+	std::size_t VirtualFunction;
+	std::size_t Implementation;
+};
+FIELD_SERIALIZER_BEGIN(InheritanceVirtualFunctionInfo)
+	SERIALIZE_FIELD(Name)
+	SERIALIZE_FIELD(VirtualFunction)
+	SERIALIZE_FIELD(Implementation)
+FIELD_SERIALIZER_END()
+
 struct TypeInheritance
 {
 	std::size_t InheritedType;
-	std::vector<std::size_t> VirtualFunctions;
+	std::vector<InheritanceVirtualFunctionInfo> VirtualFunctions;
 };
 FIELD_SERIALIZER_BEGIN(TypeInheritance)
 	SERIALIZE_FIELD(InheritedType)

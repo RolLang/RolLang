@@ -109,10 +109,17 @@ struct RuntimeType : Initializable
 		std::size_t Length;
 	};
 
+	struct VirtualFunctionInfo
+	{
+		std::string Name;
+		RuntimeFunction* V;
+		RuntimeFunction* I;
+	};
+
 	struct InheritanceInfo
 	{
 		RuntimeType* Type;
-		std::vector<RuntimeFunction*> VirtualFunctions;
+		std::vector<VirtualFunctionInfo> VirtualFunctions;
 	};
 
 	RuntimeLoader* Parent;
@@ -189,6 +196,12 @@ struct RuntimeFunctionCode
 	std::vector<FunctionLocal> LocalVariables;
 };
 
+struct RuntimeVirtualFunction
+{
+	RuntimeType* Type;
+	std::size_t Slot;
+};
+
 struct RuntimeFunction : Initializable
 {
 	RuntimeLoader* Parent;
@@ -196,6 +209,7 @@ struct RuntimeFunction : Initializable
 	std::size_t FunctionId;
 
 	std::shared_ptr<RuntimeFunctionCode> Code;
+	std::unique_ptr<RuntimeVirtualFunction> Virtual;
 
 	RuntimeReferences References;
 

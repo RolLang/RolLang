@@ -9,7 +9,7 @@ enum Features : unsigned char
 	F_BASIC,
 	//Allocate reference type objects, GC.
 	F_REFTYPE,
-	//Throw, catch exceptions (including try-finally)
+	//Throw, catch exceptions (not including try-finally)
 	F_EXCEPTION,
 	//Pointer arithmetic and conversion (not including reference type conversion)
 	F_RAWPOINTER,

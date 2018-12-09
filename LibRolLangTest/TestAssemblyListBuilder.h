@@ -208,18 +208,36 @@ namespace
 			t.Finalizer = WriteFunctionRef(t.Generic, finalizer);
 		}
 
-		void SetBaseType(const TypeReference& itype, const std::vector<FunctionReference>& vtab)
+		void SetBaseType(const TypeReference& itype, const std::vector<std::string>& names,
+			const std::vector<FunctionReference>& vtab)
 		{
 			auto id1 = WriteTypeRef(_assembly.Types[_currentType].Generic, itype);
 			auto tab = WriteVirtualTable(_assembly.Types[_currentType].Generic, vtab);
-			_assembly.Types[_currentType].Base = { id1, std::move(tab) };
+
+			auto empty = WriteFunctionRef(_assembly.Types[_currentType].Generic, {}, false);
+			std::vector<InheritanceVirtualFunctionInfo> list;
+			for (std::size_t i = 0; i < tab.size(); ++i)
+			{
+				list.push_back({ names[i], tab[i], empty });
+			}
+
+			_assembly.Types[_currentType].Base = { id1, std::move(list) };
 		}
 
-		void AddInterface(const TypeReference& itype, const std::vector<FunctionReference>& vtab)
+		void AddInterface(const TypeReference& itype, const std::vector<std::string>& names,
+			const std::vector<FunctionReference>& vtab)
 		{
 			auto id1 = WriteTypeRef(_assembly.Types[_currentType].Generic, itype);
 			auto tab = WriteVirtualTable(_assembly.Types[_currentType].Generic, vtab);
-			_assembly.Types[_currentType].Interfaces.push_back({ id1, std::move(tab) });
+
+			auto empty = WriteFunctionRef(_assembly.Types[_currentType].Generic, {}, false);
+			std::vector<InheritanceVirtualFunctionInfo> list;
+			for (std::size_t i = 0; i < tab.size(); ++i)
+			{
+				list.push_back({ names[i], tab[i], empty });
+			}
+
+			_assembly.Types[_currentType].Interfaces.push_back({ id1, std::move(list) });
 		}
 
 		void EndType()

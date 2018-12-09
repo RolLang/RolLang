@@ -348,13 +348,15 @@ private:
 			//Init vtab functions first
 			for (auto f : t->BaseType.VirtualFunctions)
 			{
-				CheckInitFunction(f);
+				CheckInitFunction(f.V);
+				CheckInitFunction(f.I);
 			}
 			for (auto& i : t->Interfaces)
 			{
 				for (auto f : i.VirtualFunctions)
 				{
-					CheckInitFunction(f);
+					CheckInitFunction(f.V);
+					CheckInitFunction(f.I);
 				}
 			}
 
