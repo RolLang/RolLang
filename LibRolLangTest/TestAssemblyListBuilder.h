@@ -19,6 +19,7 @@ namespace
 			TR_SUBTYPE,
 			TR_ANY,
 			TR_TRY,
+			TR_CONSTRAIN,
 		};
 
 		enum FunctionReferenceType
@@ -72,6 +73,11 @@ namespace
 		TypeReference TryType(const TypeReference& t)
 		{
 			return { TR_TRY, 0, { t } };
+		}
+
+		TypeReference ConstrainImportType(const std::string& name)
+		{
+			return { TR_CONSTRAIN , 0, {}, name };
 		}
 
 		void BeginAssembly(const std::string& name)
@@ -241,13 +247,14 @@ namespace
 			return { TR_ARGUMENT, id, {} };
 		}
 
-		void AddConstrain(TypeReference target, const std::vector<TypeReference> args,
-			ConstrainType type, std::size_t id)
+		void AddConstrain(TypeReference target, const std::vector<TypeReference>& args,
+			ConstrainType type, std::size_t id, const std::string& name = "")
 		{
 			GenericConstrain constrain = {};
 			constrain.Type = type;
 			constrain.Index = id;
 			constrain.Target = WriteTypeRef(constrain, target, false);
+			constrain.ExportName = name;
 			for (auto& a : args)
 			{
 				constrain.Arguments.push_back(WriteTypeRef(constrain, a, false));
@@ -430,6 +437,12 @@ namespace
 			return {};
 		}
 
+		void AddTraitType(const TypeReference& type, const std::string& export_name)
+		{
+			auto id = WriteTypeRef(_assembly.Traits[_currentTrait].Generic, type);
+			_assembly.Traits[_currentTrait].Types.push_back({ export_name, id });
+		}
+
 		void AddTraitField(const TypeReference& type, const std::string& name, const std::string& export_name)
 		{
 			auto type_id = WriteTypeRef(_assembly.Traits[_currentTrait].Generic, type);
@@ -543,13 +556,13 @@ namespace
 		struct ReferenceTypeWriteTarget
 		{
 			std::vector<DeclarationReference>& Types;
-			std::vector<std::string>& SubtypeNames;
+			std::vector<std::string>& NamesList;
 			ReferenceTypeWriteTarget(GenericDeclaration& g)
-				: Types(g.Types), SubtypeNames(g.SubtypeNames)
+				: Types(g.Types), NamesList(g.NamesList)
 			{
 			}
 			ReferenceTypeWriteTarget(GenericConstrain& constrain)
-				: Types(constrain.TypeReferences), SubtypeNames(constrain.SubtypeNames)
+				: Types(constrain.TypeReferences), NamesList(constrain.NamesList)
 			{
 			}
 		};
@@ -585,8 +598,8 @@ namespace
 			case TR_SUBTYPE:
 			{
 				if (t.Id != 0) return SIZE_MAX;
-				auto nameid = g.SubtypeNames.size();
-				g.SubtypeNames.push_back(t.SubtypeName);
+				auto nameid = g.NamesList.size();
+				g.NamesList.push_back(t.SubtypeName);
 				g.Types.push_back({ ForceLoad(REF_SUBTYPE, forceLoad), nameid });
 				break;
 			}
@@ -599,6 +612,13 @@ namespace
 			{
 				if (args.size() != 1) return SIZE_MAX;
 				g.Types.push_back({ ForceLoad(REF_TRY, forceLoad), args[0] });
+				return ret;
+			}
+			case TR_CONSTRAIN:
+			{
+				auto nameid = g.NamesList.size();
+				g.NamesList.push_back(t.SubtypeName);
+				g.Types.push_back({ ForceLoad(REF_CONSTRAIN, forceLoad), nameid });
 				return ret;
 			}
 			default:

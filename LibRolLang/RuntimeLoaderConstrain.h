@@ -5,7 +5,7 @@ struct RuntimeLoaderConstrain : RuntimeLoaderRefList
 {
 public:
 	bool CheckConstrainsImpl(const std::string& srcAssebly, GenericDeclaration* g,
-		const std::vector<RuntimeType*>& args)
+		const std::vector<RuntimeType*>& args, ConstrainExportList* exportList)
 	{
 		std::vector<ConstrainType> cargs;
 		ConstrainCalculationCacheRoot root = {};
@@ -20,8 +20,55 @@ public:
 			{
 				return false;
 			}
+
+			auto prefix = constrain.ExportName + "/";
+
+			if (exportList != nullptr)
+			{
+				//Export types
+				for (std::size_t i = 0; i < g->Types.size(); ++i)
+				{
+					if ((g->Types[i].Type & REF_REFTYPES) != REF_CONSTRAIN) continue;
+					auto& name = g->NamesList[g->Types[i].Index];
+					if (name.compare(0, prefix.length(), prefix) == 0)
+					{
+						auto type = FindConstrainExportType(c.get(), name.substr(prefix.length()));
+						if (type != nullptr)
+						{
+							ConstrainExportListEntry entry;
+							entry.EntryType = CONSTRAIN_EXPORT_TYPE;
+							entry.Index = i;
+							entry.Type = type;
+							exportList->emplace_back(std::move(entry));
+						}
+					}
+				}
+
+				//Export functions
+				for (std::size_t i = 0; i < g->Functions.size(); ++i)
+				{
+					if ((g->Functions[i].Type & REF_REFTYPES) != REF_CONSTRAIN) continue;
+					auto& name = g->NamesList[g->Functions[i].Index];
+					if (name.compare(0, prefix.length(), prefix) == 0)
+					{
+						auto func = FindConstrainExportFunction(c.get(), name.substr(prefix.length()));
+						if (func != nullptr)
+						{
+							ConstrainExportListEntry entry;
+							entry.EntryType = CONSTRAIN_EXPORT_FUNCTION;
+							entry.Index = i;
+							entry.Function = func;
+							exportList->emplace_back(std::move(entry));
+						}
+					}
+				}
+
+				//TODO fields
+			}
+
 			root.Clear();
 		}
+		
 		return true;
 	}
 
@@ -729,7 +776,6 @@ private:
 		{
 			return false;
 		}
-		//TODO calculate exportable references
 		return true;
 	}
 
@@ -859,7 +905,7 @@ private:
 		}
 		case REF_SUBTYPE:
 		{
-			ConstrainType ret = ConstrainType::SUB(root, g.SubtypeNames[g.Types[i].Index]);
+			ConstrainType ret = ConstrainType::SUB(root, g.NamesList[g.Types[i].Index]);
 			LoadConstrainTypeArgList(ret, g, i, src, arguments, selfType);
 			if (ret.Args.size() == 0)
 			{
@@ -932,11 +978,11 @@ private:
 		}
 		case REF_SUBTYPE:
 		{
-			if (t.Index > trait->Generic.SubtypeNames.size())
+			if (t.Index > trait->Generic.NamesList.size())
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
-			auto ret = ConstrainType::SUB(cache.Root, trait->Generic.SubtypeNames[t.Index]);
+			auto ret = ConstrainType::SUB(cache.Root, trait->Generic.NamesList[t.Index]);
 			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
 			{
 				//TODO check such REF_EMPTY termination check (REF_EMPTY is not optional)
@@ -1026,11 +1072,11 @@ private:
 		}
 		case REF_SUBTYPE:
 		{
-			if (t.Index > constrain.SubtypeNames.size())
+			if (t.Index > constrain.NamesList.size())
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
-			auto ret = ConstrainType::SUB(cache.Root, constrain.SubtypeNames[t.Index]);
+			auto ret = ConstrainType::SUB(cache.Root, constrain.NamesList[t.Index]);
 			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
 			{
 				if (i + j == list.size())
@@ -1338,7 +1384,7 @@ private:
 			if (t.TryArgumentConstrain)
 			{
 				auto tt = FindTypeTemplate(la);
-				if (!CheckGenericArguments(tt->Generic, la))
+				if (!CheckGenericArguments(tt->Generic, la, nullptr))
 				{
 					t.DeductFail();
 					return;
@@ -1380,7 +1426,7 @@ private:
 			if (t.TryArgumentConstrain)
 			{
 				auto tt = FindTypeTemplate(la);
-				if (!CheckGenericArguments(tt->Generic, la))
+				if (!CheckGenericArguments(tt->Generic, la, nullptr))
 				{
 					t.DeductFail();
 					return;
@@ -1562,11 +1608,174 @@ private:
 			throw RuntimeLoaderException("Invalid constrain type");
 		}
 	}
+
+	RuntimeType* FindConstrainExportType(ConstrainCalculationCache* cache, const std::string& name)
+	{
+		if (name.length() == 0) return nullptr;
+		auto& constrainName = cache->Source->ExportName;
+		auto slash = name.find('/');
+		if (slash == 0) return nullptr;
+		if (slash == std::string::npos)
+		{
+			if (name == ".target")
+			{
+				assert(cache->Target.Determined);
+				return cache->Target.Determined;
+			}
+			switch (cache->Source->Type)
+			{
+			case CONSTRAIN_TRAIT_ASSEMBLY:
+			case CONSTRAIN_TRAIT_IMPORT:
+				for (auto& e : cache->Trait->Types)
+				{
+					if (name == e.ExportName)
+					{
+						auto ct = ConstructConstrainTraitType(*cache, e.Index);
+						SimplifyConstrainType(ct);
+						assert(ct.CType == CTT_RT || ct.CType == CTT_EMPTY);
+						if (ct.CType == CTT_RT)
+						{
+							assert(ct.Determined);
+							return ct.Determined;
+						}
+					}
+				}
+				return nullptr;
+			default:
+				return nullptr;
+			}
+		}
+		else
+		{
+			auto childName = name.substr(0, slash);
+			switch (cache->Source->Type)
+			{
+			case CONSTRAIN_TRAIT_ASSEMBLY:
+			case CONSTRAIN_TRAIT_IMPORT:
+			{
+				auto& constrainList = cache->Trait->Generic.Constrains;
+				assert(constrainList.size() == cache->Children.size());
+				for (std::size_t i = 0; i < cache->Children.size(); ++i)
+				{
+					if (constrainList[i].ExportName == childName)
+					{
+						return FindConstrainExportType(cache->Children[i].get(), name.substr(slash + 1));
+					}
+				}
+				return nullptr;
+			}
+			default:
+				return nullptr;
+			}
+		}
+	}
+
+	RuntimeFunction* FindConstrainExportFunction(ConstrainCalculationCache* cache, const std::string& name)
+	{
+		if (name.length() == 0) return nullptr;
+		auto& constrainName = cache->Source->ExportName;
+		auto slash = name.find('/');
+		if (slash == 0) return nullptr;
+		if (slash == std::string::npos)
+		{
+			switch (cache->Source->Type)
+			{
+			case CONSTRAIN_TRAIT_ASSEMBLY:
+			case CONSTRAIN_TRAIT_IMPORT:
+				for (std::size_t i = 0; i < cache->Trait->Functions.size(); ++i)
+				{
+					auto& e = cache->Trait->Functions[i];
+					auto& tf = cache->TraitFunctions[i];
+					if (name == e.ExportName)
+					{
+						auto index = tf.Overloads[tf.CurrentOverload].Index;
+						assert(cache->Target.Determined);
+						auto tt = FindTypeTemplate(cache->Target.Determined->Args);
+						LoadingRefArguments lg = { cache->Target.Determined, tt->Generic };
+						return LoadRefFunction(lg, index);
+					}
+				}
+				return nullptr;
+			default:
+				return nullptr;
+			}
+		}
+		else
+		{
+			auto childName = name.substr(0, slash);
+			switch (cache->Source->Type)
+			{
+			case CONSTRAIN_TRAIT_ASSEMBLY:
+			case CONSTRAIN_TRAIT_IMPORT:
+			{
+				auto& constrainList = cache->Trait->Generic.Constrains;
+				assert(constrainList.size() == cache->Children.size());
+				for (std::size_t i = 0; i < cache->Children.size(); ++i)
+				{
+					if (constrainList[i].ExportName == childName)
+					{
+						return FindConstrainExportFunction(cache->Children[i].get(), name.substr(slash + 1));
+					}
+				}
+			}
+			default:
+				return nullptr;
+			}
+		}
+	}
+
+	std::size_t FindConstrainExportField(ConstrainCalculationCache* cache, const std::string& name)
+	{
+		if (name.length() == 0) return SIZE_MAX;
+		auto& constrainName = cache->Source->ExportName;
+		auto slash = name.find('/');
+		if (slash == 0) return SIZE_MAX;
+		if (slash == std::string::npos)
+		{
+			switch (cache->Source->Type)
+			{
+			case CONSTRAIN_TRAIT_ASSEMBLY:
+			case CONSTRAIN_TRAIT_IMPORT:
+				for (std::size_t i = 0; i < cache->Trait->Fields.size(); ++i)
+				{
+					if (name == cache->Trait->Fields[i].ExportName)
+					{
+						return cache->TraitFields[i].FieldIndex;
+					}
+				}
+				return SIZE_MAX;
+			default:
+				return SIZE_MAX;
+			}
+		}
+		else
+		{
+			auto childName = name.substr(0, slash);
+			switch (cache->Source->Type)
+			{
+			case CONSTRAIN_TRAIT_ASSEMBLY:
+			case CONSTRAIN_TRAIT_IMPORT:
+			{
+				auto& constrainList = cache->Trait->Generic.Constrains;
+				assert(constrainList.size() == cache->Children.size());
+				for (std::size_t i = 0; i < cache->Children.size(); ++i)
+				{
+					if (constrainList[i].ExportName == childName)
+					{
+						return FindConstrainExportField(cache->Children[i].get(), name.substr(slash + 1));
+					}
+				}
+			}
+			default:
+				return SIZE_MAX;
+			}
+		}
+	}
 };
 
 inline bool RuntimeLoaderCore::CheckConstrains(const std::string& srcAssebly, GenericDeclaration* g,
-	const std::vector<RuntimeType*>& args)
+	const std::vector<RuntimeType*>& args, ConstrainExportList* exportList)
 {
 	auto l = static_cast<RuntimeLoaderConstrain*>(this);
-	return l->CheckConstrainsImpl(srcAssebly, g, args);
+	return l->CheckConstrainsImpl(srcAssebly, g, args, exportList);
 }

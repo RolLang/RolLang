@@ -14,6 +14,10 @@ enum ReferenceType : unsigned char
 	REF_SELF, //for type, the type itself. for trait, the target type
 	REF_SUBTYPE, //sub type of the given type. index = index in name list
 	//Note: REF_SUBTYPE can be used to implement reference to static type. (name = '.static')
+	REF_CONSTRAIN, //import from constrain. index = index in name list
+
+	//For field reference only
+	REF_FIELDID, //index = field id
 
 	//Following 2 are only for constrain type list only
 	REF_TRY, //same as CLONE except for that it allow the refered calculation to fail (not an error)
@@ -50,16 +54,20 @@ struct GenericConstrain
 	std::size_t Index;
 
 	std::vector<DeclarationReference> TypeReferences;
-	std::vector<std::string> SubtypeNames;
+	std::vector<std::string> NamesList;
 	std::size_t Target;
 	std::vector<std::size_t> Arguments;
+
+	std::string ExportName;
 };
 FIELD_SERIALIZER_BEGIN(GenericConstrain)
 	SERIALIZE_FIELD(Type)
 	SERIALIZE_FIELD(Index)
 	SERIALIZE_FIELD(TypeReferences)
+	SERIALIZE_FIELD(NamesList)
 	SERIALIZE_FIELD(Target)
 	SERIALIZE_FIELD(Arguments)
+	SERIALIZE_FIELD(ExportName)
 FIELD_SERIALIZER_END()
 
 struct GenericDeclaration
@@ -69,9 +77,8 @@ struct GenericDeclaration
 
 	std::vector<DeclarationReference> Types;
 	std::vector<DeclarationReference> Functions;
-	//Contains index in import constant table. Exported values are field index, not offset.
-	std::vector<std::size_t> Fields;
-	std::vector<std::string> SubtypeNames;
+	std::vector<DeclarationReference> Fields;
+	std::vector<std::string> NamesList;
 };
 FIELD_SERIALIZER_BEGIN(GenericDeclaration)
 	SERIALIZE_FIELD(ParameterCount)
@@ -79,5 +86,5 @@ FIELD_SERIALIZER_BEGIN(GenericDeclaration)
 	SERIALIZE_FIELD(Types)
 	SERIALIZE_FIELD(Functions)
 	SERIALIZE_FIELD(Fields)
-	SERIALIZE_FIELD(SubtypeNames)
+	SERIALIZE_FIELD(NamesList)
 FIELD_SERIALIZER_END()

@@ -157,6 +157,7 @@
     <ClInclude Include="TestAssemblyListBuilder.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ConstrainMemberExportTest.cpp" />
     <ClCompile Include="ExecuteSimpleNativeFunctionTest.cpp" />
     <ClCompile Include="ExecuteSimpleProgramTest.cpp" />
     <ClCompile Include="GenericConstrainTest.cpp" />

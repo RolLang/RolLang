@@ -73,7 +73,7 @@ public:
 			return true;
 		case REF_SUBTYPE:
 		{
-			auto name = lg.Declaration.SubtypeNames[type.Index];
+			auto name = lg.Declaration.NamesList[type.Index];
 			auto parent = LoadRefType(lg, typeId + 1);
 			LoadRefTypeArgList(lg, typeId + 1, la); //Temporarily use la.Arguments.
 			if (!FindSubType({ parent, name, std::move(la.Arguments) }, la)) //Moved. No problem.
@@ -81,6 +81,28 @@ public:
 				return false;
 			}
 			return true;
+		}
+		case REF_CONSTRAIN:
+		{
+			ConstrainExportList* list;
+			if (lg.SelfType != nullptr)
+			{
+				list = &lg.SelfType->ConstrainExportList;
+			}
+			else
+			{
+				assert(lg.SelfFunction);
+				list = &lg.SelfFunction->ConstrainExportList;
+			}
+			for (auto& e : *list)
+			{
+				if (e.EntryType == CONSTRAIN_EXPORT_TYPE && e.Index == typeId)
+				{
+					la = e.Type->Args;
+					return true;
+				}
+			}
+			return false;
 		}
 		case REF_CLONETYPE:
 		default:
@@ -131,6 +153,28 @@ public:
 				throw RuntimeLoaderException("Invalid function reference");
 			}
 			return true;
+		}
+		case REF_CONSTRAIN:
+		{
+			ConstrainExportList* list;
+			if (lg.SelfType != nullptr)
+			{
+				list = &lg.SelfType->ConstrainExportList;
+			}
+			else
+			{
+				assert(lg.SelfFunction);
+				list = &lg.SelfFunction->ConstrainExportList;
+			}
+			for (auto& e : *list)
+			{
+				if (e.EntryType == CONSTRAIN_EXPORT_FUNCTION && e.Index == funcId)
+				{
+					la = e.Function->Args;
+					return true;
+				}
+			}
+			return false;
 		}
 		case REF_CLONETYPE:
 		case REF_ARGUMENT:

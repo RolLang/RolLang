@@ -42,15 +42,12 @@ FIELD_SERIALIZER_END()
 struct Trait
 {
 	GenericDeclaration Generic;
-
-	std::vector<TraitExportItem> Traits;
 	std::vector<TraitExportItem> Types;
 	std::vector<TraitFunction> Functions;
 	std::vector<TraitField> Fields;
 };
 FIELD_SERIALIZER_BEGIN(Trait)
 	SERIALIZE_FIELD(Generic)
-	SERIALIZE_FIELD(Traits)
 	SERIALIZE_FIELD(Types)
 	SERIALIZE_FIELD(Functions)
 	SERIALIZE_FIELD(Fields)
@@ -70,7 +67,7 @@ type lists:
 	(Again, we don't have SFINAE.)
 	In order to ensure IComparable<List<T>> exists, we need to use REF_TRY 
 	in the type list:
-		[0]: REF_TRY, 0
+		[0]: REF_TRY, 1
 		[1]: REF_IMPORT, `IComparable<?>`
 		[2]: REF_IMPORT, `List<?>`
 		[3]: REF_ARG, 0
@@ -89,6 +86,8 @@ type lists:
 		class A<T> requires A<T> : SomeTrait
 	Here A<T> must be exist before we can check SomeTrait. So, for A<int> for 
 	example, A<int> exists => SomeTrait(A<int>) => A<int> exists
+	Only this list can contain REF_ANY, which gives an undetermined type to the 
+	constrain (can be trait or system-defined constrain).
 
 2. Types in GenericDeclaration of the trait
 	This list helps the calculation of the trait:
@@ -99,18 +98,18 @@ type lists:
 	(2) Contain reference types used by the trait.
 		When defining a function in a trait, we need some other types.
 	Note that this list cannot contain REF_TRY. Doing so leads to an error.
+	This list cannot contain REF_ANY.
 
 3. Types in Trait
 	This list is not a type reference list. 
-	Export types that has been verified to exist.
+	Used to export types that has been verified to exist.
 
 */
 /*
 
 Type export from constrain to parent generic declaration:
 <name>/<name>/.../<object_name>
-For type and <object_name> = 'target', export the target type. This is very
+For type and <object_name> = '.target', export the target type. This is very
 useful for CONSTRAIN_EXIST.
-Where do we specify top-level constrain (index? name?)
 
 */

@@ -7,7 +7,7 @@ struct RuntimeLoaderCore : RuntimeLoaderData
 public: //Forward declaration
 
 	inline bool CheckConstrains(const std::string& srcAssebly, GenericDeclaration* g,
-		const std::vector<RuntimeType*>& args);
+		const std::vector<RuntimeType*>& args, ConstrainExportList* exportList);
 
 	inline bool FindSubType(const SubMemberLoadingArguments& args, LoadingArguments& la);
 	//No SubFunction. All member function reference is exported from trait.
@@ -151,7 +151,8 @@ public: //External API (for RuntimeLoader external API)
 
 public: //Internal API (for other modules)
 
-	bool CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args)
+	bool CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args,
+		ConstrainExportList* exportList)
 	{
 		//TODO We should use different list for type and functions. (low priority)
 		for (auto& i : _loading->_constrainCheckingTypes)
@@ -172,7 +173,7 @@ public: //Internal API (for other modules)
 		{
 			return false;
 		}
-		auto ret = CheckConstrains(args.Assembly, &g, args.Arguments);
+		auto ret = CheckConstrains(args.Assembly, &g, args.Arguments, exportList);
 
 		assert(_loading->_constrainCheckingTypes.back() == args);
 		_loading->_constrainCheckingTypes.pop_back();
@@ -217,8 +218,9 @@ public: //Internal API (for other modules)
 			}
 		}
 
+		ConstrainExportList exportList;
 		auto typeTemplate = FindTypeTemplate(args);
-		if (!skipArgumentCheck && !CheckGenericArguments(typeTemplate->Generic, args))
+		if (!skipArgumentCheck && !CheckGenericArguments(typeTemplate->Generic, args, &exportList))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
@@ -243,6 +245,7 @@ public: //Internal API (for other modules)
 		t->TypeId = _nextTypeId++;
 		t->Storage = typeTemplate->GCMode;
 		t->PointerType = nullptr;
+		t->ConstrainExportList = std::move(exportList);
 #if _DEBUG
 		t->Fullname = t->GetFullname();
 #endif
@@ -285,8 +288,9 @@ public: //Internal API (for other modules)
 			}
 		}
 
+		ConstrainExportList exportList;
 		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
-		if (!CheckGenericArguments(funcTemplate->Generic, args))
+		if (!CheckGenericArguments(funcTemplate->Generic, args, &exportList))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
@@ -296,6 +300,7 @@ public: //Internal API (for other modules)
 		f->Parent = _loader;
 		f->FunctionId = _nextFunctionId++;
 		f->Code = GetCode(args.Assembly, args.Id);
+		f->ConstrainExportList = std::move(exportList);
 
 		auto ret = f.get();
 		_loading->_loadingFunctions.push_back(std::move(f));
@@ -560,8 +565,7 @@ private:
 		auto assembly = FindAssemblyThrow(func->Args.Assembly);
 		for (std::size_t i = 0; i < funcTemplate->Generic.Fields.size(); ++i)
 		{
-			//TODO support field ref
-			func->ReferencedFields.push_back(LoadImportConstant(assembly, funcTemplate->Generic.Fields[i]));
+			func->ReferencedFields.push_back(LoadFieldIndex(assembly, funcTemplate->Generic, i));
 		}
 		func->ReturnValue = func->References.Types[funcTemplate->ReturnValue.TypeId];
 		for (std::size_t i = 0; i < funcTemplate->Parameters.size(); ++i)
@@ -685,5 +689,26 @@ private:
 			}
 		}
 		return ret;
+	}
+
+	std::size_t LoadFieldIndex(Assembly* assembly, GenericDeclaration& g, std::size_t index)
+	{
+		if (index >= g.Fields.size())
+		{
+			throw RuntimeLoaderException("Invalid field reference");
+		}
+		while (g.Fields[index].Type == REF_CLONE)
+		{
+			index = g.Fields[index].Index;
+		}
+		switch (g.Fields[index].Type)
+		{
+		case REF_FIELDID:
+			return g.Fields[index].Index;
+		case REF_IMPORT:
+			return LoadImportConstant(assembly, g.Fields[index].Index);
+		default:
+			throw RuntimeLoaderException("Invalid field reference");
+		}
 	}
 };

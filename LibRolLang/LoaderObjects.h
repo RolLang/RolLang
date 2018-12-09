@@ -53,6 +53,27 @@ private:
 	inline void AppendToSymbol(RuntimeObjectSymbol& s);
 };
 
+enum ConstrainExportListEntryType
+{
+	CONSTRAIN_EXPORT_TYPE = 1,
+	CONSTRAIN_EXPORT_FUNCTION = 2,
+	CONSTRAIN_EXPORT_FIELD = 3,
+};
+
+struct ConstrainExportListEntry
+{
+	ConstrainExportListEntryType EntryType;
+	std::size_t Index;
+	union
+	{
+		RuntimeFunction* Function;
+		RuntimeType* Type;
+		std::size_t Field;
+	};
+};
+
+typedef std::vector<ConstrainExportListEntry> ConstrainExportList;
+
 struct Initializable
 {
 	std::unique_lock<Spinlock> BeginInit()
@@ -109,6 +130,9 @@ struct RuntimeType : Initializable
 
 	InheritanceInfo BaseType;
 	std::vector<InheritanceInfo> Interfaces;
+
+	//TODO move to internal structure
+	ConstrainExportList ConstrainExportList;
 
 #if _DEBUG
 	std::string Fullname;
@@ -177,6 +201,9 @@ struct RuntimeFunction : Initializable
 	RuntimeType* ReturnValue;
 	std::vector<RuntimeType*> Parameters;
 
+	//TODO move to internal structure
+	ConstrainExportList ConstrainExportList;
+
 #if _DEBUG
 	std::string Fullname;
 #endif
@@ -224,20 +251,24 @@ struct LoadingRefArguments
 	const GenericDeclaration& Declaration;
 	const LoadingArguments& Arguments;
 	RuntimeType* SelfType;
+	RuntimeFunction* SelfFunction;
 	const std::vector<RuntimeType*>* AdditionalArguments;
 
 	LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g)
-		: Declaration(g), Arguments(type->Args), SelfType(type), AdditionalArguments(nullptr)
+		: Declaration(g), Arguments(type->Args), SelfType(type),
+			SelfFunction(nullptr), AdditionalArguments(nullptr)
 	{
 	}
 
 	LoadingRefArguments(RuntimeFunction* func, const GenericDeclaration& g)
-		: Declaration(g), Arguments(func->Args), SelfType(nullptr), AdditionalArguments(nullptr)
+		: Declaration(g), Arguments(func->Args), SelfFunction(func),
+			SelfType(nullptr), AdditionalArguments(nullptr)
 	{
 	}
 
 	LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g, const std::vector<RuntimeType*>& aa)
-		: Declaration(g), Arguments(type->Args), SelfType(type), AdditionalArguments(&aa)
+		: Declaration(g), Arguments(type->Args), SelfType(type), 
+			SelfFunction(nullptr), AdditionalArguments(&aa)
 	{
 	}
 };
