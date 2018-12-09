@@ -63,7 +63,24 @@ public:
 					}
 				}
 
-				//TODO fields
+				//Export field
+				for (std::size_t i = 0; i < g->Fields.size(); ++i)
+				{
+					if ((g->Fields[i].Type & REF_REFTYPES) != REF_CONSTRAIN) continue;
+					auto& name = g->NamesList[g->Fields[i].Index];
+					if (name.compare(0, prefix.length(), prefix) == 0)
+					{
+						auto field = FindConstrainExportField(c.get(), name.substr(prefix.length()));
+						if (field != SIZE_MAX)
+						{
+							ConstrainExportListEntry entry;
+							entry.EntryType = CONSTRAIN_EXPORT_FIELD;
+							entry.Index = i;
+							entry.Field = field;
+							exportList->emplace_back(std::move(entry));
+						}
+					}
+				}
 			}
 
 			root.Clear();

@@ -1,7 +1,6 @@
 #pragma once
 #include "RuntimeLoaderConstrain.h"
 
-//TODO Trait function
 //TODO Trait component export
 //TODO Import virtual function from constrain (trait)
 //TODO Consider put constrain on imported types (automatically checked and exported by member name)?

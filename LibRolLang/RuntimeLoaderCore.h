@@ -565,7 +565,7 @@ private:
 		auto assembly = FindAssemblyThrow(func->Args.Assembly);
 		for (std::size_t i = 0; i < funcTemplate->Generic.Fields.size(); ++i)
 		{
-			func->ReferencedFields.push_back(LoadFieldIndex(assembly, funcTemplate->Generic, i));
+			func->References.Fields.push_back(LoadFieldIndex(assembly, func.get(), funcTemplate->Generic, i));
 		}
 		func->ReturnValue = func->References.Types[funcTemplate->ReturnValue.TypeId];
 		for (std::size_t i = 0; i < funcTemplate->Parameters.size(); ++i)
@@ -691,7 +691,7 @@ private:
 		return ret;
 	}
 
-	std::size_t LoadFieldIndex(Assembly* assembly, GenericDeclaration& g, std::size_t index)
+	std::size_t LoadFieldIndex(Assembly* assembly, RuntimeFunction* f, GenericDeclaration& g, std::size_t index)
 	{
 		if (index >= g.Fields.size())
 		{
@@ -707,6 +707,18 @@ private:
 			return g.Fields[index].Index;
 		case REF_IMPORT:
 			return LoadImportConstant(assembly, g.Fields[index].Index);
+		case REF_CONSTRAIN:
+		{
+			ConstrainExportList* list = &f->ConstrainExportList;
+			for (auto& e : *list)
+			{
+				if (e.EntryType == CONSTRAIN_EXPORT_FIELD && e.Index == index)
+				{
+					return e.Field;
+				}
+			}
+			throw RuntimeLoaderException("Invalid field reference");
+		}
 		default:
 			throw RuntimeLoaderException("Invalid field reference");
 		}

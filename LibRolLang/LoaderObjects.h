@@ -95,7 +95,7 @@ struct RuntimeReferences
 {
 	std::vector<RuntimeType*> Types;
 	std::vector<RuntimeFunction*> Functions;
-	//TODO constrain list
+	std::vector<std::size_t> Fields;
 };
 
 struct RuntimeType : Initializable
@@ -196,7 +196,6 @@ struct RuntimeFunction : Initializable
 	std::shared_ptr<RuntimeFunctionCode> Code;
 
 	RuntimeReferences References;
-	std::vector<std::size_t> ReferencedFields;
 
 	RuntimeType* ReturnValue;
 	std::vector<RuntimeType*> Parameters;
