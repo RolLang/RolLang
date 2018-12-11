@@ -135,7 +135,11 @@ struct RuntimeType : Initializable
 
 	RuntimeFunction* Initializer;
 	RuntimeFunction* Finalizer;
+
 	RuntimeType* PointerType;
+	RuntimeType* BoxType;
+	RuntimeType* ReferenceType;
+	RuntimeType* EmbedType;
 
 	InheritanceInfo BaseType;
 	std::vector<InheritanceInfo> Interfaces;

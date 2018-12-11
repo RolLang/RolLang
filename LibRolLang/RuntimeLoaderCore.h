@@ -246,7 +246,6 @@ public: //Internal API (for other modules)
 		t->Args = args;
 		t->TypeId = _nextTypeId++;
 		t->Storage = typeTemplate->GCMode;
-		t->PointerType = nullptr;
 		t->ConstrainExportList = std::move(exportList);
 #if _DEBUG
 		t->Fullname = t->GetFullname();
@@ -588,15 +587,43 @@ private:
 
 	void FinalCheckType(RuntimeType* type)
 	{
-		if (type->Args.Assembly == "Core" && type->Args.Id == _pointerTypeId)
+		//Special types
+		if (type->Args.Assembly == "Core")
 		{
-			assert(type->Storage == TSM_VALUE);
-			assert(type->Args.Arguments.size() == 1);
-			auto elementType = type->Args.Arguments[0];
-			assert(elementType->PointerType == nullptr);
-			elementType->PointerType = type;
+			if (type->Args.Id == _pointerTypeId)
+			{
+				assert(type->Storage == TSM_VALUE);
+				assert(type->Args.Arguments.size() == 1);
+				auto elementType = type->Args.Arguments[0];
+				assert(elementType->PointerType == nullptr);
+				elementType->PointerType = type;
+			}
+			else if (type->Args.Id == _boxTypeId)
+			{
+				assert(type->Storage == TSM_REFERENCE);
+				assert(type->Args.Arguments.size() == 1);
+				auto elementType = type->Args.Arguments[0];
+				assert(elementType->BoxType == nullptr);
+				elementType->BoxType = type;
+			}
+			else if (type->Args.Id == _referenceTypeId)
+			{
+				assert(type->Storage == TSM_VALUE);
+				assert(type->Args.Arguments.size() == 1);
+				auto elementType = type->Args.Arguments[0];
+				assert(elementType->ReferenceType == nullptr);
+				elementType->ReferenceType = type;
+			}
+			else if (type->Args.Id == _embedTypeId)
+			{
+				assert(type->Storage == TSM_VALUE);
+				assert(type->Args.Arguments.size() == 1);
+				auto elementType = type->Args.Arguments[0];
+				assert(elementType->EmbedType == nullptr);
+				elementType->EmbedType = type;
+			}
 		}
-		//TODO check box type?
+		//Type handlers
 		if (type->Initializer != nullptr)
 		{
 			if (type->Initializer->ReturnValue != nullptr ||

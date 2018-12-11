@@ -49,9 +49,8 @@ public:
 	virtual ~RuntimeLoaderData() {}
 
 public:
-	void FindInternalTypeId()
+	bool TryFindInternalTypeId()
 	{
-		_pointerTypeId = _boxTypeId = SIZE_MAX;
 		if (auto a = FindAssemblyNoThrow("Core"))
 		{
 			for (auto& e : a->ExportTypes)
@@ -62,10 +61,7 @@ public:
 						!CheckPointerTypeTemplate(&a->Types[e.InternalId]) ||
 						_pointerTypeId != SIZE_MAX)
 					{
-						//This is actually an error, but we don't want to throw in ctor.
-						//Let's wait for the type loading to fail.
-						_pointerTypeId = _boxTypeId = SIZE_MAX;
-						return;
+						return false;
 					}
 					_pointerTypeId = e.InternalId;
 				}
@@ -75,12 +71,41 @@ public:
 						!CheckBoxTypeTemplate(&a->Types[e.InternalId]) ||
 						_boxTypeId != SIZE_MAX)
 					{
-						_pointerTypeId = _boxTypeId = SIZE_MAX;
-						return;
+						return false;
 					}
 					_boxTypeId = e.InternalId;
 				}
+				else if (e.ExportName == "Core.Reference")
+				{
+					if (e.InternalId >= a->Types.size() ||
+						!CheckReferenceTypeTemplate(&a->Types[e.InternalId]) ||
+						_referenceTypeId != SIZE_MAX)
+					{
+						return false;
+					}
+					_referenceTypeId = e.InternalId;
+				}
+				else if (e.ExportName == "Core.Embed")
+				{
+					if (e.InternalId >= a->Types.size() ||
+						!CheckEmbedTypeTemplate(&a->Types[e.InternalId]) ||
+						_embedTypeId != SIZE_MAX)
+					{
+						return false;
+					}
+					_embedTypeId = e.InternalId;
+				}
 			}
+		}
+		return true;
+	}
+
+	void FindInternalTypeId()
+	{
+		_pointerTypeId = _boxTypeId = _referenceTypeId = _embedTypeId = SIZE_MAX;
+		if (!TryFindInternalTypeId())
+		{
+			_pointerTypeId = _boxTypeId = _referenceTypeId = _embedTypeId = SIZE_MAX;
 		}
 	}
 
@@ -95,6 +120,20 @@ public:
 	{
 		if (t->Generic.ParameterCount != 1) return false;
 		if (t->GCMode != TSM_REFERENCE) return false;
+		return true;
+	}
+
+	bool CheckReferenceTypeTemplate(Type* t)
+	{
+		if (t->Generic.ParameterCount != 1) return false;
+		if (t->GCMode != TSM_VALUE) return false;
+		return true;
+	}
+
+	bool CheckEmbedTypeTemplate(Type* t)
+	{
+		if (t->Generic.ParameterCount != 1) return false;
+		if (t->GCMode != TSM_VALUE) return false;
 		return true;
 	}
 
@@ -370,7 +409,7 @@ public:
 	RuntimeFunctionCodeStorage _codeStorage;
 
 	std::size_t _nextFunctionId = 1, _nextTypeId = 1;
-	std::size_t _pointerTypeId, _boxTypeId;
+	std::size_t _pointerTypeId, _boxTypeId, _referenceTypeId, _embedTypeId;
 
 	RuntimeLoaderLoadingData* _loading;
 };
