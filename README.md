@@ -25,7 +25,7 @@ For the backend, only an interpreter is planned and started.
 ## Roadmap
 
 - [x] Serialization/deserialization
-- [ ] Loader
+- [x] Loader
 	- [x] Load generic types
 		- [x] Value types
 		- [x] Reference types
@@ -36,8 +36,8 @@ For the backend, only an interpreter is planned and started.
 	- [x] Load special types
 		- [x] Pointer
 		- [x] Box
-		- [ ] Reference
-		- [ ] Embed
+		- [x] Reference
+		- [x] Embed
 	- [x] Load RefList
 		- [x] Referenced types
 		- [x] Referenced functions
@@ -49,11 +49,11 @@ For the backend, only an interpreter is planned and started.
 		- [x] Types
 		- [x] Functions
 		- [x] Constants
-		- [ ] Field references
+		- [ ] Field references (testing)
 		- [ ] Traits (testing)
 		- [ ] Redirect (testing)
 	- [x] Inheritance
-		- [ ] Virtual functions
+		- [x] Virtual functions
 		- [x] Base class
 		- [x] Interface
 	- [x] Generic constrain
@@ -68,9 +68,9 @@ For the backend, only an interpreter is planned and started.
 			- [x] Functions
 		- [x] Constrain member reference
 			- [x] Types
-			- [ ] Functions
-			- [ ] Virtual functions
-			- [ ] Fields
+			- [ ] Functions (testing)
+			- [ ] Virtual functions (testing)
+			- [ ] Fields (testing)
 		- [ ] Partial specialization (type overload)
 		- [ ] Parameter pack
 			- [ ] Reference list (type, function)
