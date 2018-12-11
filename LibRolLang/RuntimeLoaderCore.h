@@ -435,11 +435,18 @@ private:
 
 		std::size_t offset = 0, totalAlignment = 1;
 
-		//Fields
+		//Fields. Handle special case for Core.Embed<T>.
 		std::vector<RuntimeType*> fields;
-		for (auto typeId : tt->Fields)
+		RuntimeType* fieldSourceType = type.get();
+		Type* fieldSourceTypeTemplate = tt;
+		if (type->Args.Assembly == "Core" && type->Args.Id == _embedTypeId)
 		{
-			auto fieldType = LoadRefType({ type.get(), tt->Generic }, typeId);
+			fieldSourceType = type->Args.Arguments[0];
+			fieldSourceTypeTemplate = FindTypeTemplate(fieldSourceType->Args);
+		}
+		for (auto typeId : fieldSourceTypeTemplate->Fields)
+		{
+			auto fieldType = LoadRefType({ fieldSourceType, fieldSourceTypeTemplate->Generic }, typeId);
 			if (fieldType == nullptr)
 			{
 				//Only goes here if REF_EMPTY is specified.

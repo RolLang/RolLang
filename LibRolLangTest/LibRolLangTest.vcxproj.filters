@@ -55,5 +55,8 @@
     <ClCompile Include="ConstrainMemberExportTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="EmbedTypeTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
