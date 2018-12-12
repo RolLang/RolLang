@@ -91,7 +91,9 @@ namespace
 
 		void ExportConstant(const std::string& name, std::uint32_t val)
 		{
-			_assembly.ExportConstants.push_back({ val, name });
+			auto id = _assembly.Constants.size();
+			_assembly.Constants.push_back(val);
+			_assembly.ExportConstants.push_back({ id, name });
 		}
 
 		std::size_t ImportConstant(const std::string& a, const std::string& n)
@@ -174,7 +176,10 @@ namespace
 			else if (_currentTrait != SIZE_MAX)
 			{
 				assert(!linkNative);
-				_assembly.ExportTraits.push_back({ _currentTrait, _currentName });
+				if (linkExport)
+				{
+					_assembly.ExportTraits.push_back({ _currentTrait, _currentName });
+				}
 			}
 		}
 
@@ -437,6 +442,11 @@ namespace
 			auto ret = _assembly.Traits.size();
 			_assembly.Traits.emplace_back();
 			return { CR_TEMP, ret };
+		}
+
+		void ExportTrait(const std::string& name, std::size_t id)
+		{
+			_assembly.ExportTraits.push_back({ id, name });
 		}
 
 		TraitReference BeginTrait(const std::string& name, TraitReference r = {})

@@ -20,9 +20,6 @@ FIELD_SERIALIZER_END()
 
 struct AssemblyExport
 {
-	//For type and function, when id > size,
-	//it points to the import table to allow redirecting.
-	//Constant cannot be redirected.
 	std::size_t InternalId;
 	std::string ExportName;
 };
@@ -39,6 +36,7 @@ struct Assembly
 	std::vector<AssemblyExport> NativeFunctions, NativeTypes;
 	std::vector<Function> Functions;
 	std::vector<Type> Types;
+	std::vector<std::uint32_t> Constants;
 	std::vector<Trait> Traits;
 };
 FIELD_SERIALIZER_BEGIN(Assembly)
@@ -55,6 +53,7 @@ FIELD_SERIALIZER_BEGIN(Assembly)
 	SERIALIZE_FIELD(NativeTypes)
 	SERIALIZE_FIELD(Functions)
 	SERIALIZE_FIELD(Types)
+	SERIALIZE_FIELD(Constants)
 	SERIALIZE_FIELD(Traits)
 FIELD_SERIALIZER_END()
 

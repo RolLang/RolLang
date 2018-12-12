@@ -174,8 +174,6 @@ public:
 			if (k.Length == 0)
 			{
 				auto kid = k.Offset;
-				//constant table will not support import
-				//TODO support field ref
 				auto value = LoadImportConstant(assembly, kid);
 				auto offset = ret->ConstantData.size();
 				auto pValue = (unsigned char*)&value;
@@ -325,6 +323,29 @@ public:
 		return false;
 	}
 
+	bool FindExportConstant(const AssemblyImport& args, std::uint32_t& result)
+	{
+		auto a = FindAssemblyThrow(args.AssemblyName);
+		for (auto& e : a->ExportConstants)
+		{
+			if (e.ExportName == args.ImportName)
+			{
+				if (e.InternalId >= a->Constants.size())
+				{
+					auto importId = e.InternalId - a->Constants.size();
+					if (importId >= a->ImportConstants.size())
+					{
+						return false;
+					}
+					return FindExportConstant(a->ImportConstants[importId], result);
+				}
+				result = a->Constants[e.InternalId];
+				return true;
+			}
+		}
+		return false;
+	}
+
 	bool FindExportTrait(const AssemblyImport& args, LoadingArguments& result)
 	{
 		auto a = FindAssemblyThrow(args.AssemblyName);
@@ -356,19 +377,19 @@ public:
 
 	std::uint32_t FindExportConstant(const std::string& assemblyName, const std::string& n)
 	{
-		auto a = FindAssemblyThrow(assemblyName);
-		for (auto& e : a->ExportConstants)
+		std::uint32_t ret;
+		if (!FindExportConstant({ assemblyName, n, 0 }, ret))
 		{
-			if (e.ExportName == n) return (std::uint32_t)e.InternalId;
+			throw RuntimeLoaderException("Constant export not found");
 		}
-		throw RuntimeLoaderException("Constant export not found");
+		return ret;
 	}
 
 	std::uint32_t LoadImportConstant(Assembly* a, std::size_t index)
 	{
 		if (index >= a->ImportConstants.size())
 		{
-			throw RuntimeLoaderException("Invalid constant import reference");
+			throw RuntimeLoaderException("Invalid constant import");
 		}
 		auto info = a->ImportConstants[index];
 		if (info.GenericParameters != 0)

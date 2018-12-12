@@ -425,7 +425,7 @@ private:
 		{
 			assert(parent.Children.size() == g->Constrains.size());
 			assert(parent.TraitFields.size() == trait->Fields.size());
-			//TODO other checks
+			assert(parent.TraitFunctions.size() == trait->Functions.size());
 			return;
 		}
 

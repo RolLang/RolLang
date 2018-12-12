@@ -4,6 +4,10 @@ namespace LibRolLangTest
 {
 	using namespace RuntimeLoaderHelper;
 
+	//TODO import multiple objects (id > 0)
+	//TODO redirect method in builder (instead of manually +1)
+	//TODO redirect more objects
+
 	TEST_CLASS(ImportTest)
 	{
 		TEST_METHOD(ImportType)
@@ -113,6 +117,43 @@ namespace LibRolLangTest
 			Assert::IsTrue(i.Call(fid));
 			Assert::IsTrue(i.Pop(&result));
 			Assert::AreEqual(101, result);
+		}
+
+		TEST_METHOD(ImportTrait)
+		{
+			TestAssemblyListBuilder builder;
+			{
+				builder.BeginAssembly("Test");
+				auto tr = builder.BeginTrait("Test.Trait");
+				builder.Link(true, false);
+				builder.AddTraitFunction({}, {}, "F", "F");
+				builder.EndTrait();
+				builder.EndAssembly();
+				builder.BeginAssembly("Core");
+				auto f = builder.BeginFunction("Core.Function");
+				builder.Signature({}, {});
+				builder.EndFunction();
+				auto tri = builder.ImportTrait("Test", "Test.Trait", 0);
+				auto tt1 = builder.BeginType(TSM_VALUE, "Core.TargetType1");
+				builder.AddMemberFunction("F", f);
+				builder.EndType();
+				builder.BeginType(TSM_VALUE, "Core.TestType1");
+				builder.Link(true, false);
+				builder.AddConstrain(tt1, {}, CONSTRAIN_TRAIT_IMPORT, tri.Id);
+				builder.EndType();
+				auto tt2 = builder.BeginType(TSM_VALUE, "Core.TargetType2");
+				builder.EndType();
+				builder.BeginType(TSM_VALUE, "Core.TestType2");
+				builder.Link(true, false);
+				builder.AddConstrain(tt2, {}, CONSTRAIN_TRAIT_IMPORT, tri.Id);
+				builder.EndType();
+				builder.EndAssembly();
+			}
+			RuntimeLoader loader(builder.Build());
+			{
+				LoadType(&loader, "Core", "Core.TestType1", false);
+				LoadType(&loader, "Core", "Core.TestType2", true);
+			}
 		}
 
 		TEST_METHOD(Redirect)
