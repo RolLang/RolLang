@@ -658,7 +658,7 @@ namespace
 			{
 				g.Types.push_back({ REF_CLONE, args[i] });
 			}
-			g.Types.push_back({ REF_EMPTY, 0 });
+			g.Types.push_back({ REF_LISTEND, 0 });
 			return ret;
 		}
 
@@ -695,7 +695,7 @@ namespace
 			{
 				g.Functions.push_back({ REF_CLONETYPE, WriteTypeRef(g, f.Arguments[i], false) });
 			}
-			g.Functions.push_back({ REF_EMPTY, 0 });
+			g.Functions.push_back({ REF_LISTEND, 0 });
 			return ret;
 		}
 

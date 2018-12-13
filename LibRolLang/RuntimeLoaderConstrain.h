@@ -714,7 +714,7 @@ private:
 		auto& type_assembly = parent.Target.Determined->Args.Assembly;
 		for (auto i = id + 1; i < g.Functions.size(); ++i)
 		{
-			if (g.Functions[i].Type == REF_EMPTY) break;
+			if (g.Functions[i].Type == REF_LISTEND) break;
 			//Already checked in GetFunctionAdditionalArgumentNumber. Using assert.
 			assert(g.Functions[i].Type == REF_CLONETYPE);
 			assert(i < g.Functions.size());
@@ -906,7 +906,7 @@ private:
 	{
 		for (std::size_t i = index + 1; i < g.Types.size(); ++i)
 		{
-			if (g.Types[i].Type == REF_EMPTY) break;
+			if (g.Types[i].Type == REF_LISTEND) break;
 			if (i == g.Types.size() - 1)
 			{
 				throw RuntimeLoaderException("Invalid type reference");
@@ -1009,9 +1009,11 @@ private:
 		case REF_ASSEMBLY:
 		{
 			auto ret = ConstrainType::G(cache.Root, cache.TraitAssembly, t.Index);
-			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
+			//TODO merge load arg list
+			for (std::size_t j = 1; i + j < list.size(); ++j)
 			{
-				if (i + j == list.size())
+				if (list[i + j].Type == REF_LISTEND) break;
+				if (i + j == list.size() - 1)
 				{
 					throw RuntimeLoaderException("Invalid type reference");
 				}
@@ -1029,9 +1031,10 @@ private:
 			LoadingArguments la;
 			FindExportType(assembly->ImportTypes[t.Index], la);
 			auto ret = ConstrainType::G(cache.Root, la.Assembly, la.Id);
-			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
+			for (std::size_t j = 1; i + j < list.size(); ++j)
 			{
-				if (i + j == list.size())
+				if (list[i + j].Type == REF_LISTEND) break;
+				if (i + j == list.size() - 1)
 				{
 					throw RuntimeLoaderException("Invalid type reference");
 				}
@@ -1050,10 +1053,10 @@ private:
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 			auto ret = ConstrainType::SUB(cache.Root, trait->Generic.NamesList[t.Index]);
-			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
+			for (std::size_t j = 1; i + j < list.size(); ++j)
 			{
-				//TODO check such REF_EMPTY termination check (REF_EMPTY is not optional)
-				if (i + j >= list.size() - 1)
+				if (list[i + j].Type == REF_LISTEND) break;
+				if (i + j == list.size() - 1)
 				{
 					throw RuntimeLoaderException("Invalid type reference");
 				}
@@ -1067,6 +1070,7 @@ private:
 		}
 		case REF_EMPTY:
 			return ConstrainType::Empty(cache.Root);
+		case REF_LISTEND:
 		case REF_ANY:
 		case REF_TRY:
 		default:
@@ -1103,9 +1107,10 @@ private:
 		case REF_ASSEMBLY:
 		{
 			auto ret = ConstrainType::G(cache.Root, cache.SrcAssembly, t.Index);
-			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
+			for (std::size_t j = 1; i + j < list.size(); ++j)
 			{
-				if (i + j == list.size())
+				if (list[i + j].Type == REF_LISTEND) break;
+				if (i + j == list.size() - 1)
 				{
 					throw RuntimeLoaderException("Invalid type reference");
 				}
@@ -1123,9 +1128,10 @@ private:
 			LoadingArguments la;
 			FindExportType(assembly->ImportTypes[t.Index], la);
 			auto ret = ConstrainType::G(cache.Root, la.Assembly, la.Id);
-			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
+			for (std::size_t j = 1; i + j < list.size(); ++j)
 			{
-				if (i + j == list.size())
+				if (list[i + j].Type == REF_LISTEND) break;
+				if (i + j == list.size() - 1)
 				{
 					throw RuntimeLoaderException("Invalid type reference");
 				}
@@ -1144,9 +1150,10 @@ private:
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 			auto ret = ConstrainType::SUB(cache.Root, constrain.NamesList[t.Index]);
-			for (std::size_t j = 1; list[i + j].Type != REF_EMPTY; ++j)
+			for (std::size_t j = 1; i + j < list.size(); ++j)
 			{
-				if (i + j == list.size())
+				if (list[i + j].Type == REF_LISTEND) break;
+				if (i + j == list.size() - 1)
 				{
 					throw RuntimeLoaderException("Invalid type reference");
 				}

@@ -107,6 +107,7 @@ public:
 			return false;
 		}
 		case REF_CLONETYPE:
+		case REF_LISTEND:
 		default:
 			throw RuntimeLoaderException("Invalid type reference");
 		}
@@ -182,6 +183,7 @@ public:
 		case REF_ARGUMENT:
 		case REF_SELF:
 		case REF_SUBTYPE:
+		case REF_LISTEND:
 		default:
 			throw RuntimeLoaderException("Invalid function reference");
 		}
@@ -229,7 +231,7 @@ private:
 	{
 		for (std::size_t i = index + 1; i < lg.Declaration.Types.size(); ++i)
 		{
-			if (lg.Declaration.Types[i].Type == REF_EMPTY) break; //Use REF_Empty as the end of arg list
+			if (lg.Declaration.Types[i].Type == REF_LISTEND) break;
 			if (i == lg.Declaration.Types.size() - 1)
 			{
 				throw RuntimeLoaderException("Invalid type reference");
@@ -242,7 +244,7 @@ private:
 	{
 		for (std::size_t i = index + 1; i < lg.Declaration.Functions.size(); ++i)
 		{
-			if (lg.Declaration.Functions[i].Type == REF_EMPTY) break;
+			if (lg.Declaration.Functions[i].Type == REF_LISTEND) break;
 			if (i == lg.Declaration.Functions.size() - 1)
 			{
 				throw RuntimeLoaderException("Invalid function reference");
