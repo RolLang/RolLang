@@ -91,7 +91,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="RuntimeObjectsDebug.natvis">
+    <Natvis Include="CommonObjectsDebug.natvis">
       <Filter>Source Files</Filter>
     </Natvis>
   </ItemGroup>

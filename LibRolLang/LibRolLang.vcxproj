@@ -44,7 +44,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="RuntimeObjectsDebug.natvis" />
+    <Natvis Include="CommonObjectsDebug.natvis" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

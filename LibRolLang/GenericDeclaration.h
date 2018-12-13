@@ -3,20 +3,23 @@
 
 namespace RolLang {
 
-enum ReferenceType : unsigned char
+enum ReferenceType_ : unsigned char
 {
-	//For REF_Assembly and REF_Import, the items after this item is the generic arguments
-
 	REF_EMPTY,
+
+	//Meta
+	REF_LISTEND,
+
 	REF_CLONE, //refer to another entry in the list. index = index in the same list
 	REF_ASSEMBLY, //index = assembly type/function array index
 	REF_IMPORT, //index = import #
+	REF_CONSTRAIN, //import from constrain. index = index in name list
+
 	REF_ARGUMENT, //index = generic parameter list index
-	REF_CLONETYPE, //for function generic arguments, clone from the type list
 	REF_SELF, //for type, the type itself. for trait, the target type
 	REF_SUBTYPE, //sub type of the given type. index = index in name list
 	//Note: REF_SUBTYPE can be used to implement reference to static type. (name = '.static')
-	REF_CONSTRAIN, //import from constrain. index = index in name list
+	REF_CLONETYPE, //for function generic arguments, clone from the type list
 
 	//For field reference only
 	REF_FIELDID, //index = field id
@@ -28,7 +31,52 @@ enum ReferenceType : unsigned char
 	REF_REFTYPES = 127,
 	REF_FORCELOAD = 128,
 };
-//Note that for generic function, the generic arguments should use REF_CLONETYPE
+
+struct ReferenceType
+{
+	ReferenceType_ _type;
+
+	ReferenceType() = default;
+	ReferenceType(ReferenceType_ type) : _type(type)
+	{
+#ifdef _DEBUG
+		static const char* debugNames[] =
+		{
+			"EMPTY",
+			"LISTEND",
+			"CLONE", "ASSEMBLY", "IMPORT", "CONSTRAIN",
+			"ARGUMENT", "SELF", "SUBTYPE", "CLONETYPE",
+			"FIELDID",
+			"TRY", "ANY",
+		};
+		DebugString = debugNames[type & REF_REFTYPES];
+		if (type & REF_FORCELOAD)
+		{
+			DebugString += " *";
+		}
+#endif
+	}
+	ReferenceType(int val) : ReferenceType((ReferenceType_)val) {}
+
+	operator ReferenceType_() const { return _type; }
+
+#ifdef _DEBUG
+	std::string DebugString;
+#endif
+};
+template <>
+struct Serializer<ReferenceType>
+{
+	static void Read(std::istream& s, ReferenceType& val)
+	{
+		s.read((char*)&val, sizeof(ReferenceType_));
+	}
+
+	static void Write(std::ostream& s, const ReferenceType& val)
+	{
+		s.write((const char*)&val, sizeof(ReferenceType_));
+	}
+};
 
 enum ConstrainType : unsigned char
 {
