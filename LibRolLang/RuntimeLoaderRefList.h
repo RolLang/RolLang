@@ -76,7 +76,7 @@ public:
 			return { this, SIZE_MAX };
 		}
 	};
-	static RefListArgsList GetArgList(const std::vector<DeclarationReference>& list, std::size_t head)
+	static RefListArgsList GetRefArgList(const std::vector<DeclarationReference>& list, std::size_t head)
 	{
 		return { &list, head };
 	}
@@ -106,7 +106,7 @@ public:
 		case REF_ASSEMBLY:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = type.Index;
-			for (auto&& e : GetArgList(lg.Declaration.Types, typeId))
+			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId))
 			{
 				la.Arguments.push_back(LoadRefType(lg, e.Index));
 			}
@@ -123,7 +123,7 @@ public:
 			{
 				throw RuntimeLoaderException("Import type not found");
 			}
-			for (auto&& e : GetArgList(lg.Declaration.Types, typeId))
+			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId))
 			{
 				la.Arguments.push_back(LoadRefType(lg, e.Index));
 			}
@@ -159,7 +159,11 @@ public:
 		{
 			auto name = lg.Declaration.NamesList[type.Index];
 			auto parent = LoadRefType(lg, typeId + 1);
-			for (auto&& e : GetArgList(lg.Declaration.Types, typeId + 1))
+			if (parent == nullptr)
+			{
+				throw RuntimeLoaderException("Invalid type reference");
+			}
+			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId + 1))
 			{
 				la.Arguments.push_back(LoadRefType(lg, e.Index));
 			}
@@ -221,7 +225,7 @@ public:
 		case REF_ASSEMBLY:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = func.Index;
-			for (auto&& e : GetArgList(lg.Declaration.Functions, funcId))
+			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId))
 			{
 				if (e.Entry.Type != REF_CLONETYPE)
 				{
@@ -242,7 +246,7 @@ public:
 			{
 				throw RuntimeLoaderException("Import function not found");
 			}
-			for (auto&& e : GetArgList(lg.Declaration.Functions, funcId))
+			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId))
 			{
 				if (e.Entry.Type != REF_CLONETYPE)
 				{

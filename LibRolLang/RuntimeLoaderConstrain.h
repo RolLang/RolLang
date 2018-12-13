@@ -712,14 +712,11 @@ private:
 
 		std::vector<ConstrainType> funcArgs;
 		auto& type_assembly = parent.Target.Determined->Args.Assembly;
-		for (auto i = id + 1; i < g.Functions.size(); ++i)
+		for (auto&& e : GetRefArgList(g.Functions, id))
 		{
-			if (g.Functions[i].Type == REF_LISTEND) break;
-			//Already checked in GetFunctionAdditionalArgumentNumber. Using assert.
-			assert(g.Functions[i].Type == REF_CLONETYPE);
-			assert(i < g.Functions.size());
+			assert(e.Entry.Type == REF_CLONETYPE);
 			funcArgs.push_back(ConstructConstrainRefListType(parent.Root,
-				g, type_assembly, g.Functions[i].Index, typeArgs, target));
+				g, type_assembly, e.Entry.Index, typeArgs, target));
 		}
 
 		Function* ft = FindFunctionTemplate(la.Assembly, la.Id);
@@ -899,23 +896,6 @@ private:
 		return false;
 	}
 
-	//TODO simplify parameters using struct
-
-	void LoadConstrainTypeArgList(ConstrainType& type, GenericDeclaration& g, std::size_t index,
-		const std::string& src, std::vector<ConstrainType>& arguments, RuntimeType* selfType)
-	{
-		for (std::size_t i = index + 1; i < g.Types.size(); ++i)
-		{
-			if (g.Types[i].Type == REF_LISTEND) break;
-			if (i == g.Types.size() - 1)
-			{
-				throw RuntimeLoaderException("Invalid type reference");
-			}
-			type.Args.emplace_back(ConstructConstrainRefListType(type.Root,
-				g, src, i, arguments, selfType));
-		}
-	}
-
 	ConstrainType ConstructConstrainRefListType(ConstrainCalculationCacheRoot* root, GenericDeclaration& g,
 		const std::string& src, std::size_t i, std::vector<ConstrainType>& arguments, RuntimeType* selfType)
 	{
@@ -950,7 +930,11 @@ private:
 		case REF_ASSEMBLY:
 		{
 			ConstrainType ret = ConstrainType::G(root, src, g.Types[i].Index);
-			LoadConstrainTypeArgList(ret, g, i, src, arguments, selfType);
+			for (auto&& e : GetRefArgList(g.Types, i))
+			{
+				ret.Args.emplace_back(ConstructConstrainRefListType(ret.Root,
+					g, src, e.Index, arguments, selfType));
+			}
 			return ret;
 		}
 		case REF_IMPORT:
@@ -967,13 +951,21 @@ private:
 				throw RuntimeLoaderException("Import type not found");
 			}
 			ConstrainType ret = ConstrainType::G(root, la.Assembly, la.Id);
-			LoadConstrainTypeArgList(ret, g, i, src, arguments, selfType);
+			for (auto&& e : GetRefArgList(g.Types, i))
+			{
+				ret.Args.emplace_back(ConstructConstrainRefListType(ret.Root,
+					g, src, e.Index, arguments, selfType));
+			}
 			return ret;
 		}
 		case REF_SUBTYPE:
 		{
 			ConstrainType ret = ConstrainType::SUB(root, g.NamesList[g.Types[i].Index]);
-			LoadConstrainTypeArgList(ret, g, i, src, arguments, selfType);
+			for (auto&& e : GetRefArgList(g.Types, i))
+			{
+				ret.Args.emplace_back(ConstructConstrainRefListType(ret.Root,
+					g, src, e.Index, arguments, selfType));
+			}
 			if (ret.Args.size() == 0)
 			{
 				//Parent type cannot be empty (not checked in LoadConstrainTypeArgList).
@@ -1009,15 +1001,9 @@ private:
 		case REF_ASSEMBLY:
 		{
 			auto ret = ConstrainType::G(cache.Root, cache.TraitAssembly, t.Index);
-			//TODO merge load arg list
-			for (std::size_t j = 1; i + j < list.size(); ++j)
+			for (auto&& e : GetRefArgList(list, i))
 			{
-				if (list[i + j].Type == REF_LISTEND) break;
-				if (i + j == list.size() - 1)
-				{
-					throw RuntimeLoaderException("Invalid type reference");
-				}
-				ret.Args.push_back(ConstructConstrainTraitType(cache, i + j));
+				ret.Args.push_back(ConstructConstrainTraitType(cache, e.Index));
 			}
 			return ret;
 		}
@@ -1031,14 +1017,9 @@ private:
 			LoadingArguments la;
 			FindExportType(assembly->ImportTypes[t.Index], la);
 			auto ret = ConstrainType::G(cache.Root, la.Assembly, la.Id);
-			for (std::size_t j = 1; i + j < list.size(); ++j)
+			for (auto&& e : GetRefArgList(list, i))
 			{
-				if (list[i + j].Type == REF_LISTEND) break;
-				if (i + j == list.size() - 1)
-				{
-					throw RuntimeLoaderException("Invalid type reference");
-				}
-				ret.Args.push_back(ConstructConstrainTraitType(cache, i + j));
+				ret.Args.push_back(ConstructConstrainTraitType(cache, e.Index));
 			}
 			if (assembly->ImportTypes[t.Index].GenericParameters != ret.Args.size())
 			{
@@ -1053,14 +1034,9 @@ private:
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 			auto ret = ConstrainType::SUB(cache.Root, trait->Generic.NamesList[t.Index]);
-			for (std::size_t j = 1; i + j < list.size(); ++j)
+			for (auto&& e : GetRefArgList(list, i))
 			{
-				if (list[i + j].Type == REF_LISTEND) break;
-				if (i + j == list.size() - 1)
-				{
-					throw RuntimeLoaderException("Invalid type reference");
-				}
-				ret.Args.push_back(ConstructConstrainTraitType(cache, i + j));
+				ret.Args.push_back(ConstructConstrainTraitType(cache, e.Index));
 			}
 			if (ret.Args.size() == 0)
 			{
@@ -1107,14 +1083,9 @@ private:
 		case REF_ASSEMBLY:
 		{
 			auto ret = ConstrainType::G(cache.Root, cache.SrcAssembly, t.Index);
-			for (std::size_t j = 1; i + j < list.size(); ++j)
+			for (auto&& e : GetRefArgList(list, i))
 			{
-				if (list[i + j].Type == REF_LISTEND) break;
-				if (i + j == list.size() - 1)
-				{
-					throw RuntimeLoaderException("Invalid type reference");
-				}
-				ret.Args.push_back(ConstructConstrainArgumentType(cache, constrain, i + j));
+				ret.Args.push_back(ConstructConstrainArgumentType(cache, constrain, e.Index));
 			}
 			return ret;
 		}
@@ -1128,14 +1099,9 @@ private:
 			LoadingArguments la;
 			FindExportType(assembly->ImportTypes[t.Index], la);
 			auto ret = ConstrainType::G(cache.Root, la.Assembly, la.Id);
-			for (std::size_t j = 1; i + j < list.size(); ++j)
+			for (auto&& e : GetRefArgList(list, i))
 			{
-				if (list[i + j].Type == REF_LISTEND) break;
-				if (i + j == list.size() - 1)
-				{
-					throw RuntimeLoaderException("Invalid type reference");
-				}
-				ret.Args.push_back(ConstructConstrainArgumentType(cache, constrain, i + j));
+				ret.Args.push_back(ConstructConstrainArgumentType(cache, constrain, e.Index));
 			}
 			if (assembly->ImportTypes[t.Index].GenericParameters != ret.Args.size())
 			{
@@ -1150,14 +1116,9 @@ private:
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 			auto ret = ConstrainType::SUB(cache.Root, constrain.NamesList[t.Index]);
-			for (std::size_t j = 1; i + j < list.size(); ++j)
+			for (auto&& e : GetRefArgList(list, i))
 			{
-				if (list[i + j].Type == REF_LISTEND) break;
-				if (i + j == list.size() - 1)
-				{
-					throw RuntimeLoaderException("Invalid type reference");
-				}
-				ret.Args.push_back(ConstructConstrainArgumentType(cache, constrain, i + j));
+				ret.Args.push_back(ConstructConstrainArgumentType(cache, constrain, e.Index));
 			}
 			if (ret.Args.size() == 0)
 			{
