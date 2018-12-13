@@ -71,11 +71,15 @@ For the backend, only an interpreter is planned and started.
 			- [ ] Functions (testing)
 			- [ ] Virtual functions (testing)
 			- [ ] Fields (testing)
-		- [ ] Partial specialization (type overload)
 		- [ ] Parameter pack
-			- [ ] Reference list (type, function)
+			- [ ] Argument list segment support
+			- [ ] Variable size segment
+			- [ ] Reference list expanding support
+			- [ ] Reference list expanding level control
+			- [ ] Constrain type deduction
 			- [ ] Parameter
 			- [ ] Field
+		- [ ] Partial specialization (type overload)
 	- [ ] Variable-sized object
 	- [ ] Attribute
 - [ ] Interpreter
