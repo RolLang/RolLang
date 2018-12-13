@@ -41,10 +41,10 @@ namespace LibRolLangTest
 				builder.EndAssembly();
 
 				builder.BeginAssembly("Test");
-				auto t1 = builder.ImportType("Core", "Core.ExportType1", 0);
-				auto t2 = builder.ImportType("Core", "Core.ExportType2", 1);
-				auto f1 = builder.ImportFunction("Core", "Core.ExportFunction1", 0);
-				auto f2 = builder.ImportFunction("Core", "Core.ExportFunction2", 1);
+				auto t1 = builder.ImportType("Core", "Core.ExportType1", GenericDefArgumentListSize::Create(0));
+				auto t2 = builder.ImportType("Core", "Core.ExportType2", GenericDefArgumentListSize::Create(1));
+				auto f1 = builder.ImportFunction("Core", "Core.ExportFunction1", GenericDefArgumentListSize::Create(0));
+				auto f2 = builder.ImportFunction("Core", "Core.ExportFunction2", GenericDefArgumentListSize::Create(1));
 				auto n2 = builder.BeginType(TSM_VALUE, "Test.NativeType");
 				builder.Link(false, true);
 				builder.EndType();
@@ -133,7 +133,7 @@ namespace LibRolLangTest
 				auto f = builder.BeginFunction("Core.Function");
 				builder.Signature({}, {});
 				builder.EndFunction();
-				auto tri = builder.ImportTrait("Test", "Test.Trait", 0);
+				auto tri = builder.ImportTrait("Test", "Test.Trait", GenericDefArgumentListSize::Create(0));
 				auto tt1 = builder.BeginType(TSM_VALUE, "Core.TargetType1");
 				builder.AddMemberFunction("F", f);
 				builder.EndType();

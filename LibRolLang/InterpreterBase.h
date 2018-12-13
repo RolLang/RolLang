@@ -54,10 +54,10 @@ public:
 
 public: //Loader API
 	std::size_t GetType(const std::string& assemblyName, const std::string& exportName,
-		const std::vector<std::size_t>& genericArgs)
+		const std::vector<std::size_t>& genericArgs, const GenericDefArgumentListSize& genericSize = {})
 	{
 		LoadingArguments args;
-		AssemblyImport importInfo = { assemblyName, exportName, genericArgs.size() };
+		AssemblyImport importInfo = { assemblyName, exportName, genericSize };
 		if (!_loader->FindExportType(importInfo, args))
 		{
 			ReturnWithException({}, ERR_PROGRAM, "Export type not found");
@@ -78,10 +78,10 @@ public: //Loader API
 	}
 
 	std::size_t GetFunction(const std::string& assemblyName, const std::string& exportName,
-		const std::vector<std::size_t>& genericArgs)
+		const std::vector<std::size_t>& genericArgs, const GenericDefArgumentListSize& genericSize = {})
 	{
 		LoadingArguments args;
-		AssemblyImport importInfo = { assemblyName, exportName, genericArgs.size() };
+		AssemblyImport importInfo = { assemblyName, exportName, genericSize };
 		if (!_loader->FindExportFunction(importInfo, args))
 		{
 			ReturnWithException({}, ERR_PROGRAM, "Export function not found");
@@ -161,7 +161,7 @@ protected:
 	{
 		if (f == nullptr) return false;
 		if (f->Instruction.size() || f->ConstantTable.size() || f->ConstantData.size()) return false;
-		if (f->Generic.ParameterCount) return false;
+		if (!f->Generic.ParameterCount.IsEmpty()) return false;
 		if (f->Generic.Functions.size()) return false;
 		return true;
 	}

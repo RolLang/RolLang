@@ -111,28 +111,28 @@ public:
 
 	bool CheckPointerTypeTemplate(Type* t)
 	{
-		if (t->Generic.ParameterCount != 1) return false;
+		if (!t->Generic.ParameterCount.IsSingle()) return false;
 		if (t->GCMode != TSM_VALUE) return false;
 		return true;
 	}
 
 	bool CheckBoxTypeTemplate(Type* t)
 	{
-		if (t->Generic.ParameterCount != 1) return false;
+		if (!t->Generic.ParameterCount.IsSingle()) return false;
 		if (t->GCMode != TSM_REFERENCE) return false;
 		return true;
 	}
 
 	bool CheckReferenceTypeTemplate(Type* t)
 	{
-		if (t->Generic.ParameterCount != 1) return false;
+		if (!t->Generic.ParameterCount.IsSingle()) return false;
 		if (t->GCMode != TSM_VALUE) return false;
 		return true;
 	}
 
 	bool CheckEmbedTypeTemplate(Type* t)
 	{
-		if (t->Generic.ParameterCount != 1) return false;
+		if (!t->Generic.ParameterCount.IsSingle()) return false;
 		if (t->GCMode != TSM_VALUE) return false;
 		return true;
 	}
@@ -281,8 +281,7 @@ public:
 					}
 					return FindExportType(a->ImportTypes[importId], result);
 				}
-				if (args.GenericParameters != SIZE_MAX &&
-					a->Types[e.InternalId].Generic.ParameterCount != args.GenericParameters)
+				if (a->Types[e.InternalId].Generic.ParameterCount != args.GenericParameters)
 				{
 					return false;
 				}
@@ -310,8 +309,7 @@ public:
 					}
 					return FindExportFunction(a->ImportFunctions[importId], result);
 				}
-				if (args.GenericParameters != SIZE_MAX &&
-					a->Functions[e.InternalId].Generic.ParameterCount != args.GenericParameters)
+				if (a->Functions[e.InternalId].Generic.ParameterCount != args.GenericParameters)
 				{
 					return false;
 				}
@@ -362,8 +360,7 @@ public:
 					}
 					return FindExportTrait(a->ImportTraits[importId], result);
 				}
-				if (args.GenericParameters != SIZE_MAX &&
-					a->Traits[e.InternalId].Generic.ParameterCount != args.GenericParameters)
+				if (a->Traits[e.InternalId].Generic.ParameterCount != args.GenericParameters)
 				{
 					return false;
 				}
@@ -378,7 +375,7 @@ public:
 	std::uint32_t FindExportConstant(const std::string& assemblyName, const std::string& n)
 	{
 		std::uint32_t ret;
-		if (!FindExportConstant({ assemblyName, n, 0 }, ret))
+		if (!FindExportConstant({ assemblyName, n, {} }, ret))
 		{
 			throw RuntimeLoaderException("Constant export not found");
 		}
@@ -392,7 +389,7 @@ public:
 			throw RuntimeLoaderException("Invalid constant import");
 		}
 		auto info = a->ImportConstants[index];
-		if (info.GenericParameters != 0)
+		if (!info.GenericParameters.IsEmpty())
 		{
 			throw RuntimeLoaderException("Invalid constant import");
 		}

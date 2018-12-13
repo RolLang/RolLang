@@ -11,7 +11,7 @@ namespace LibRolLangTest
 			std::vector<RuntimeType*> args, bool shouldFail)
 		{
 			LoadingArguments la;
-			loader->FindExportType({ a, n, args.size() }, la);
+			loader->FindExportType({ a, n, GenericDefArgumentListSize::Create(args.size()) }, la);
 			la.Arguments = args;
 			std::string err;
 			auto ret = loader->GetType(la, err);
@@ -87,7 +87,7 @@ namespace LibRolLangTest
 			std::vector<RuntimeType*> args, bool shouldFail)
 		{
 			LoadingArguments la;
-			loader->FindExportFunction({ a, n, args.size() }, la);
+			loader->FindExportFunction({ a, n, GenericDefArgumentListSize::Create(args.size()) }, la);
 			la.Arguments = args;
 			std::string err;
 			auto ret = loader->GetFunction(la, err);

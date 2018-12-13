@@ -127,7 +127,7 @@ public:
 			{
 				la.Arguments.push_back(LoadRefType(lg, e.Index));
 			}
-			if (la.Arguments.size() != i.GenericParameters)
+			if (!i.GenericParameters.CanMatch({ la.Arguments.size() }))
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
@@ -254,7 +254,7 @@ public:
 				}
 				la.Arguments.push_back(LoadRefType(lg, e.Entry.Index));
 			}
-			if (la.Arguments.size() != i.GenericParameters)
+			if (!i.GenericParameters.CanMatch({ la.Arguments.size() }))
 			{
 				throw RuntimeLoaderException("Invalid function reference");
 			}

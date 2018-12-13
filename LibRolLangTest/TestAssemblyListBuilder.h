@@ -99,7 +99,7 @@ namespace
 		std::size_t ImportConstant(const std::string& a, const std::string& n)
 		{
 			auto ret = _assembly.ImportConstants.size();
-			_assembly.ImportConstants.push_back({ a, n, 0 });
+			_assembly.ImportConstants.push_back({ a, n, {} });
 			return ret;
 		}
 
@@ -115,7 +115,8 @@ namespace
 			return { TR_TEMP, id, {} };
 		}
 
-		TypeReference ImportType(const std::string& a, const std::string& name, std::size_t nargs = 0)
+		TypeReference ImportType(const std::string& a, const std::string& name,
+			GenericDefArgumentListSize nargs = {})
 		{
 			auto id = _assembly.ImportTypes.size();
 			_assembly.ImportTypes.push_back({ a, name, nargs });
@@ -262,13 +263,27 @@ namespace
 
 		TypeReference AddGenericParameter()
 		{
-			auto id = CurrentDeclaration().ParameterCount++;
+			auto& p = CurrentDeclaration().ParameterCount;
+			if (p.IsEmpty())
+			{
+				p.Segments.emplace_back();
+			}
+			assert(p.Segments.size() == 1);
+			assert(!p.Segments[0].IsVariable);
+			auto id = p.Segments[0].Size++;
 			return { TR_ARGUMENT, id, {} };
 		}
 
 		TypeReference AddAdditionalGenericParameter(std::size_t n)
 		{
-			auto id = CurrentDeclaration().ParameterCount + n;
+			auto& p = CurrentDeclaration().ParameterCount;
+			if (p.IsEmpty())
+			{
+				p.Segments.emplace_back();
+			}
+			assert(p.Segments.size() == 1);
+			assert(!p.Segments[0].IsVariable);
+			auto id = p.Segments[0].Size + n;
 			return { TR_ARGUMENT, id, {} };
 		}
 
@@ -328,7 +343,7 @@ namespace
 		}
 
 		FunctionReference ImportFunction(const std::string& a, const std::string& name,
-			std::size_t nargs = 0)
+			const GenericDefArgumentListSize& nargs = {})
 		{
 			auto id = _assembly.ImportFunctions.size();
 			_assembly.ImportFunctions.push_back({ a, name, nargs });
@@ -430,7 +445,8 @@ namespace
 			_currentName = "";
 		}
 
-		TraitReference ImportTrait(const std::string& a, const std::string& n, std::size_t nargs)
+		TraitReference ImportTrait(const std::string& a, const std::string& n, 
+			const GenericDefArgumentListSize& nargs = {})
 		{
 			auto ret = _assembly.ImportTraits.size();
 			_assembly.ImportTraits.push_back({ a, n, nargs });

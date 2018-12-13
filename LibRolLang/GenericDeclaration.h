@@ -8,7 +8,8 @@ enum ReferenceType_ : unsigned char
 	REF_EMPTY,
 
 	//Meta
-	REF_LISTEND,
+	REF_LISTEND, //end of a argument list, used with REF_ASSEMBLY, REF_IMPORT and REF_SUBTYPE
+	REF_SEGMENT, //end of a segment in the argument list
 
 	REF_CLONE, //refer to another entry in the list. index = index in the same list
 	REF_ASSEMBLY, //index = assembly type/function array index
@@ -43,7 +44,7 @@ struct ReferenceType
 		static const char* debugNames[] =
 		{
 			"EMPTY",
-			"LISTEND",
+			"LISTEND", "SEGMENT",
 			"CLONE", "ASSEMBLY", "IMPORT", "CONSTRAIN",
 			"ARGUMENT", "SELF", "SUBTYPE", "CLONETYPE",
 			"FIELDID",
@@ -69,12 +70,14 @@ struct Serializer<ReferenceType>
 {
 	static void Read(std::istream& s, ReferenceType& val)
 	{
-		s.read((char*)&val, sizeof(ReferenceType_));
+		ReferenceType_ val2;
+		s.read((char*)&val2, sizeof(ReferenceType_));
+		val = val2; //Trigger constructor
 	}
 
 	static void Write(std::ostream& s, const ReferenceType& val)
 	{
-		s.write((const char*)&val, sizeof(ReferenceType_));
+		s.write((const char*)&val._type, sizeof(ReferenceType_));
 	}
 };
 
@@ -120,9 +123,84 @@ FIELD_SERIALIZER_BEGIN(GenericConstrain)
 	SERIALIZE_FIELD(ExportName)
 FIELD_SERIALIZER_END()
 
+struct GenericArgumentListSegmentSize
+{
+	std::size_t Size;
+	bool IsVariable;
+
+	bool operator== (const GenericArgumentListSegmentSize& rhs) const
+	{
+		return Size == rhs.Size && IsVariable == rhs.IsVariable;
+	}
+	bool operator!= (const GenericArgumentListSegmentSize& rhs) const
+	{
+		return !(*this == rhs);
+	}
+};
+FIELD_SERIALIZER_BEGIN(GenericArgumentListSegmentSize)
+	SERIALIZE_FIELD(Size)
+	SERIALIZE_FIELD(IsVariable)
+FIELD_SERIALIZER_END()
+
+struct GenericDefArgumentListSize
+{
+	std::vector<GenericArgumentListSegmentSize> Segments;
+
+	bool IsEmpty() const { return Segments.size() == 0; }
+	bool IsSingle() const
+	{
+		return Segments.size() == 1 && Segments[0].Size == 1 && !Segments[0].IsVariable;
+	}
+
+	bool CanMatch(const std::vector<std::size_t>& size) const
+	{
+		//For backward compatibility (temporary), ignore empty single dimension
+		if (size.size() == 1 && size[0] == 0)
+		{
+			if (IsEmpty()) return true;
+			if (Segments.size() == 1 && Segments[0].Size == 0 && !Segments[0].IsVariable) return true;
+			return false;
+		}
+
+		if (Segments.size() != size.size()) return false;
+		for (std::size_t i = 0; i < size.size(); ++i)
+		{
+			if (Segments[i].IsVariable)
+			{
+				if (size[i] < Segments[i].Size) return false;
+			}
+			else
+			{
+				if (size[i] != Segments[i].Size) return false;
+			}
+		}
+		return true;
+	}
+
+	bool operator== (const GenericDefArgumentListSize& rhs) const
+	{
+		return Segments == rhs.Segments;
+	}
+	bool operator!= (const GenericDefArgumentListSize& rhs) const
+	{
+		return !(*this == rhs);
+	}
+
+	static GenericDefArgumentListSize Create(std::size_t n)
+	{
+		GenericDefArgumentListSize ret;
+		//For backward compatibility (temporary), only add when n != 0
+		if (n > 0) ret.Segments.push_back({ n, false });
+		return std::move(ret);
+	}
+};
+FIELD_SERIALIZER_BEGIN(GenericDefArgumentListSize)
+	SERIALIZE_FIELD(Segments)
+FIELD_SERIALIZER_END()
+
 struct GenericDeclaration
 {
-	std::size_t ParameterCount;
+	GenericDefArgumentListSize ParameterCount;
 	std::vector<GenericConstrain> Constrains;
 
 	std::vector<DeclarationReference> Types;

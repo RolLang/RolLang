@@ -433,7 +433,7 @@ private:
 
 		//Children (sub-constrains)
 		assert(parent.Children.size() == 0);
-		if (parent.Arguments.size() != g->ParameterCount)
+		if (!g->ParameterCount.CanMatch({ parent.Arguments.size() }))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
@@ -1021,7 +1021,7 @@ private:
 			{
 				ret.Args.push_back(ConstructConstrainTraitType(cache, e.Index));
 			}
-			if (assembly->ImportTypes[t.Index].GenericParameters != ret.Args.size())
+			if (!assembly->ImportTypes[t.Index].GenericParameters.CanMatch({ ret.Args.size() }))
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
@@ -1103,7 +1103,7 @@ private:
 			{
 				ret.Args.push_back(ConstructConstrainArgumentType(cache, constrain, e.Index));
 			}
-			if (assembly->ImportTypes[t.Index].GenericParameters != ret.Args.size())
+			if (!assembly->ImportTypes[t.Index].GenericParameters.CanMatch({ ret.Args.size() }))
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}

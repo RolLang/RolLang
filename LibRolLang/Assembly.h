@@ -9,8 +9,7 @@ struct AssemblyImport
 {
 	std::string AssemblyName;
 	std::string ImportName;
-	//TODO how to support argument pack?
-	std::size_t GenericParameters;
+	GenericDefArgumentListSize GenericParameters;
 };
 FIELD_SERIALIZER_BEGIN(AssemblyImport)
 	SERIALIZE_FIELD(AssemblyName)

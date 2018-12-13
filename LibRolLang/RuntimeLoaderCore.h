@@ -105,7 +105,7 @@ public: //External API (for RuntimeLoader external API)
 	{
 		auto a = FindAssemblyThrow(assemblyName);
 		auto& type = a->Types[id];
-		if (type.Generic.ParameterCount)
+		if (!type.Generic.ParameterCount.IsEmpty())
 		{
 			throw RuntimeLoaderException("Native type cannot be generic");
 		}
@@ -166,7 +166,8 @@ public: //Internal API (for other modules)
 		}
 		_loading->_constrainCheckingTypes.push_back(args);
 
-		if (g.ParameterCount != args.Arguments.size())
+		//TODO match multi-dimension
+		if (!g.ParameterCount.CanMatch({ args.Arguments.size() }))
 		{
 			return false;
 		}
