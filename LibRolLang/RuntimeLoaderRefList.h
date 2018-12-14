@@ -15,13 +15,13 @@ public:
 		{
 		}
 	};
-	struct RefListArgsList;
-	struct RefListArgsIterator
+	template <typename T> struct RefListArgsList;
+	template <typename T> struct RefListArgsIterator
 	{
-		const RefListArgsList* _parent;
+		const RefListArgsList<T>* _parent;
 		std::size_t _i;
 
-		RefListArgsIterator(const RefListArgsList* parent, std::size_t i)
+		RefListArgsIterator(const RefListArgsList<T>* parent, std::size_t i)
 			: _parent(parent), _i(i)
 		{
 			Check();
@@ -58,27 +58,84 @@ public:
 			if ((*_parent->list)[_parent->head + _i].Type == REF_LISTEND)
 			{
 				_i = SIZE_MAX;
+				return;
+			}
+			if ((*_parent->list)[_parent->head + _i].Type == REF_SEGMENT)
+			{
+				if (_parent->target != nullptr)
+				{
+					_parent->target->NewList();
+				}
+				++*this;
+			}
+			if (_parent->target != nullptr)
+			{
+				if (_parent->target->IsEmpty())
+				{
+					throw RuntimeLoaderException("Invalid RefList entry");
+				}
 			}
 		}
 	};
+	template <typename T>
 	struct RefListArgsList
 	{
 		const std::vector<DeclarationReference>* list;
 		std::size_t head;
+		MultiList<T>* target;
 
-		RefListArgsIterator begin() const
+		RefListArgsIterator<T> begin() const
 		{
 			return { this, 1 };
 		}
 
-		RefListArgsIterator end() const
+		RefListArgsIterator<T> end() const
 		{
 			return { this, SIZE_MAX };
 		}
 	};
-	static RefListArgsList GetRefArgList(const std::vector<DeclarationReference>& list, std::size_t head)
+	template <typename T>
+	static RefListArgsList<T> GetRefArgList(const std::vector<DeclarationReference>& list, std::size_t head,
+		MultiList<T>& target)
 	{
-		return { &list, head };
+		return { &list, head, &target };
+	}
+	template <typename T>
+	static const T& GetRefArgument(const std::vector<DeclarationReference>& list, std::size_t head,
+		const MultiList<T>& target)
+	{
+		assert((list[head].Type & REF_REFTYPES) == REF_ARGUMENT);
+		if (head + 1 >= list.size() || list[head + 1].Type != REF_ARGUMENTSEG)
+		{
+			throw RuntimeLoaderException("Invalid RefList entry");
+		}
+		const T* ret;
+		if (!target.TryGetRef(list[head + 1].Index, list[head].Index, &ret))
+		{
+			throw RuntimeLoaderException("Invalid RefList entry");
+		}
+		return *ret;
+	}
+	template <typename T>
+	static const T& GetRefArgument(const std::vector<DeclarationReference>& list, std::size_t head,
+		const MultiList<T>& target, const MultiList<T>* targetAdditional)
+	{
+		assert((list[head].Type & REF_REFTYPES) == REF_ARGUMENT);
+		if (head + 1 >= list.size() || list[head + 1].Type != REF_ARGUMENTSEG)
+		{
+			throw RuntimeLoaderException("Invalid RefList entry");
+		}
+		const T* ret;
+		if (!target.TryGetRef(list[head + 1].Index, list[head].Index, &ret))
+		{
+			auto s = target.GetSizeList().size();
+			if (targetAdditional == nullptr ||
+				!targetAdditional->TryGetRef(list[head + 1].Index - s, list[head].Index, &ret))
+			{
+				throw RuntimeLoaderException("Invalid RefList entry");
+			}
+		}
+		return *ret;
 	}
 
 public:
@@ -106,9 +163,9 @@ public:
 		case REF_ASSEMBLY:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = type.Index;
-			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId))
+			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId, la.Arguments))
 			{
-				la.Arguments.push_back(LoadRefType(lg, e.Index));
+				la.Arguments.AppendLast(LoadRefType(lg, e.Index));
 			}
 			return true;
 		case REF_IMPORT:
@@ -123,30 +180,19 @@ public:
 			{
 				throw RuntimeLoaderException("Import type not found");
 			}
-			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId))
+			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId, la.Arguments))
 			{
-				la.Arguments.push_back(LoadRefType(lg, e.Index));
+				la.Arguments.AppendLast(LoadRefType(lg, e.Index));
 			}
-			if (!i.GenericParameters.CanMatch({ la.Arguments.size() }))
+			if (!i.GenericParameters.CanMatch(la.Arguments.GetSizeList()))
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 			return true;
 		}
 		case REF_ARGUMENT:
-			if (type.Index >= lg.Arguments.Arguments.size())
-			{
-				auto aaid = type.Index - lg.Arguments.Arguments.size();
-				if (lg.AdditionalArguments == nullptr || aaid >= lg.AdditionalArguments->size())
-				{
-					throw RuntimeLoaderException("Invalid type reference");
-				}
-				la = (*lg.AdditionalArguments)[aaid]->Args;
-				return true;
-			}
-			//TODO Improve? Now we have to load again (although it's in the short path)
-			//Same for REF_SELF
-			la = lg.Arguments.Arguments[type.Index]->Args;
+			la = GetRefArgument(lg.Declaration.Types, typeId,
+				lg.Arguments.Arguments, lg.AdditionalArguments)->Args;
 			return true;
 		case REF_SELF:
 			if (lg.SelfType == nullptr)
@@ -163,11 +209,12 @@ public:
 			{
 				throw RuntimeLoaderException("Invalid type reference");
 			}
-			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId + 1))
+			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId + 1, la.Arguments))
 			{
-				la.Arguments.push_back(LoadRefType(lg, e.Index));
+				la.Arguments.AppendLast(LoadRefType(lg, e.Index));
 			}
-			if (!FindSubType({ parent, name, std::move(la.Arguments) }, la)) //Moved. No problem.
+			//la.Arguments is moved to temp obj before entering FindSubType.
+			if (!FindSubType({ parent, name, std::move(la.Arguments) }, la))
 			{
 				return false;
 			}
@@ -225,13 +272,13 @@ public:
 		case REF_ASSEMBLY:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = func.Index;
-			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId))
+			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId, la.Arguments))
 			{
 				if (e.Entry.Type != REF_CLONETYPE)
 				{
 					throw RuntimeLoaderException("Invalid generic function argument");
 				}
-				la.Arguments.push_back(LoadRefType(lg, e.Entry.Index));
+				la.Arguments.AppendLast(LoadRefType(lg, e.Entry.Index));
 			}
 			return true;
 		case REF_IMPORT:
@@ -246,15 +293,15 @@ public:
 			{
 				throw RuntimeLoaderException("Import function not found");
 			}
-			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId))
+			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId, la.Arguments))
 			{
 				if (e.Entry.Type != REF_CLONETYPE)
 				{
 					throw RuntimeLoaderException("Invalid generic function argument");
 				}
-				la.Arguments.push_back(LoadRefType(lg, e.Entry.Index));
+				la.Arguments.AppendLast(LoadRefType(lg, e.Entry.Index));
 			}
-			if (!i.GenericParameters.CanMatch({ la.Arguments.size() }))
+			if (!i.GenericParameters.CanMatch(la.Arguments.GetSizeList()))
 			{
 				throw RuntimeLoaderException("Invalid function reference");
 			}

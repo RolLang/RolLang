@@ -6,12 +6,21 @@ namespace LibRolLangTest
 	{
 		using namespace RolLang;
 
-		static RuntimeType* LoadType(RuntimeLoader* loader,
+		static RuntimeType* LoadTypeMulti(RuntimeLoader* loader,
 			const std::string& a, const std::string& n,
-			std::vector<RuntimeType*> args, bool shouldFail)
+			MultiList<RuntimeType*> args, bool shouldFail)
 		{
 			LoadingArguments la;
-			loader->FindExportType({ a, n, GenericDefArgumentListSize::Create(args.size()) }, la);
+			GenericDefArgumentListSize importSize;
+			if (args.GetSizeList().size() == 0)
+			{
+			}
+			else
+			{
+				assert(args.GetSizeList().size() == 1);
+				importSize.Segments.push_back({ args.GetSizeList()[0], false });
+			}
+			loader->FindExportType({ a, n, importSize }, la);
 			la.Arguments = args;
 			std::string err;
 			auto ret = loader->GetType(la, err);
@@ -27,9 +36,16 @@ namespace LibRolLangTest
 		}
 
 		static RuntimeType* LoadType(RuntimeLoader* loader,
+			const std::string& a, const std::string& n,
+			std::vector<RuntimeType*> args, bool shouldFail)
+		{
+			return LoadTypeMulti(loader, a, n, args, shouldFail);
+		}
+
+		static RuntimeType* LoadType(RuntimeLoader* loader,
 			const std::string& a, const std::string& n, bool shouldFail)
 		{
-			return LoadType(loader, a, n, {}, shouldFail);
+			return LoadTypeMulti(loader, a, n, {}, shouldFail);
 		}
 
 		static RuntimeType* LoadNativeType(RuntimeLoader* loader,

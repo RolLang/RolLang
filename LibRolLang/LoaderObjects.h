@@ -2,6 +2,7 @@
 #include <vector>
 #include "Assembly.h"
 #include "Spinlock.h"
+#include "LoaderMultiList.h"
 
 namespace RolLang {
 
@@ -31,14 +32,15 @@ struct LoadingArguments
 {
 	std::string Assembly;
 	std::size_t Id;
-	std::vector<RuntimeType*> Arguments;
+	//std::vector<RuntimeType*> Arguments;
+	MultiList<RuntimeType*> Arguments;
 
-	bool operator == (const LoadingArguments &b) const
+	bool operator== (const LoadingArguments &b) const
 	{
 		return Assembly == b.Assembly && Id == b.Id && Arguments == b.Arguments;
 	}
 
-	bool operator != (const LoadingArguments &b) const
+	bool operator!= (const LoadingArguments &b) const
 	{
 		return !(*this == b);
 	}
@@ -183,10 +185,18 @@ struct RuntimeType : Initializable
 //TODO move RuntimeObjectSymbol to after LoadingArguments
 inline void LoadingArguments::AppendToSymbol(RuntimeObjectSymbol& s)
 {
-	s.Hierarchy.push_back({ Assembly, Id, Arguments.size() });
-	for (std::size_t i = 0; i < Arguments.size(); ++i)
+	auto size = Arguments.GetSizeList();
+	s.Hierarchy.push_back({ Assembly, Id, Arguments.GetTotalSize() + size.size() });
+	for (std::size_t i = 0; i < size.size(); ++i)
 	{
-		Arguments[i]->Args.AppendToSymbol(s);
+		if (i != 0)
+		{
+			s.Hierarchy.push_back({ "", SIZE_MAX, 0 });
+		}
+		for (std::size_t j = 0; j < size[i]; ++j)
+		{
+			Arguments.Get(i, j)->Args.AppendToSymbol(s);
+		}
 	}
 }
 
@@ -251,7 +261,7 @@ struct SubMemberLoadingArguments
 {
 	RuntimeType* Parent;
 	std::string Name;
-	std::vector<RuntimeType*> Arguments;
+	MultiList<RuntimeType*> Arguments;
 
 	bool operator == (const SubMemberLoadingArguments &b) const
 	{
@@ -271,7 +281,7 @@ struct LoadingRefArguments
 	const LoadingArguments& Arguments;
 	RuntimeType* SelfType;
 	RuntimeFunction* SelfFunction;
-	const std::vector<RuntimeType*>* AdditionalArguments;
+	const MultiList<RuntimeType*>* AdditionalArguments;
 
 	LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g)
 		: Declaration(g), Arguments(type->Args), SelfType(type),
@@ -285,7 +295,7 @@ struct LoadingRefArguments
 	{
 	}
 
-	LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g, const std::vector<RuntimeType*>& aa)
+	LoadingRefArguments(RuntimeType* type, const GenericDeclaration& g, const MultiList<RuntimeType*>& aa)
 		: Declaration(g), Arguments(type->Args), SelfType(type), 
 			SelfFunction(nullptr), AdditionalArguments(&aa)
 	{

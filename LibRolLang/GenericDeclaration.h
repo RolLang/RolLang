@@ -7,16 +7,17 @@ enum ReferenceType_ : unsigned char
 {
 	REF_EMPTY,
 
-	//Meta
+	//Meta (note that these cannot be cloned)
 	REF_LISTEND, //end of a argument list, used with REF_ASSEMBLY, REF_IMPORT and REF_SUBTYPE
-	REF_SEGMENT, //end of a segment in the argument list
+	REF_SEGMENT, //start of a segment in the argument list
+	REF_ARGUMENTSEG, //index = segment index. must follow REF_ARGUMENT
 
 	REF_CLONE, //refer to another entry in the list. index = index in the same list
 	REF_ASSEMBLY, //index = assembly type/function array index
 	REF_IMPORT, //index = import #
 	REF_CONSTRAIN, //import from constrain. index = index in name list
 
-	REF_ARGUMENT, //index = generic parameter list index
+	REF_ARGUMENT, //index = generic parameter list index. must be followed by a REF_ARGUMENTSEG
 	REF_SELF, //for type, the type itself. for trait, the target type
 	REF_SUBTYPE, //sub type of the given type. index = index in name list
 	//Note: REF_SUBTYPE can be used to implement reference to static type. (name = '.static')
@@ -44,9 +45,9 @@ struct ReferenceType
 		static const char* debugNames[] =
 		{
 			"EMPTY",
-			"LISTEND", "SEGMENT",
+			"END", "SEGMENT", "ARGSEG",
 			"CLONE", "ASSEMBLY", "IMPORT", "CONSTRAIN",
-			"ARGUMENT", "SELF", "SUBTYPE", "CLONETYPE",
+			"ARG", "SELF", "SUBTYPE", "CLONETYPE",
 			"FIELDID",
 			"TRY", "ANY",
 		};
@@ -109,7 +110,7 @@ struct GenericConstrain
 	std::vector<DeclarationReference> TypeReferences;
 	std::vector<std::string> NamesList;
 	std::size_t Target;
-	std::vector<std::size_t> Arguments;
+	std::vector<std::size_t> Arguments; //TODO support for segment
 
 	std::string ExportName;
 };
@@ -155,6 +156,7 @@ struct GenericDefArgumentListSize
 	bool CanMatch(const std::vector<std::size_t>& size) const
 	{
 		//For backward compatibility (temporary), ignore empty single dimension
+		//TODO remove this (after support for multilist on Constrain arg)
 		if (size.size() == 1 && size[0] == 0)
 		{
 			if (IsEmpty()) return true;

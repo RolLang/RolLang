@@ -54,7 +54,7 @@ public:
 
 public: //Loader API
 	std::size_t GetType(const std::string& assemblyName, const std::string& exportName,
-		const std::vector<std::size_t>& genericArgs, const GenericDefArgumentListSize& genericSize = {})
+		const MultiList<std::size_t>& genericArgs, const GenericDefArgumentListSize& genericSize = {})
 	{
 		LoadingArguments args;
 		AssemblyImport importInfo = { assemblyName, exportName, genericSize };
@@ -63,9 +63,14 @@ public: //Loader API
 			ReturnWithException({}, ERR_PROGRAM, "Export type not found");
 			return SIZE_MAX;
 		}
-		for (auto i : genericArgs)
+		auto&& argsSize = genericArgs.GetSizeList();
+		for (std::size_t i = 0; i < argsSize.size(); ++i)
 		{
-			args.Arguments.push_back(_loader->GetTypeById(i));
+			args.Arguments.NewList();
+			for (std::size_t j = 0; j < argsSize[i]; ++j)
+			{
+				args.Arguments.AppendLast(_loader->GetTypeById(genericArgs.Get(i, j)));
+			}
 		}
 		std::string err;
 		auto ret = _loader->GetType(args, err);
@@ -78,7 +83,7 @@ public: //Loader API
 	}
 
 	std::size_t GetFunction(const std::string& assemblyName, const std::string& exportName,
-		const std::vector<std::size_t>& genericArgs, const GenericDefArgumentListSize& genericSize = {})
+		const MultiList<std::size_t>& genericArgs, const GenericDefArgumentListSize& genericSize = {})
 	{
 		LoadingArguments args;
 		AssemblyImport importInfo = { assemblyName, exportName, genericSize };
@@ -87,9 +92,14 @@ public: //Loader API
 			ReturnWithException({}, ERR_PROGRAM, "Export function not found");
 			return SIZE_MAX;
 		}
-		for (auto i : genericArgs)
+		auto&& argsSize = genericArgs.GetSizeList();
+		for (std::size_t i = 0; i < argsSize.size(); ++i)
 		{
-			args.Arguments.push_back(_loader->GetTypeById(i));
+			args.Arguments.NewList();
+			for (std::size_t j = 0; j < argsSize[i]; ++j)
+			{
+				args.Arguments.AppendLast(_loader->GetTypeById(genericArgs.Get(i, j)));
+			}
 		}
 		std::string err;
 		auto ret = _loader->GetFunction(args, err);

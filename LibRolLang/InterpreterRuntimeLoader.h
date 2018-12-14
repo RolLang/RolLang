@@ -74,7 +74,7 @@ protected:
 		{
 			if (func->Args.Assembly == n.AssemblyName && func->Args.Id == n.Id)
 			{
-				if (func->Args.Arguments.size() != 0)
+				if (!func->Args.Arguments.IsEmpty())
 				{
 					throw RuntimeLoaderException("Invalid native function.");
 				}

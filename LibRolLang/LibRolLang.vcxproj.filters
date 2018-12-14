@@ -84,6 +84,9 @@
     <ClInclude Include="RuntimeLoader.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="LoaderMultiList.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

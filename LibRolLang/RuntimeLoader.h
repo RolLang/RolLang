@@ -120,6 +120,10 @@ private:
 		if (x >= sym.Hierarchy.size()) return "[error]";
 
 		auto& t = sym.Hierarchy[x++];
+		if (t.Assembly.length() == 0 && t.Id == SIZE_MAX && t.ArgumentCount == 0)
+		{
+			return "";
+		}
 		auto a = FindAssemblyNoThrow(t.Assembly);
 		if (a == nullptr) return "[error]";
 		if (t.Id >= a->Types.size()) return "[error]";
@@ -137,8 +141,16 @@ private:
 			name = name + "<";
 			for (std::size_t i = 0; i < t.ArgumentCount; ++i)
 			{
-				if (i != 0) name += ", ";
-				name += GetTypeArgNameInternal(sym, x);
+				auto&& tt = GetTypeArgNameInternal(sym, x);
+				if (tt.length() == 0)
+				{
+					name += "; ";
+				}
+				else
+				{
+					if (i != 0) name += ", ";
+					name += tt;
+				}
 			}
 			name += ">";
 		}
@@ -175,8 +187,16 @@ public:
 			name += "<";
 			for (std::size_t i = 0, j = 1; i < f.ArgumentCount; ++i)
 			{
-				if (i != 0) name += ", ";
-				name += GetTypeArgNameInternal(sym, j);
+				auto&& t = GetTypeArgNameInternal(sym, j);
+				if (t.length() == 0)
+				{
+					name += "; ";
+				}
+				else
+				{
+					if (i != 0) name += ", ";
+					name += t;
+				}
 			}
 			name += ">";
 		}
@@ -190,7 +210,7 @@ public:
 		LoadingArguments args;
 		args.Assembly = "Core";
 		args.Id = _pointerTypeId;
-		args.Arguments.push_back(t);
+		args.Arguments = { { t } };
 		return GetType(args, err);
 	}
 

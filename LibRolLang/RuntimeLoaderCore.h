@@ -9,7 +9,7 @@ struct RuntimeLoaderCore : RuntimeLoaderData
 public: //Forward declaration
 
 	inline bool CheckConstrains(const std::string& srcAssebly, GenericDeclaration* g,
-		const std::vector<RuntimeType*>& args, ConstrainExportList* exportList);
+		const MultiList<RuntimeType*>& args, ConstrainExportList* exportList);
 
 	inline bool FindSubType(const SubMemberLoadingArguments& args, LoadingArguments& la);
 	//No SubFunction. All member function reference is exported from trait.
@@ -167,12 +167,7 @@ public: //Internal API (for other modules)
 		_loading->_constrainCheckingTypes.push_back(args);
 
 		//TODO match multi-dimension
-		if (!g.ParameterCount.CanMatch({ args.Arguments.size() }))
-		{
-			return false;
-		}
-		if (std::any_of(args.Arguments.begin(), args.Arguments.end(),
-			[](RuntimeType* t) { return t == nullptr; }))
+		if (!g.ParameterCount.CanMatch(args.Arguments.GetSizeList()))
 		{
 			return false;
 		}
@@ -235,8 +230,8 @@ public: //Internal API (for other modules)
 
 		if (args.Assembly == "Core" && args.Id == _boxTypeId)
 		{
-			if (args.Arguments.size() != 1 ||
-				args.Arguments[0]->Storage != TSM_VALUE)
+			if (!args.Arguments.IsSingle() ||
+				args.Arguments.Get(0, 0)->Storage != TSM_VALUE)
 			{
 				throw RuntimeLoaderException("Box type can only take value type as argument");
 			}
@@ -442,7 +437,8 @@ private:
 		Type* fieldSourceTypeTemplate = tt;
 		if (type->Args.Assembly == "Core" && type->Args.Id == _embedTypeId)
 		{
-			fieldSourceType = type->Args.Arguments[0];
+			assert(type->Args.Arguments.IsSingle());
+			fieldSourceType = type->Args.Arguments.Get(0, 0);
 			fieldSourceTypeTemplate = FindTypeTemplate(fieldSourceType->Args);
 		}
 		for (auto typeId : fieldSourceTypeTemplate->Fields)
@@ -525,9 +521,10 @@ private:
 
 		if (type->Args.Assembly == "Core" && type->Args.Id == _boxTypeId)
 		{
-			if (type->Args.Arguments[0]->Storage == TSM_VALUE)
+			assert(type->Args.Arguments.IsSingle());
+			if (type->Args.Arguments.Get(0, 0)->Storage == TSM_VALUE)
 			{
-				LoadInterfaces(type.get(), type->Args.Arguments[0], nullptr);
+				LoadInterfaces(type.get(), type->Args.Arguments.Get(0, 0), nullptr);
 			}
 		}
 		else if (type->Storage == TSM_REFERENCE)
@@ -601,32 +598,32 @@ private:
 			if (type->Args.Id == _pointerTypeId)
 			{
 				assert(type->Storage == TSM_VALUE);
-				assert(type->Args.Arguments.size() == 1);
-				auto elementType = type->Args.Arguments[0];
+				assert(type->Args.Arguments.IsSingle());
+				auto elementType = type->Args.Arguments.Get(0, 0);
 				assert(elementType->PointerType == nullptr);
 				elementType->PointerType = type;
 			}
 			else if (type->Args.Id == _boxTypeId)
 			{
 				assert(type->Storage == TSM_REFERENCE);
-				assert(type->Args.Arguments.size() == 1);
-				auto elementType = type->Args.Arguments[0];
+				assert(type->Args.Arguments.IsSingle());
+				auto elementType = type->Args.Arguments.Get(0, 0);
 				assert(elementType->BoxType == nullptr);
 				elementType->BoxType = type;
 			}
 			else if (type->Args.Id == _referenceTypeId)
 			{
 				assert(type->Storage == TSM_VALUE);
-				assert(type->Args.Arguments.size() == 1);
-				auto elementType = type->Args.Arguments[0];
+				assert(type->Args.Arguments.IsSingle());
+				auto elementType = type->Args.Arguments.Get(0, 0);
 				assert(elementType->ReferenceType == nullptr);
 				elementType->ReferenceType = type;
 			}
 			else if (type->Args.Id == _embedTypeId)
 			{
 				assert(type->Storage == TSM_VALUE);
-				assert(type->Args.Arguments.size() == 1);
-				auto elementType = type->Args.Arguments[0];
+				assert(type->Args.Arguments.IsSingle());
+				auto elementType = type->Args.Arguments.Get(0, 0);
 				assert(elementType->EmbedType == nullptr);
 				elementType->EmbedType = type;
 			}

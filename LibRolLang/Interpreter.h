@@ -169,7 +169,7 @@ private:
 			{
 				auto type = _stack.GetType(0);
 				assert(_loader->IsPointerType(type));
-				auto eleType = type->Args.Arguments[0];
+				auto eleType = type->Args.Arguments.Get(0, 0);
 				auto ptr = *(void**)_stack.GetPointer(0);
 				_stack.Pop();
 				auto dest = _stack.Push(eleType);

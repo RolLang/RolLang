@@ -47,6 +47,7 @@ namespace
 			std::size_t Id;
 			std::vector<TypeReference> Arguments;
 			std::string SubtypeName;
+			std::vector<TypeReference> ParentType;
 		};
 
 		struct FunctionReference
@@ -271,20 +272,14 @@ namespace
 			assert(p.Segments.size() == 1);
 			assert(!p.Segments[0].IsVariable);
 			auto id = p.Segments[0].Size++;
-			return { TR_ARGUMENT, id, {} };
+			return { TR_ARGUMENT, id, { { TR_ARGUMENT, 0, {} } } };
 		}
 
 		TypeReference AddAdditionalGenericParameter(std::size_t n)
 		{
 			auto& p = CurrentDeclaration().ParameterCount;
-			if (p.IsEmpty())
-			{
-				p.Segments.emplace_back();
-			}
-			assert(p.Segments.size() == 1);
-			assert(!p.Segments[0].IsVariable);
-			auto id = p.Segments[0].Size + n;
-			return { TR_ARGUMENT, id, {} };
+			auto seg = p.Segments.size();
+			return { TR_ARGUMENT, n, { { TR_ARGUMENT, seg, {} } } };
 		}
 
 		void AddConstrain(TypeReference target, const std::vector<TypeReference>& args,
@@ -318,8 +313,9 @@ namespace
 		TypeReference MakeSubtype(const TypeReference& parent, const std::string& name,
 			std::vector<TypeReference> args)
 		{
-			args.insert(args.begin(), parent);
-			return { TR_SUBTYPE, 0, args, name };
+			TypeReference ret = { TR_SUBTYPE, 0, args, name };
+			ret.ParentType.push_back(parent);
+			return ret;
 		}
 
 		FunctionReference MakeFunction(const FunctionReference& base, std::vector<TypeReference> args)
@@ -615,10 +611,19 @@ namespace
 
 		std::size_t WriteTypeRef(ReferenceTypeWriteTarget g, const TypeReference& t, bool forceLoad = true)
 		{
+			std::size_t parentId;
 			std::vector<std::size_t> args;
-			for (std::size_t i = 0; i < t.Arguments.size(); ++i)
+			if (t.Type != TR_ARGUMENT) //For TR_ARGUMENT, we are using the list to store segment id.
 			{
-				args.push_back(WriteTypeRef(g, t.Arguments[i], false));
+				for (std::size_t i = 0; i < t.Arguments.size(); ++i)
+				{
+					args.push_back(WriteTypeRef(g, t.Arguments[i], false));
+				}
+			}
+			if (t.Type == TR_SUBTYPE)
+			{
+				assert(t.ParentType.size() == 1);
+				parentId = WriteTypeRef(g, t.ParentType[0], false);
 			}
 
 			std::size_t ret = g.Types.size();
@@ -629,6 +634,8 @@ namespace
 				return ret;
 			case TR_ARGUMENT:
 				g.Types.push_back({ ForceLoad(REF_ARGUMENT, forceLoad), t.Id });
+				assert(t.Arguments.size() == 1 && t.Arguments[0].Type == TR_ARGUMENT);
+				g.Types.push_back({ REF_ARGUMENTSEG, t.Arguments[0].Id });
 				return ret;
 			case TR_TEMP:
 			case TR_INST:
@@ -647,6 +654,7 @@ namespace
 				auto nameid = g.NamesList.size();
 				g.NamesList.push_back(t.SubtypeName);
 				g.Types.push_back({ ForceLoad(REF_SUBTYPE, forceLoad), nameid });
+				g.Types.push_back({ REF_CLONE, parentId });
 				break;
 			}
 			case TR_ANY:
@@ -669,6 +677,10 @@ namespace
 			}
 			default:
 				return SIZE_MAX;
+			}
+			if (t.Arguments.size() != 0 || t.Type == TR_INST || t.Type == TR_INSTI)
+			{
+				g.Types.push_back({ REF_SEGMENT, 0 });
 			}
 			for (std::size_t i = 0; i < args.size(); ++i)
 			{
@@ -706,6 +718,10 @@ namespace
 				break;
 			default:
 				return SIZE_MAX;
+			}
+			if (f.Arguments.size() != 0 || f.Type == FR_INST || f.Type == FR_INSTI)
+			{
+				g.Functions.push_back({ REF_SEGMENT, 0 });
 			}
 			for (std::size_t i = 0; i < f.Arguments.size(); ++i)
 			{
