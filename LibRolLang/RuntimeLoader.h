@@ -49,7 +49,7 @@ public: //Public API
 		std::lock_guard<Spinlock> lock(_loaderLock);
 		for (auto& t : _loadedTypes)
 		{
-			if (t && t->Args == args)
+			if (t != nullptr && t->Args == args)
 			{
 				return t.get();
 			}
@@ -64,7 +64,7 @@ public: //Public API
 		std::lock_guard<Spinlock> lock(_loaderLock);
 		for (auto& f : _loadedFunctions)
 		{
-			if (f->Args == args)
+			if (f != nullptr && f->Args == args)
 			{
 				return f.get();
 			}

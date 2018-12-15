@@ -157,6 +157,7 @@ namespace LibRolLangTest
 
 			RuntimeLoader loader(builder.Build());
 			CheckCyclicFunction(&loader);
+			CheckCyclicFunction(&loader);
 		}
 	};
 }

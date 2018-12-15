@@ -588,7 +588,12 @@ private:
 		func->ReturnValue = func->References.Types[funcTemplate->ReturnValue.TypeId];
 		for (std::size_t i = 0; i < funcTemplate->Parameters.size(); ++i)
 		{
-			func->Parameters.push_back(func->References.Types[funcTemplate->Parameters[i].TypeId]);
+			auto paramType = func->References.Types[funcTemplate->Parameters[i].TypeId];
+			if (paramType == nullptr)
+			{
+				throw RuntimeLoaderException("Function parameter type cannot be void");
+			}
+			func->Parameters.push_back(paramType);
 		}
 #if _DEBUG
 		func->Fullname = func->GetFullname();

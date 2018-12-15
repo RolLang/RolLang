@@ -98,12 +98,21 @@ namespace LibRolLangTest
 			Assert::IsNull(t->Finalizer);
 		}
 
-		static RuntimeFunction* LoadFunction(RuntimeLoader* loader,
+		static RuntimeFunction* LoadFunctionMulti(RuntimeLoader* loader,
 			const std::string& a, const std::string& n,
-			std::vector<RuntimeType*> args, bool shouldFail)
+			MultiList<RuntimeType*> args, bool shouldFail)
 		{
 			LoadingArguments la;
-			loader->FindExportFunction({ a, n, GenericDefArgumentListSize::Create(args.size()) }, la);
+			GenericDefArgumentListSize importSize;
+			if (args.GetSizeList().size() == 0)
+			{
+			}
+			else
+			{
+				assert(args.GetSizeList().size() == 1);
+				importSize.Segments.push_back({ args.GetSizeList()[0], false });
+			}
+			loader->FindExportFunction({ a, n, importSize }, la);
 			la.Arguments = args;
 			std::string err;
 			auto ret = loader->GetFunction(la, err);
@@ -119,9 +128,16 @@ namespace LibRolLangTest
 		}
 
 		static RuntimeFunction* LoadFunction(RuntimeLoader* loader,
+			const std::string& a, const std::string& n,
+			std::vector<RuntimeType*> args, bool shouldFail)
+		{
+			return LoadFunctionMulti(loader, a, n, { args }, shouldFail);
+		}
+
+		static RuntimeFunction* LoadFunction(RuntimeLoader* loader,
 			const std::string& a, const std::string& n, bool shouldFail)
 		{
-			return LoadFunction(loader, a, n, {}, shouldFail);
+			return LoadFunctionMulti(loader, a, n, {}, shouldFail);
 		}
 
 		static void CheckFunctionBasic(RuntimeLoader* loader, RuntimeFunction* f)
