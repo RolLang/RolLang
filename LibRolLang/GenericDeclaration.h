@@ -25,6 +25,7 @@ enum ReferenceType_ : unsigned char
 
 	//For field reference only
 	REF_FIELDID, //index = field id
+	//TODO member field by name
 
 	//Following 2 are only for constrain type list only
 	REF_TRY, //same as CLONE except for that it allow the refered calculation to fail (not an error)

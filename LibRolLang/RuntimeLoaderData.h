@@ -43,6 +43,32 @@ public:
 	std::deque<std::unique_ptr<RuntimeFunction>> _finishedLoadingFunctions;
 };
 
+template <typename T>
+struct LoadingStackScopeGuard
+{
+	LoadingStackScopeGuard(std::vector<T>& list, const T& newItem)
+		: _list(list), _newItem(&newItem)
+	{
+		for (auto& item : list)
+		{
+			if (item == newItem)
+			{
+				throw RuntimeLoaderException("Circular reference detected");
+			}
+		}
+		list.push_back(newItem);
+	}
+
+	~LoadingStackScopeGuard()
+	{
+		assert(_list.back() == *_newItem);
+		_list.pop_back();
+	}
+
+	std::vector<T>& _list;
+	const T* _newItem;
+};
+
 struct RuntimeLoaderData
 {
 public:

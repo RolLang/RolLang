@@ -1461,7 +1461,7 @@ private:
 			if (t.TryArgumentConstrain)
 			{
 				auto tt = FindTypeTemplate(la);
-				if (!CheckGenericArguments(tt->Generic, la, nullptr))
+				if (!CheckTypeGenericArguments(tt->Generic, la, nullptr))
 				{
 					t.DeductFail();
 					return;
@@ -1504,7 +1504,7 @@ private:
 			if (t.TryArgumentConstrain)
 			{
 				auto tt = FindTypeTemplate(la);
-				if (!CheckGenericArguments(tt->Generic, la, nullptr))
+				if (!CheckTypeGenericArguments(tt->Generic, la, nullptr))
 				{
 					t.DeductFail();
 					return;

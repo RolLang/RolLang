@@ -152,30 +152,29 @@ public: //External API (for RuntimeLoader external API)
 	}
 
 public: //Internal API (for other modules)
+	bool CheckTypeGenericArguments(GenericDeclaration& g, const LoadingArguments& args,
+		ConstrainExportList* exportList)
+	{
+		auto check = LoadingStackScopeGuard<LoadingArguments>(_loading->_constrainCheckingTypes, args);
+		return CheckGenericArguments(g, args, exportList);
+	}
+
+	bool CheckFunctionGenericArguments(GenericDeclaration& g, const LoadingArguments& args,
+		ConstrainExportList* exportList)
+	{
+		auto check = LoadingStackScopeGuard<LoadingArguments>(_loading->_constrainCheckingFunctions, args);
+		return CheckGenericArguments(g, args, exportList);
+	}
 
 	bool CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args,
 		ConstrainExportList* exportList)
 	{
-		//TODO We should use different list for type and functions. (low priority)
-		for (auto& i : _loading->_constrainCheckingTypes)
-		{
-			if (i == args)
-			{
-				throw RuntimeLoaderException("Circular constrain reference");
-			}
-		}
-		_loading->_constrainCheckingTypes.push_back(args);
-
 		//TODO match multi-dimension
 		if (!g.ParameterCount.CanMatch(args.Arguments.GetSizeList()))
 		{
 			return false;
 		}
-		auto ret = CheckConstrains(args.Assembly, &g, args.Arguments, exportList);
-
-		assert(_loading->_constrainCheckingTypes.back() == args);
-		_loading->_constrainCheckingTypes.pop_back();
-		return ret;
+		return CheckConstrains(args.Assembly, &g, args.Arguments, exportList);
 	}
 
 	RuntimeType* LoadTypeInternal(const LoadingArguments& args, bool skipArgumentCheck)
@@ -218,23 +217,32 @@ public: //Internal API (for other modules)
 
 		ConstrainExportList exportList;
 		auto typeTemplate = FindTypeTemplate(args);
-		if (!skipArgumentCheck && !CheckGenericArguments(typeTemplate->Generic, args, &exportList))
+		if (!skipArgumentCheck && !CheckTypeGenericArguments(typeTemplate->Generic, args, &exportList))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
+		}
+
+		//Check constrains of internal types currently not supported by the constrain system.
+		if (args.Assembly == "Core" && args.Id == _boxTypeId)
+		{
+			assert(args.Arguments.IsSingle());
+			if (args.Arguments.Get(0, 0)->Storage != TSM_VALUE)
+			{
+				throw RuntimeLoaderException("Box type can only take value type as argument");
+			}
+		}
+		else if (args.Assembly == "Core" && args.Id == _embedTypeId)
+		{
+			assert(args.Arguments.IsSingle());
+			if (args.Arguments.Get(0, 0)->Storage != TSM_REFERENCE)
+			{
+				throw RuntimeLoaderException("Embed type can only take reference type as argument");
+			}
 		}
 
 		if (typeTemplate->Generic.Fields.size() != 0)
 		{
 			throw RuntimeLoaderException("Type template cannot contain field reference");
-		}
-
-		if (args.Assembly == "Core" && args.Id == _boxTypeId)
-		{
-			if (!args.Arguments.IsSingle() ||
-				args.Arguments.Get(0, 0)->Storage != TSM_VALUE)
-			{
-				throw RuntimeLoaderException("Box type can only take value type as argument");
-			}
 		}
 
 		auto t = std::make_unique<RuntimeType>();
@@ -287,7 +295,7 @@ public: //Internal API (for other modules)
 
 		ConstrainExportList exportList;
 		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
-		if (!CheckGenericArguments(funcTemplate->Generic, args, &exportList))
+		if (!CheckFunctionGenericArguments(funcTemplate->Generic, args, &exportList))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
