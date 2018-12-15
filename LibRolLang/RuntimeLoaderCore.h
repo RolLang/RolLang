@@ -36,7 +36,7 @@ public: //Forward declaration
 		{
 			return nullptr;
 		}
-		return LoadFunctionInternal(la);
+		return LoadFunctionInternal(la, false);
 	}
 
 	RuntimeType* LoadSubType(const SubMemberLoadingArguments& args)
@@ -83,7 +83,7 @@ public: //External API (for RuntimeLoader external API)
 		RuntimeFunction* ret = nullptr;
 		try
 		{
-			auto ret2 = LoadFunctionInternal(args);
+			auto ret2 = LoadFunctionInternal(args, false);
 			ProcessLoadingLists();
 			MoveFinishedObjects();
 			ret = ret2;
@@ -269,7 +269,7 @@ public: //Internal API (for other modules)
 		}
 	}
 
-	RuntimeFunction* LoadFunctionInternal(const LoadingArguments& args)
+	RuntimeFunction* LoadFunctionInternal(const LoadingArguments& args, bool skipArgumentCheck)
 	{
 		for (auto& ff : _loadedFunctions)
 		{
@@ -295,7 +295,7 @@ public: //Internal API (for other modules)
 
 		ConstrainExportList exportList;
 		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
-		if (!CheckFunctionGenericArguments(funcTemplate->Generic, args, &exportList))
+		if (!skipArgumentCheck && !CheckFunctionGenericArguments(funcTemplate->Generic, args, &exportList))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}

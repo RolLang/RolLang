@@ -849,7 +849,9 @@ private:
 			break;
 		}
 		case REF_SELF:
-			break; //In case this function is used with type's GenericDeclaration.
+		case REF_CONSTRAIN:
+		case REF_EMPTY:
+			break;
 		default:
 			throw RuntimeLoaderException("Invalid type reference");
 		}
