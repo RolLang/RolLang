@@ -142,13 +142,17 @@ private:
 			for (std::size_t i = 0; i < t.ArgumentCount; ++i)
 			{
 				auto&& tt = GetTypeArgNameInternal(sym, x);
-				if (tt.length() == 0)
+				if (i == 0)
+				{
+					assert(tt.length() == 0);
+				}
+				else if (tt.length() == 0)
 				{
 					name += "; ";
 				}
 				else
 				{
-					if (i != 0) name += ", ";
+					if (i != 1) name += ", ";
 					name += tt;
 				}
 			}
@@ -188,13 +192,17 @@ public:
 			for (std::size_t i = 0, j = 1; i < f.ArgumentCount; ++i)
 			{
 				auto&& t = GetTypeArgNameInternal(sym, j);
-				if (t.length() == 0)
+				if (i == 0)
+				{
+					assert(t.length() == 0);
+				}
+				else if (t.length() == 0)
 				{
 					name += "; ";
 				}
 				else
 				{
-					if (i != 0) name += ", ";
+					if (i != 1) name += ", ";
 					name += t;
 				}
 			}
