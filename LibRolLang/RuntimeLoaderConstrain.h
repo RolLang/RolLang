@@ -46,7 +46,7 @@ public:
 							entry.EntryType = CONSTRAIN_EXPORT_TYPE;
 							entry.Index = i;
 							entry.Type = type;
-							exportList->emplace_back(std::move(entry));
+							exportList->push_back(entry);
 						}
 					}
 				}
@@ -65,7 +65,7 @@ public:
 							entry.EntryType = CONSTRAIN_EXPORT_FUNCTION;
 							entry.Index = i;
 							entry.Function = func;
-							exportList->emplace_back(std::move(entry));
+							exportList->push_back(entry);
 						}
 					}
 				}
@@ -84,7 +84,7 @@ public:
 							entry.EntryType = CONSTRAIN_EXPORT_FIELD;
 							entry.Index = i;
 							entry.Field = field;
-							exportList->emplace_back(std::move(entry));
+							exportList->push_back(entry);
 						}
 					}
 				}
@@ -107,7 +107,6 @@ private:
 		CTT_EMPTY,
 	};
 
-	struct ConstrainUndeterminedTypeSource;
 	struct ConstrainUndeterminedTypeInfo
 	{
 		RuntimeType* Determined;
@@ -449,11 +448,12 @@ private:
 			assert(parent.TraitFunctions.size() == trait->Functions.size());
 			return;
 		}
-
+		assert(parent.Children.size() == 0);
+		assert(parent.TraitFields.size() == 0);
+		assert(parent.TraitFunctions.size() == 0);
 		assert(!parent.TraitMemberResolved);
 
 		//Children (sub-constrains)
-		assert(parent.Children.size() == 0);
 		if (!g->ParameterCount.CanMatch(parent.Arguments.GetSizeList()))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
@@ -485,12 +485,12 @@ private:
 		}
 
 		//Fields
-		assert(parent.TraitCacheCreated == 0);
 		for (auto& field : trait->Fields)
 		{
 			parent.TraitFields.push_back({ ConstructConstrainTraitType(parent, field.Type), {}, 0 });
 		}
 
+		//Functions
 		for (auto& func : trait->Functions)
 		{
 			TraitCacheFunctionInfo func_info = {};
@@ -661,7 +661,7 @@ private:
 
 	bool LoadTraitFunctionCacheInfo(ConstrainCalculationCache& parent, GenericDeclaration& g,
 		const std::string& src_assembly, TraitCacheFunctionOverloadInfo& result,
-		std::vector<ConstrainType> additionalUd)
+		std::vector<ConstrainType>& additionalUd)
 	{
 		assert(&g == &FindTypeTemplate(parent.Target.Determined->Args)->Generic);
 
@@ -894,7 +894,7 @@ private:
 		//TODO we only need to  do it for trait
 		//One pass to create function list (will produce more REF_ANY).
 		if (TryDetermineConstrainArgument(*cache) == -1) return false;
-		while (ListContainUndetermined(cache->Root, cache))
+		while (CheckCacheContainsUndetermined(cache))
 		{
 			auto check = TryDetermineConstrainArgument(*cache);
 			if (check == 1) continue;
@@ -946,9 +946,9 @@ private:
 		return false;
 	}
 
-	static bool ListContainUndetermined(ConstrainCalculationCacheRoot* root,
-		ConstrainCalculationCache* cache)
+	static bool CheckCacheContainsUndetermined(ConstrainCalculationCache* cache)
 	{
+		ConstrainCalculationCacheRoot* root = cache->Root;
 		for (auto& a : cache->Arguments.GetAll())
 		{
 			if (root->IsUndeterminedType(a)) return true;
