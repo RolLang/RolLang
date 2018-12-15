@@ -179,6 +179,10 @@ public: //Internal API (for other modules)
 
 	RuntimeType* LoadTypeInternal(const LoadingArguments& args, bool skipArgumentCheck)
 	{
+		if (args.IsEmpty())
+		{
+			return nullptr;
+		}
 		for (auto& t : _loadedTypes)
 		{
 			if (t && t->Args == args)
@@ -271,6 +275,10 @@ public: //Internal API (for other modules)
 
 	RuntimeFunction* LoadFunctionInternal(const LoadingArguments& args, bool skipArgumentCheck)
 	{
+		if (args.IsEmpty())
+		{
+			return nullptr;
+		}
 		for (auto& ff : _loadedFunctions)
 		{
 			if (ff && ff->Args == args)

@@ -53,6 +53,19 @@ struct LoadingArguments
 		return ret;
 	}
 
+	//Empty type is only used as argument in loading.
+	//When empty LoadingArguments is specified, a nullptr will be returned.
+	//No RuntimeType or RuntimeFunction will have empty LoadingArguments.
+	static LoadingArguments Empty()
+	{
+		return { "", 0 , {} };
+	}
+
+	bool IsEmpty() const
+	{
+		return Assembly.length() == 0 && Id == 0 && Arguments.IsEmpty();
+	}
+
 private:
 	inline void AppendToSymbol(RuntimeObjectSymbol& s);
 };

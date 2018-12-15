@@ -150,7 +150,8 @@ public:
 		switch (type.Type & REF_REFTYPES)
 		{
 		case REF_EMPTY:
-			return false;
+			la = LoadingArguments::Empty();
+			return true;
 		case REF_CLONE:
 			//TODO detect circular REF_CLONE
 			if (type.Index >= lg.Declaration.Types.size())
@@ -196,7 +197,8 @@ public:
 				lg.Arguments.Arguments, lg.AdditionalArguments);
 			if (argType == nullptr)
 			{
-				return false;
+				la = LoadingArguments::Empty();
+				return true;
 			}
 			la = argType->Args;
 			return true;
@@ -215,7 +217,7 @@ public:
 			auto parent = LoadRefType(lg, typeId + 1);
 			if (parent == nullptr)
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				return false;
 			}
 			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId + 1, la.Arguments))
 			{
@@ -268,7 +270,8 @@ public:
 		switch (func.Type & REF_REFTYPES)
 		{
 		case REF_EMPTY:
-			return false;
+			la = LoadingArguments::Empty();
+			return true;
 		case REF_CLONE:
 			if (func.Index >= lg.Declaration.Functions.size())
 			{
@@ -362,7 +365,7 @@ public:
 		}
 		if (id == SIZE_MAX)
 		{
-			throw RuntimeLoaderException("Subtype name not found");
+			return false;
 		}
 
 		for (auto& t : _loading->_loadingSubtypes)

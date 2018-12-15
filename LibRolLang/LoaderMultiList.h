@@ -139,7 +139,7 @@ public:
 			}
 		}
 	}
-	
+
 public:
 	struct AllItemIterator
 	{
