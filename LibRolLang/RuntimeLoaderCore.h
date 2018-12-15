@@ -384,11 +384,7 @@ private:
 private:
 	RuntimeType* LoadFields(std::unique_ptr<RuntimeType> type, Type* typeTemplate)
 	{
-		for (auto t : _loading->_loadingTypes)
-		{
-			assert(!(t->Args == type->Args));
-		}
-		_loading->_loadingTypes.push_back(type.get());
+		auto check = LoadingStackScopeGuard<RuntimeType*>(_loading->_loadingTypes, type.get());
 		_loading->CheckLoadingSizeLimit(_loadingLimit);
 
 		Type* tt = typeTemplate;
@@ -493,10 +489,6 @@ private:
 
 		auto ret = type.get();
 		_loading->_postLoadingTypes.emplace_back(std::move(type));
-
-		assert(_loading->_loadingTypes.back() == ret);
-		_loading->_loadingTypes.pop_back();
-
 		return ret;
 	}
 

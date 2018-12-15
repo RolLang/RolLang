@@ -364,16 +364,11 @@ public:
 				throw RuntimeLoaderException("Circular reference in subtype");
 			}
 		}
-		_loading->_loadingSubtypes.push_back(args);
+
+		auto check = LoadingStackScopeGuard<SubMemberLoadingArguments>(_loading->_loadingSubtypes, args);
 		_loading->CheckLoadingSizeLimit(_loadingLimit);
 
-		//Possible circular reference here.
-		auto ret = FindRefType({ args.Parent, tt->Generic, args.Arguments }, id, la);
-
-		assert(_loading->_loadingSubtypes.back() == args);
-		_loading->_loadingSubtypes.pop_back();
-
-		return ret;
+		return FindRefType({ args.Parent, tt->Generic, args.Arguments }, id, la);
 	}
 };
 

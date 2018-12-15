@@ -42,7 +42,7 @@ namespace LibRolLangTest
 			Assert::IsTrue(i.Push(1000));
 			Assert::IsTrue(i.Call(fid));
 			Assert::IsTrue(i.Pop(&result));
-			Assert::AreEqual(result, 1100);
+			Assert::AreEqual(1100, result);
 		}
 	};
 }

@@ -47,7 +47,7 @@ template <typename T>
 struct LoadingStackScopeGuard
 {
 	LoadingStackScopeGuard(std::vector<T>& list, const T& newItem)
-		: _list(list), _newItem(&newItem)
+		: _list(list), _newItem(newItem)
 	{
 		for (auto& item : list)
 		{
@@ -61,12 +61,13 @@ struct LoadingStackScopeGuard
 
 	~LoadingStackScopeGuard()
 	{
-		assert(_list.back() == *_newItem);
+		assert(_list.back() == _newItem);
 		_list.pop_back();
 	}
 
 	std::vector<T>& _list;
-	const T* _newItem;
+	//TODO avoid copying LoadingArgs or large struct
+	T _newItem;
 };
 
 struct RuntimeLoaderData
