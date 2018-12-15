@@ -17,7 +17,7 @@ namespace LibRolLangTest
 
 		void LoadEmptyType(RuntimeLoader* l, std::string name)
 		{
-			LoadType(l, "Core", "Core." + name, false);
+			LoadType(l, "Core", "Core." + name, ERR_L_SUCCESS);
 		}
 
 	public:
@@ -44,7 +44,7 @@ namespace LibRolLangTest
 			RuntimeLoader l(b.Build(), sizeof(void*), sizeof(void*), SIZE_MAX);
 			{
 				LoadEmptyType(&l, "A");
-				LoadType(&l, "Core", "Core.ReferenceTyp1", true);
+				LoadType(&l, "Core", "Core.ReferenceTyp1", ERR_L_CIRCULAR);
 				LoadEmptyType(&l, "B");
 			}
 		}
@@ -77,7 +77,7 @@ namespace LibRolLangTest
 			RuntimeLoader l(b.Build(), sizeof(void*), sizeof(void*), SIZE_MAX);
 			{
 				LoadEmptyType(&l, "A");
-				LoadType(&l, "Core", "Core.ValueType2", true);
+				LoadType(&l, "Core", "Core.ValueType2", ERR_L_CIRCULAR);
 				LoadEmptyType(&l, "B");
 			}
 		}
@@ -104,7 +104,7 @@ namespace LibRolLangTest
 			RuntimeLoader l(b.Build(), sizeof(void*), sizeof(void*), SIZE_MAX);
 			{
 				LoadEmptyType(&l, "A");
-				LoadType(&l, "Core", "Core.TestType", true);
+				LoadType(&l, "Core", "Core.TestType", ERR_L_CIRCULAR);
 				LoadEmptyType(&l, "B");
 			}
 		}
@@ -145,10 +145,34 @@ namespace LibRolLangTest
 			RuntimeLoader l(b.Build(), sizeof(void*), sizeof(void*), SIZE_MAX);
 			{
 				LoadEmptyType(&l, "A");
-				LoadType(&l, "Core", "Core.TestType1", true);
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_CIRCULAR);
 				LoadEmptyType(&l, "B");
-				LoadType(&l, "Core", "Core.TestType2", false);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_SUCCESS);
 				LoadEmptyType(&l, "C");
+			}
+		}
+
+		//Should be moved to elsewhere
+		TEST_METHOD(InfiniteGeneric)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				b.BeginType(TSM_VALUE, "Core.ValueType");
+				b.Link(true, false);
+				b.EndType();
+				auto t = b.BeginType(TSM_REFERENCE, "Core.CycType");
+				auto g = b.AddGenericParameter();
+				b.Link(true, false);
+				b.AddField(b.MakeType(t, { b.SelfType() }));
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build(), sizeof(void*), sizeof(void*), 20);
+			{
+				auto t = LoadType(&l, "Core", "Core.ValueType", ERR_L_SUCCESS);
+				//TODO Currently failing (limit check need to check more list).
+				//LoadType(&l, "Test", "Test.CycType5", { t }, ERR_L_LIMIT);
 			}
 		}
 	};

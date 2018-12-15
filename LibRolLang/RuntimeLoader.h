@@ -44,8 +44,9 @@ public: //Public API
 	using RuntimeLoaderData::FindExportType;
 	using RuntimeLoaderData::FindExportFunction;
 
-	RuntimeType* GetType(const LoadingArguments& args, std::string& err)
+	RuntimeType* GetType(const LoadingArguments& args, LoaderErrorInformation& err)
 	{
+		err = { ERR_L_SUCCESS, "" };
 		std::lock_guard<Spinlock> lock(_loaderLock);
 		for (auto& t : _loadedTypes)
 		{
@@ -59,8 +60,9 @@ public: //Public API
 		return LoadTypeEntry(args, err);
 	}
 
-	RuntimeFunction* GetFunction(const LoadingArguments& args, std::string& err)
+	RuntimeFunction* GetFunction(const LoadingArguments& args, LoaderErrorInformation& err)
 	{
+		err = { ERR_L_SUCCESS, "" };
 		std::lock_guard<Spinlock> lock(_loaderLock);
 		for (auto& f : _loadedFunctions)
 		{
@@ -218,7 +220,7 @@ public:
 	}
 
 public:
-	RuntimeType* LoadPointerType(RuntimeType* t, std::string& err)
+	RuntimeType* LoadPointerType(RuntimeType* t, LoaderErrorInformation& err)
 	{
 		assert(t->PointerType == nullptr);
 		LoadingArguments args;

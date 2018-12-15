@@ -53,7 +53,7 @@ public:
 			if (_i == SIZE_MAX) return;
 			if (_parent->head + _i >= _parent->list->size())
 			{
-				throw RuntimeLoaderException("Invalid RefList entry");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
 			}
 			if ((*_parent->list)[_parent->head + _i].Type == REF_LISTEND)
 			{
@@ -72,7 +72,7 @@ public:
 			{
 				if (_parent->target->IsEmpty())
 				{
-					throw RuntimeLoaderException("Invalid RefList entry");
+					throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
 				}
 			}
 		}
@@ -107,12 +107,12 @@ public:
 		assert((list[head].Type & REF_REFTYPES) == REF_ARGUMENT);
 		if (head + 1 >= list.size() || list[head + 1].Type != REF_ARGUMENTSEG)
 		{
-			throw RuntimeLoaderException("Invalid RefList entry");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
 		}
 		const T* ret;
 		if (!target.TryGetRef(list[head + 1].Index, list[head].Index, &ret))
 		{
-			throw RuntimeLoaderException("Invalid RefList entry");
+			throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid RefList entry");
 		}
 		return *ret;
 	}
@@ -123,7 +123,7 @@ public:
 		assert((list[head].Type & REF_REFTYPES) == REF_ARGUMENT);
 		if (head + 1 >= list.size() || list[head + 1].Type != REF_ARGUMENTSEG)
 		{
-			throw RuntimeLoaderException("Invalid RefList entry");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
 		}
 		const T* ret;
 		if (!target.TryGetRef(list[head + 1].Index, list[head].Index, &ret))
@@ -132,7 +132,7 @@ public:
 			if (targetAdditional == nullptr ||
 				!targetAdditional->TryGetRef(list[head + 1].Index - s, list[head].Index, &ret))
 			{
-				throw RuntimeLoaderException("Invalid RefList entry");
+				throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid RefList entry");
 			}
 		}
 		return *ret;
@@ -143,7 +143,7 @@ public:
 	{
 		if (typeId >= lg.Declaration.Types.size())
 		{
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 		auto type = lg.Declaration.Types[typeId];
 	loadClone:
@@ -156,7 +156,7 @@ public:
 			//TODO detect circular REF_CLONE
 			if (type.Index >= lg.Declaration.Types.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			typeId = type.Index;
 			type = lg.Declaration.Types[type.Index];
@@ -174,20 +174,16 @@ public:
 			auto a = FindAssemblyThrow(lg.Arguments.Assembly);
 			if (type.Index >= a->ImportTypes.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			auto i = a->ImportTypes[type.Index];
 			if (!FindExportType(i, la))
 			{
-				throw RuntimeLoaderException("Import type not found");
+				throw RuntimeLoaderException(ERR_L_LINK, "Import type not found");
 			}
 			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId, la.Arguments))
 			{
 				la.Arguments.AppendLast(LoadRefType(lg, e.Index));
-			}
-			if (!i.GenericParameters.CanMatch(la.Arguments.GetSizeList()))
-			{
-				throw RuntimeLoaderException("Invalid type reference");
 			}
 			return true;
 		}
@@ -207,12 +203,16 @@ public:
 			if (lg.SelfType == nullptr)
 			{
 				//Note that void cannot be self type. This always indicates an error.
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			la = lg.SelfType->Args;
 			return true;
 		case REF_SUBTYPE:
 		{
+			if (type.Index >= lg.Declaration.NamesList.size())
+			{
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
+			}
 			auto name = lg.Declaration.NamesList[type.Index];
 			auto parent = LoadRefType(lg, typeId + 1);
 			if (parent == nullptr)
@@ -250,12 +250,12 @@ public:
 					return true;
 				}
 			}
-			throw RuntimeLoaderException("Invalid REF_CONSTRAINT reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
 		}
 		case REF_CLONETYPE:
 		case REF_LISTEND:
 		default:
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 	}
 
@@ -263,7 +263,7 @@ public:
 	{
 		if (funcId >= lg.Declaration.Functions.size())
 		{
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 		auto func = lg.Declaration.Functions[funcId];
 	loadClone:
@@ -275,7 +275,7 @@ public:
 		case REF_CLONE:
 			if (func.Index >= lg.Declaration.Functions.size())
 			{
-				throw RuntimeLoaderException("Invalid function reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 			}
 			funcId = func.Index;
 			func = lg.Declaration.Functions[func.Index];
@@ -287,7 +287,7 @@ public:
 			{
 				if (e.Entry.Type != REF_CLONETYPE)
 				{
-					throw RuntimeLoaderException("Invalid generic function argument");
+					throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid generic function argument");
 				}
 				la.Arguments.AppendLast(LoadRefType(lg, e.Entry.Index));
 			}
@@ -297,24 +297,20 @@ public:
 			auto a = FindAssemblyThrow(lg.Arguments.Assembly);
 			if (func.Index >= a->ImportFunctions.size())
 			{
-				throw RuntimeLoaderException("Invalid function reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 			}
 			auto i = a->ImportFunctions[func.Index];
 			if (!FindExportFunction(i, la))
 			{
-				throw RuntimeLoaderException("Import function not found");
+				throw RuntimeLoaderException(ERR_L_LINK, "Import function not found");
 			}
 			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId, la.Arguments))
 			{
 				if (e.Entry.Type != REF_CLONETYPE)
 				{
-					throw RuntimeLoaderException("Invalid generic function argument");
+					throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid generic function argument");
 				}
 				la.Arguments.AppendLast(LoadRefType(lg, e.Entry.Index));
-			}
-			if (!i.GenericParameters.CanMatch(la.Arguments.GetSizeList()))
-			{
-				throw RuntimeLoaderException("Invalid function reference");
 			}
 			return true;
 		}
@@ -338,7 +334,7 @@ public:
 					return true;
 				}
 			}
-			throw RuntimeLoaderException("Invalid REF_CONSTRAINT reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
 		}
 		case REF_CLONETYPE:
 		case REF_ARGUMENT:
@@ -346,7 +342,7 @@ public:
 		case REF_SUBTYPE:
 		case REF_LISTEND:
 		default:
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 	}
 
@@ -372,7 +368,7 @@ public:
 		{
 			if (t == args)
 			{
-				throw RuntimeLoaderException("Circular reference in subtype");
+				throw RuntimeLoaderException(ERR_L_CIRCULAR, "Circular reference in subtype");
 			}
 		}
 

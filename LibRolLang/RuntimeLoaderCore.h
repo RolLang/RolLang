@@ -54,7 +54,7 @@ public: //Forward declaration
 
 public: //External API (for RuntimeLoader external API)
 
-	RuntimeType* LoadTypeEntry(const LoadingArguments& args, std::string& err)
+	RuntimeType* LoadTypeEntry(const LoadingArguments& args, LoaderErrorInformation& err)
 	{
 		_loading->ClearLoadingLists();
 		RuntimeType* ret = nullptr;
@@ -65,19 +65,23 @@ public: //External API (for RuntimeLoader external API)
 			MoveFinishedObjects();
 			ret = ret2;
 		}
+		catch (RuntimeLoaderException& ex)
+		{
+			err = ex.info;
+		}
 		catch (std::exception& ex)
 		{
-			err = ex.what();
+			err = { ERR_L_UNKNOWN, ex.what() };
 		}
 		catch (...)
 		{
-			err = "Unknown exception in loading type";
+			err = { ERR_L_UNKNOWN, "Unknown exception in loading type" };
 		}
 		_loading->ClearLoadingLists();
 		return ret;
 	}
 
-	RuntimeFunction* LoadFunctionEntry(const LoadingArguments& args, std::string& err)
+	RuntimeFunction* LoadFunctionEntry(const LoadingArguments& args, LoaderErrorInformation& err)
 	{
 		_loading->ClearLoadingLists();
 		RuntimeFunction* ret = nullptr;
@@ -88,13 +92,17 @@ public: //External API (for RuntimeLoader external API)
 			MoveFinishedObjects();
 			ret = ret2;
 		}
+		catch (RuntimeLoaderException& ex)
+		{
+			err = ex.info;
+		}
 		catch (std::exception& ex)
 		{
-			err = ex.what();
+			err = { ERR_L_UNKNOWN, ex.what() };
 		}
 		catch (...)
 		{
-			err = "Unknown exception in loading function";
+			err = { ERR_L_UNKNOWN, "Unknown exception in loading function" };
 		}
 		_loading->ClearLoadingLists();
 		return ret;
@@ -107,27 +115,27 @@ public: //External API (for RuntimeLoader external API)
 		auto& type = a->Types[id];
 		if (!type.Generic.ParameterCount.IsEmpty())
 		{
-			throw RuntimeLoaderException("Native type cannot be generic");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Native type cannot be generic");
 		}
 		if (type.GCMode != TSM_VALUE)
 		{
-			throw RuntimeLoaderException("Internal type can only be value type");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type can only be value type");
 		}
 		if (type.Finalizer >= type.Generic.Functions.size())
 		{
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 		if ((type.Generic.Functions[type.Finalizer].Type & REF_REFTYPES) != REF_EMPTY)
 		{
-			throw RuntimeLoaderException("Internal type cannot have finalizer");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type cannot have finalizer");
 		}
 		if (type.Initializer >= type.Generic.Functions.size())
 		{
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 		if ((type.Generic.Functions[type.Initializer].Type & REF_REFTYPES) != REF_EMPTY)
 		{
-			throw RuntimeLoaderException("Internal type cannot have initializer");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type cannot have initializer");
 		}
 		auto rt = std::make_unique<RuntimeType>();
 		rt->Parent = _loader;
@@ -223,7 +231,7 @@ public: //Internal API (for other modules)
 		auto typeTemplate = FindTypeTemplate(args);
 		if (!skipArgumentCheck && !CheckTypeGenericArguments(typeTemplate->Generic, args, &exportList))
 		{
-			throw RuntimeLoaderException("Invalid generic arguments");
+			throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid generic arguments");
 		}
 
 		//Check constraints of internal types currently not supported by the constraint system.
@@ -232,7 +240,7 @@ public: //Internal API (for other modules)
 			assert(args.Arguments.IsSingle());
 			if (args.Arguments.Get(0, 0)->Storage != TSM_VALUE)
 			{
-				throw RuntimeLoaderException("Box type can only take value type as argument");
+				throw RuntimeLoaderException(ERR_L_GENERIC, "Box type can only take value type as argument");
 			}
 		}
 		else if (args.Assembly == "Core" && args.Id == _embedTypeId)
@@ -240,13 +248,13 @@ public: //Internal API (for other modules)
 			assert(args.Arguments.IsSingle());
 			if (args.Arguments.Get(0, 0)->Storage != TSM_REFERENCE)
 			{
-				throw RuntimeLoaderException("Embed type can only take reference type as argument");
+				throw RuntimeLoaderException(ERR_L_GENERIC, "Embed type can only take reference type as argument");
 			}
 		}
 
 		if (typeTemplate->Generic.Fields.size() != 0)
 		{
-			throw RuntimeLoaderException("Type template cannot contain field reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Type template cannot contain field reference");
 		}
 
 		auto t = std::make_unique<RuntimeType>();
@@ -305,7 +313,7 @@ public: //Internal API (for other modules)
 		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
 		if (!skipArgumentCheck && !CheckFunctionGenericArguments(funcTemplate->Generic, args, &exportList))
 		{
-			throw RuntimeLoaderException("Invalid generic arguments");
+			throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid generic arguments");
 		}
 
 		auto f = std::make_unique<RuntimeFunction>();
@@ -408,7 +416,7 @@ private:
 		{
 			if (tt->Fields.size() != 0)
 			{
-				throw RuntimeLoaderException("Interface cannot have fields");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Interface cannot have fields");
 			}
 		}
 
@@ -423,24 +431,24 @@ private:
 			}
 			if (type->Storage == TSM_GLOBAL)
 			{
-				throw RuntimeLoaderException("Global type cannot have base type");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Global type cannot have base type");
 			}
 			else if (type->Storage == TSM_INTERFACE)
 			{
-				throw RuntimeLoaderException("Interface cannot have base type");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Interface cannot have base type");
 			}
 			else
 			{
 				if (type->Storage != baseType->Storage)
 				{
-					throw RuntimeLoaderException("Base type storage must be same as the derived type");
+					throw RuntimeLoaderException(ERR_L_PROGRAM, "Base type storage must be same as the derived type");
 				}
 			}
 		}
 		type->BaseType = LoadVirtualTable(type.get(), type.get(), tt->Generic, tt->Base.VirtualFunctions, baseType);
 		if (type->Storage == TSM_VALUE && type->BaseType.VirtualFunctions.size() > 0)
 		{
-			throw RuntimeLoaderException("Value type cannot have virtual functions");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Value type cannot have virtual functions");
 		}
 
 		if (type->Storage == TSM_INTERFACE)
@@ -467,13 +475,13 @@ private:
 			if (fieldType == nullptr)
 			{
 				//Only goes here if REF_EMPTY is specified.
-				throw RuntimeLoaderException("Invalid field type");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid field type");
 			}
 			if (fieldType->Storage == TSM_VALUE && fieldType->Alignment == 0)
 			{
 				assert(std::any_of(_loading->_loadingTypes.begin(), _loading->_loadingTypes.end(),
 					[fieldType](RuntimeType* t) { return t == fieldType; }));
-				throw RuntimeLoaderException("Circular type dependence");
+				throw RuntimeLoaderException(ERR_L_CIRCULAR, "Circular type dependence");
 			}
 			fields.push_back(fieldType);
 		}
@@ -493,7 +501,7 @@ private:
 				alignment = ftype->Alignment;
 				break;
 			default:
-				throw RuntimeLoaderException("Invalid field type");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid field type");
 			}
 			offset = (offset + alignment - 1) / alignment * alignment;
 			totalAlignment = alignment > totalAlignment ? alignment : totalAlignment;
@@ -531,7 +539,7 @@ private:
 		{
 			if (typeTemplate->Interfaces.size() != 0)
 			{
-				throw RuntimeLoaderException("Global and value type cannot have interfaces");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Global type cannot have interfaces");
 			}
 		}
 
@@ -555,14 +563,14 @@ private:
 		{
 			if (type->Initializer != nullptr)
 			{
-				throw RuntimeLoaderException("Only global type can have initializer");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Only global type can have initializer");
 			}
 		}
 		if (type->Storage != TSM_REFERENCE)
 		{
 			if (type->Finalizer != nullptr)
 			{
-				throw RuntimeLoaderException("Only reference type can have finalizer");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Only reference type can have finalizer");
 			}
 		}
 		_loading->_finishedLoadingTypes.emplace_back(std::move(type));
@@ -599,7 +607,7 @@ private:
 			auto paramType = func->References.Types[funcTemplate->Parameters[i].TypeId];
 			if (paramType == nullptr)
 			{
-				throw RuntimeLoaderException("Function parameter type cannot be void");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Function parameter type cannot be void");
 			}
 			func->Parameters.push_back(paramType);
 		}
@@ -655,7 +663,7 @@ private:
 			if (type->Initializer->ReturnValue != nullptr ||
 				type->Initializer->Parameters.size() != 0)
 			{
-				throw RuntimeLoaderException("Invalid initializer");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid initializer");
 			}
 		}
 		if (type->Finalizer != nullptr)
@@ -663,11 +671,11 @@ private:
 			if (type->Finalizer->ReturnValue != nullptr ||
 				type->Finalizer->Parameters.size() != 1)
 			{
-				throw RuntimeLoaderException("Invalid finalizer");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid finalizer");
 			}
 			if (type->Finalizer->Parameters[0] != type)
 			{
-				throw RuntimeLoaderException("Invalid finalizer");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid finalizer");
 			}
 		}
 	}
@@ -687,11 +695,11 @@ private:
 			auto baseType = LoadRefType({ src, srcTemplate->Generic }, i.InheritedType);
 			if (baseType == nullptr)
 			{
-				throw RuntimeLoaderException("Interface type not specified");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Interface type not specified");
 			}
 			if (baseType->Storage != TSM_INTERFACE)
 			{
-				throw RuntimeLoaderException("Interface must be interface storage");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Interface must be interface storage");
 			}
 
 			dest->Interfaces.emplace_back(LoadVirtualTable(src, dest, srcTemplate->Generic,
@@ -742,7 +750,7 @@ private:
 	{
 		if (baseType != nullptr && baseType->Alignment == 0)
 		{
-			throw RuntimeLoaderException("Circular base type detected");
+			throw RuntimeLoaderException(ERR_L_CIRCULAR, "Circular base type detected");
 		}
 
 		RuntimeType::InheritanceInfo ret = {};
@@ -759,7 +767,7 @@ private:
 				if (baseType->BaseType.VirtualFunctions[i].Name != name ||
 					baseType->BaseType.VirtualFunctions[i].V != virt)
 				{
-					throw RuntimeLoaderException("Virtual table not matching");
+					throw RuntimeLoaderException(ERR_L_PROGRAM, "Virtual table not matching");
 				}
 				assert(virt->Virtual->Slot == i);
 			}
@@ -773,7 +781,7 @@ private:
 			{
 				if (virt == nullptr || !CheckVirtualFunctionEqual(virt, impl))
 				{
-					throw RuntimeLoaderException("Virtual table not matching");
+					throw RuntimeLoaderException(ERR_L_PROGRAM, "Virtual table not matching");
 				}
 			}
 			ret.VirtualFunctions.push_back({ name, virt, impl });
@@ -785,7 +793,7 @@ private:
 	{
 		if (index >= g.Fields.size())
 		{
-			throw RuntimeLoaderException("Invalid field reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid field reference");
 		}
 		while (g.Fields[index].Type == REF_CLONE)
 		{
@@ -807,10 +815,10 @@ private:
 					return e.Field;
 				}
 			}
-			throw RuntimeLoaderException("Invalid field reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid field reference");
 		}
 		default:
-			throw RuntimeLoaderException("Invalid field reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid field reference");
 		}
 	}
 };

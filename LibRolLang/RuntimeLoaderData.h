@@ -25,7 +25,7 @@ public:
 		if (_loadingTypes.size() + _loadingFunctions.size() +
 			_loadingSubtypes.size() > limit)
 		{
-			throw RuntimeLoaderException("Loading object limit exceeded.");
+			throw RuntimeLoaderException(ERR_L_LIMIT, "Loading object limit exceeded.");
 		}
 	}
 
@@ -53,7 +53,7 @@ struct LoadingStackScopeGuard
 		{
 			if (item == newItem)
 			{
-				throw RuntimeLoaderException("Circular reference detected");
+				throw RuntimeLoaderException(ERR_L_CIRCULAR, "Circular reference detected");
 			}
 		}
 		list.push_back(newItem);
@@ -242,7 +242,7 @@ public:
 		auto ret = FindAssemblyNoThrow(name);
 		if (ret == nullptr)
 		{
-			throw RuntimeLoaderException("Referenced assembly not found");
+			throw RuntimeLoaderException(ERR_L_LINK, "Referenced assembly not found");
 		}
 		return ret;
 	}
@@ -266,7 +266,7 @@ public:
 		auto ret = FindNativeIdNoThrow(list, name);
 		if (ret == SIZE_MAX)
 		{
-			throw RuntimeLoaderException("Native object not found");
+			throw RuntimeLoaderException(ERR_L_LINK, "Native object not found");
 		}
 		return ret;
 	}
@@ -276,7 +276,7 @@ public:
 		auto a = FindAssemblyThrow(args.Assembly);
 		if (args.Id >= a->Types.size())
 		{
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 		return &a->Types[args.Id];
 	}
@@ -286,7 +286,7 @@ public:
 		auto a = FindAssemblyThrow(assembly);
 		if (id >= a->Functions.size())
 		{
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 		return &a->Functions[id];
 	}
@@ -294,7 +294,11 @@ public:
 public:
 	bool FindExportType(const AssemblyImport& args, LoadingArguments& result)
 	{
-		auto a = FindAssemblyThrow(args.AssemblyName);
+		auto a = FindAssemblyNoThrow(args.AssemblyName);
+		if (a == nullptr)
+		{
+			return false;
+		}
 		for (auto& e : a->ExportTypes)
 		{
 			if (e.ExportName == args.ImportName)
@@ -322,7 +326,11 @@ public:
 
 	bool FindExportFunction(const AssemblyImport& args, LoadingArguments& result)
 	{
-		auto a = FindAssemblyThrow(args.AssemblyName);
+		auto a = FindAssemblyNoThrow(args.AssemblyName);
+		if (a == nullptr)
+		{
+			return false;
+		}
 		for (auto& e : a->ExportFunctions)
 		{
 			if (e.ExportName == args.ImportName)
@@ -350,7 +358,11 @@ public:
 
 	bool FindExportConstant(const AssemblyImport& args, std::uint32_t& result)
 	{
-		auto a = FindAssemblyThrow(args.AssemblyName);
+		auto a = FindAssemblyNoThrow(args.AssemblyName);
+		if (a == nullptr)
+		{
+			return false;
+		}
 		for (auto& e : a->ExportConstants)
 		{
 			if (e.ExportName == args.ImportName)
@@ -373,7 +385,11 @@ public:
 
 	bool FindExportTrait(const AssemblyImport& args, LoadingArguments& result)
 	{
-		auto a = FindAssemblyThrow(args.AssemblyName);
+		auto a = FindAssemblyNoThrow(args.AssemblyName);
+		if (a == nullptr)
+		{
+			return false;
+		}
 		for (auto& e : a->ExportTraits)
 		{
 			if (e.ExportName == args.ImportName)
@@ -404,7 +420,7 @@ public:
 		std::uint32_t ret;
 		if (!FindExportConstant({ assemblyName, n, {} }, ret))
 		{
-			throw RuntimeLoaderException("Constant export not found");
+			throw RuntimeLoaderException(ERR_L_LINK, "Constant export not found");
 		}
 		return ret;
 	}
@@ -413,12 +429,12 @@ public:
 	{
 		if (index >= a->ImportConstants.size())
 		{
-			throw RuntimeLoaderException("Invalid constant import");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constant import");
 		}
 		auto info = a->ImportConstants[index];
 		if (!info.GenericParameters.IsEmpty())
 		{
-			throw RuntimeLoaderException("Invalid constant import");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constant import");
 		}
 		return FindExportConstant(info.AssemblyName, info.ImportName);
 	}

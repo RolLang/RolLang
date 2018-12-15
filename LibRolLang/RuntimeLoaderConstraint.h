@@ -321,7 +321,7 @@ private:
 			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
 			if (cache.Source->Index >= assembly->Traits.size())
 			{
-				throw RuntimeLoaderException("Invalid trait reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid trait reference");
 			}
 			cache.Trait = &assembly->Traits[cache.Source->Index];
 			cache.TraitAssembly = cache.SrcAssembly;
@@ -333,11 +333,11 @@ private:
 			LoadingArguments la;
 			if (cache.Source->Index >= assembly->ImportTraits.size())
 			{
-				throw RuntimeLoaderException("Invalid trait reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid trait reference");
 			}
 			if (!FindExportTrait(assembly->ImportTraits[cache.Source->Index], la))
 			{
-				throw RuntimeLoaderException("Invalid trait reference");
+				throw RuntimeLoaderException(ERR_L_LINK, "Invalid trait reference");
 			}
 			cache.Trait = &FindAssemblyThrow(la.Assembly)->Traits[la.Id];
 			cache.TraitAssembly = la.Assembly;
@@ -456,7 +456,7 @@ private:
 		//Children (sub-constraints)
 		if (!g->ParameterCount.CanMatch(parent.Arguments.GetSizeList()))
 		{
-			throw RuntimeLoaderException("Invalid generic arguments");
+			throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid generic arguments");
 		}
 		for (auto& constraint : g->Constraints)
 		{
@@ -478,7 +478,7 @@ private:
 				if (AreConstraintsEqual(*p, *ptr))
 				{
 					//Circular constraint is always considered as a program error.
-					throw RuntimeLoaderException("Circular constraint check");
+					throw RuntimeLoaderException(ERR_L_CIRCULAR, "Circular constraint check");
 				}
 				p = p->Parent;
 			}
@@ -671,7 +671,7 @@ private:
 		auto id = result.Index;
 		if (id >= g.Functions.size())
 		{
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 
 		//First resolve any REF_CLONE so that we don't need to worry it any more.
@@ -681,7 +681,7 @@ private:
 			id = g.Functions[id].Index;
 			if (id >= g.Functions.size())
 			{
-				throw RuntimeLoaderException("Invalid function reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 			}
 		}
 
@@ -698,17 +698,17 @@ private:
 			auto a = FindAssemblyThrow(src_assembly);
 			if (g.Functions[id].Index >= a->ImportFunctions.size())
 			{
-				throw RuntimeLoaderException("Invalid function reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 			}
 			auto i = a->ImportFunctions[g.Functions[id].Index];
 			if (!FindExportFunction(i, la))
 			{
-				throw RuntimeLoaderException("Import function not found");
+				throw RuntimeLoaderException(ERR_L_LINK, "Import function not found");
 			}
 			break;
 		}
 		default:
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 
 		//About the arguments:
@@ -728,7 +728,7 @@ private:
 		{
 			if (additional[i] > target->Args.Arguments.GetSizeList()[i])
 			{
-				throw RuntimeLoaderException("Invalid function reference");
+				throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid function reference");
 			}
 		}
 		for (std::size_t i = target->Args.Arguments.GetSizeList().size(); i < additional.size(); ++i)
@@ -778,7 +778,7 @@ private:
 	{
 		if (id >= g.Functions.size())
 		{
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 		std::size_t ret = 0;
 		switch (g.Functions[id].Type & REF_REFTYPES)
@@ -798,7 +798,7 @@ private:
 			break;
 		}
 		default:
-			throw RuntimeLoaderException("Invalid function reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
 	}
 
@@ -808,7 +808,7 @@ private:
 	{
 		if (id >= g.Types.size())
 		{
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 		std::size_t ret = 0;
 		auto t = g.Types[id];
@@ -834,7 +834,7 @@ private:
 		{
 			if (id + 1 >= g.Types.size() || g.Types[id + 1].Type != REF_ARGUMENTSEG)
 			{
-				throw RuntimeLoaderException("Invalid RefList entry");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
 			}
 			auto seg = g.Types[id + 1].Index;
 			auto i = g.Types[id].Index;
@@ -853,7 +853,7 @@ private:
 		case REF_EMPTY:
 			break;
 		default:
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 	}
 
@@ -966,14 +966,14 @@ private:
 	{
 		if (i >= g.Types.size())
 		{
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 		while (g.Types[i].Type == REF_CLONE)
 		{
 			i = g.Types[i].Index;
 			if (i >= g.Types.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 		}
 		switch (g.Types[i].Type & REF_REFTYPES)
@@ -1004,12 +1004,12 @@ private:
 			auto a = FindAssemblyThrow(src);
 			if (g.Types[i].Index >= a->ImportTypes.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			auto import_info = a->ImportTypes[g.Types[i].Index];
 			if (!FindExportType(import_info, la))
 			{
-				throw RuntimeLoaderException("Import type not found");
+				throw RuntimeLoaderException(ERR_L_LINK, "Import type not found");
 			}
 			ConstraintType ret = ConstraintType::G(root, la.Assembly, la.Id);
 			for (auto&& e : GetRefArgList(g.Types, i, ret.Args))
@@ -1032,7 +1032,7 @@ private:
 			return ret;
 		}
 		default:
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 	}
 
@@ -1066,18 +1066,17 @@ private:
 			auto assembly = FindAssemblyThrow(cache.TraitAssembly);
 			if (t.Index > assembly->ImportTypes.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			LoadingArguments la;
-			FindExportType(assembly->ImportTypes[t.Index], la);
+			if (!FindExportType(assembly->ImportTypes[t.Index], la))
+			{
+				throw RuntimeLoaderException(ERR_L_LINK, "Invalid type reference");
+			}
 			auto ret = ConstraintType::G(cache.Root, la.Assembly, la.Id);
 			for (auto&& e : GetRefArgList(list, i, ret.Args))
 			{
 				ret.Args.AppendLast(ConstructConstraintTraitType(cache, e.Index));
-			}
-			if (!assembly->ImportTypes[t.Index].GenericParameters.CanMatch(ret.Args.GetSizeList()))
-			{
-				throw RuntimeLoaderException("Invalid type reference");
 			}
 			return ret;
 		}
@@ -1085,7 +1084,7 @@ private:
 		{
 			if (t.Index > trait->Generic.NamesList.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			auto ret = ConstraintType::SUB(cache.Root, trait->Generic.NamesList[t.Index]);
 			ret.ParentType.emplace_back(ConstructConstraintTraitType(cache, i + 1));
@@ -1101,7 +1100,7 @@ private:
 		case REF_ANY:
 		case REF_TRY:
 		default:
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 	}
 
@@ -1124,7 +1123,7 @@ private:
 		case REF_SELF:
 			if (cache.CheckTarget.CType == CTT_FAIL)
 			{
-				throw RuntimeLoaderException("Invalid use of REF_SELF");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid use of REF_SELF");
 			}
 			return cache.CheckTarget;
 		case REF_ASSEMBLY:
@@ -1141,18 +1140,17 @@ private:
 			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
 			if (t.Index > assembly->ImportTypes.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			LoadingArguments la;
-			FindExportType(assembly->ImportTypes[t.Index], la);
+			if (!FindExportType(assembly->ImportTypes[t.Index], la))
+			{
+				throw RuntimeLoaderException(ERR_L_LINK, "Invalid type reference");
+			}
 			auto ret = ConstraintType::G(cache.Root, la.Assembly, la.Id);
 			for (auto&& e : GetRefArgList(list, i, ret.Args))
 			{
 				ret.Args.AppendLast(ConstructConstraintArgumentType(cache, constraint, e.Index));
-			}
-			if (!assembly->ImportTypes[t.Index].GenericParameters.CanMatch(ret.Args.GetSizeList()))
-			{
-				throw RuntimeLoaderException("Invalid type reference");
 			}
 			return ret;
 		}
@@ -1160,7 +1158,7 @@ private:
 		{
 			if (t.Index > constraint.NamesList.size())
 			{
-				throw RuntimeLoaderException("Invalid type reference");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			auto ret = ConstraintType::SUB(cache.Root, constraint.NamesList[t.Index]);
 			ret.ParentType.push_back(ConstructConstraintArgumentType(cache, constraint, i + 1));
@@ -1171,7 +1169,7 @@ private:
 			return ret;
 		}
 		default:
-			throw RuntimeLoaderException("Invalid type reference");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
 	}
 	
@@ -1329,7 +1327,7 @@ private:
 		case CONSTRAINT_SAME:
 			if (!cache.Arguments.IsSingle())
 			{
-				throw RuntimeLoaderException("Invalid constraint arguments");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constraint arguments");
 			}
 			return TryDetermineEqualTypes(cache.Arguments.GetRef(0, 0), cache.Target);
 		case CONSTRAINT_TRAIT_ASSEMBLY:
@@ -1465,6 +1463,7 @@ private:
 				auto tt = FindTypeTemplate(la);
 				if (!CheckTypeGenericArguments(tt->Generic, la, nullptr))
 				{
+					//TODO support REF_EMPTY
 					t.DeductFail();
 					return;
 				}
@@ -1496,18 +1495,20 @@ private:
 			LoadingArguments la;
 			if (!FindSubType(lg, la))
 			{
+				//TODO support REF_EMPTY
 				if (t.TryArgumentConstraint)
 				{
 					t.DeductFail();
 					return;
 				}
-				throw RuntimeLoaderException("Invalid subtype constraint");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid subtype constraint");
 			}
 			if (t.TryArgumentConstraint)
 			{
 				auto tt = FindTypeTemplate(la);
 				if (!CheckTypeGenericArguments(tt->Generic, la, nullptr))
 				{
+					//TODO support REF_EMPTY
 					t.DeductFail();
 					return;
 				}
@@ -1646,13 +1647,13 @@ private:
 			//TODO should be IsEmpty (after supporting multilist)
 			if (cache.Arguments.GetTotalSize() != 0)
 			{
-				throw RuntimeLoaderException("Invalid constraint arguments");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constraint arguments");
 			}
 			return CheckSimplifiedConstraintType(cache.Target);
 		case CONSTRAINT_SAME:
 			if (!cache.Arguments.IsSingle())
 			{
-				throw RuntimeLoaderException("Invalid constraint arguments");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constraint arguments");
 			}
 			if (!CheckSimplifiedConstraintType(cache.Target) ||
 				!CheckSimplifiedConstraintType(cache.Arguments.GetRef(0, 0)))
@@ -1663,7 +1664,7 @@ private:
 		case CONSTRAINT_BASE:
 			if (!cache.Arguments.IsSingle())
 			{
-				throw RuntimeLoaderException("Invalid constraint arguments");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constraint arguments");
 			}
 			if (!CheckSimplifiedConstraintType(cache.Target) ||
 				!CheckSimplifiedConstraintType(cache.Arguments.GetRef(0, 0)))
@@ -1674,7 +1675,7 @@ private:
 		case CONSTRAINT_INTERFACE:
 			if (!cache.Arguments.IsSingle())
 			{
-				throw RuntimeLoaderException("Invalid constraint arguments");
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constraint arguments");
 			}
 			if (!CheckSimplifiedConstraintType(cache.Target) ||
 				!CheckSimplifiedConstraintType(cache.Arguments.GetRef(0, 0)))
@@ -1686,7 +1687,7 @@ private:
 		case CONSTRAINT_TRAIT_IMPORT:
 			return CheckTraitDetermined(cache);
 		default:
-			throw RuntimeLoaderException("Invalid constraint type");
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constraint type");
 		}
 	}
 

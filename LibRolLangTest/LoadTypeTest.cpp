@@ -18,7 +18,7 @@ namespace LibRolLangTest
 
 		static void CheckEmptyType(RuntimeLoader* loader)
 		{
-			auto t = LoadType(loader, "Test", "Test.SingleType", false);
+			auto t = LoadType(loader, "Test", "Test.SingleType", ERR_L_SUCCESS);
 			CheckValueTypeBasic(loader, t);
 			CheckValueTypeSize(t, 0, 1);
 			CheckFieldOffset(t, {});
@@ -69,7 +69,7 @@ namespace LibRolLangTest
 
 		static void CheckValueType(RuntimeLoader* loader)
 		{
-			auto b = LoadType(loader, "Test", "Test.ValueTypeB", false);
+			auto b = LoadType(loader, "Test", "Test.ValueTypeB", ERR_L_SUCCESS);
 			auto a = b->Fields[0].Type;
 
 			CheckValueTypeBasic(loader, a);
@@ -99,7 +99,7 @@ namespace LibRolLangTest
 
 		static void CheckReferenceType(RuntimeLoader* loader)
 		{
-			auto b = LoadType(loader, "Test", "Test.RefTypeB", false);
+			auto b = LoadType(loader, "Test", "Test.RefTypeB", ERR_L_SUCCESS);
 			auto a = b->Fields[1].Type;
 
 			CheckReferenceTypeBasic(loader, a);
@@ -128,7 +128,7 @@ namespace LibRolLangTest
 
 		static void CheckGlobalType(RuntimeLoader* loader)
 		{
-			auto b = LoadType(loader, "Test", "Test.GlobalType", false);
+			auto b = LoadType(loader, "Test", "Test.GlobalType", ERR_L_SUCCESS);
 
 			CheckGlobalTypeBasic(loader, b);
 			CheckValueTypeSize(b, 12, 4);
@@ -137,8 +137,8 @@ namespace LibRolLangTest
 
 		static void CheckValueTypeFailExportName(RuntimeLoader* loader)
 		{
-			LoadType(loader, "Test", "Test.ValueTypeA", true);
-			LoadType(loader, "Test", "Test.ValueTypeC", true);
+			LoadType(loader, "Test", "Test.ValueTypeA", ERR_L_LINK);
+			LoadType(loader, "Test", "Test.ValueTypeC", ERR_L_LINK);
 			CheckValueType(loader);
 		}
 
@@ -158,7 +158,7 @@ namespace LibRolLangTest
 
 		static void CheckValueTypeFailTypeReference(RuntimeLoader* loader)
 		{
-			LoadType(loader, "Test", "Test.ValueTypeC", true);
+			LoadType(loader, "Test", "Test.ValueTypeC", ERR_L_PROGRAM);
 			CheckValueType(loader);
 		}
 
@@ -191,7 +191,7 @@ namespace LibRolLangTest
 
 		static void CheckTemplateType(RuntimeLoader* loader)
 		{
-			auto t1 = LoadType(loader, "Test", "Test.TemplateTestType1", false);
+			auto t1 = LoadType(loader, "Test", "Test.TemplateTestType1", ERR_L_SUCCESS);
 			auto t11 = t1->Fields[0].Type;
 			auto t12 = t1->Fields[1].Type;
 
@@ -208,7 +208,7 @@ namespace LibRolLangTest
 			CheckFieldOffset(t1, { 0, 4 });
 
 			auto t2 = LoadType(loader, "Test", "Test.TemplateTestType2",
-				{ t11->Fields[0].Type }, false);
+				{ t11->Fields[0].Type }, ERR_L_SUCCESS);
 			auto t21 = t2->Fields[0].Type;
 
 			CheckValueTypeBasic(loader, t21);
@@ -253,34 +253,26 @@ namespace LibRolLangTest
 			builder.Link(true, false);
 			builder.AddField(builder.SelfType());
 			builder.EndType();
-
-			auto t5 = builder.BeginType(TSM_REFERENCE, "Test.CycType5");
-			auto g = builder.AddGenericParameter();
-			builder.Link(true, false);
-			builder.AddField(builder.MakeType(t5, { builder.SelfType() }));
-			builder.EndType();
 		}
 
 		static void CheckCyclicType(RuntimeLoader* loader)
 		{
-			LoadType(loader, "Test", "Test.CycType1A", true);
+			LoadType(loader, "Test", "Test.CycType1A", ERR_L_CIRCULAR);
 
-			auto t2a = LoadType(loader, "Test", "Test.CycType2A", false);
+			auto t2a = LoadType(loader, "Test", "Test.CycType2A", ERR_L_SUCCESS);
 			auto t2b = t2a->Fields[0].Type;
 			CheckValueTypeBasic(loader, t2a);
 			CheckValueTypeSize(t2a, sizeof(void*), sizeof(void*));
 			CheckReferenceTypeBasic(loader, t2b);
 			CheckValueTypeSize(t2b, t2a->Size, t2a->Alignment);
 
-			auto t3 = LoadType(loader, "Test", "Test.CycType3A", false);
+			auto t3 = LoadType(loader, "Test", "Test.CycType3A", ERR_L_SUCCESS);
 			CheckReferenceTypeBasic(loader, t3);
 			CheckValueTypeSize(t3, sizeof(void*), sizeof(void*));
 
-			auto t4 = LoadType(loader, "Test", "Test.CycType4", false);
+			auto t4 = LoadType(loader, "Test", "Test.CycType4", ERR_L_SUCCESS);
 			CheckReferenceTypeBasic(loader, t4);
 			Assert::AreEqual((std::uintptr_t)t4, (std::uintptr_t)t4->Fields[0].Type);
-
-			LoadType(loader, "Test", "Test.CycType5", true);
 		}
 
 	public:

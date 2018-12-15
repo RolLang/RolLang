@@ -37,13 +37,13 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto vt = LoadType(&l, "Core", "Core.ValueType", false);
-				LoadType(&l, "Core", "Core.TestType1", { vt, vt }, false);
-				LoadType(&l, "Core", "Core.TestType1", { nullptr, vt }, false);
-				LoadType(&l, "Core", "Core.TestType1", { vt, nullptr }, true);
-				LoadType(&l, "Core", "Core.TestType2", false);
-				LoadType(&l, "Core", "Core.TestType3", { vt }, false);
-				LoadType(&l, "Core", "Core.TestType3", { nullptr }, true);
+				auto vt = LoadType(&l, "Core", "Core.ValueType", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType1", { vt, vt }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType1", { nullptr, vt }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType1", { vt, nullptr }, ERR_L_PROGRAM);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType3", { vt }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType3", { nullptr }, ERR_L_PROGRAM);
 			}
 		}
 
@@ -69,11 +69,11 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto vt = LoadType(&l, "Core", "Core.ValueType", false);
-				LoadFunction(&l, "Core", "Core.Function1", { vt }, false);
-				LoadFunction(&l, "Core", "Core.Function1", { nullptr }, false);
-				LoadFunction(&l, "Core", "Core.Function2", { vt }, false);
-				LoadFunction(&l, "Core", "Core.Function2", { nullptr }, true);
+				auto vt = LoadType(&l, "Core", "Core.ValueType", ERR_L_SUCCESS);
+				LoadFunction(&l, "Core", "Core.Function1", { vt }, ERR_L_SUCCESS);
+				LoadFunction(&l, "Core", "Core.Function1", { nullptr }, ERR_L_SUCCESS);
+				LoadFunction(&l, "Core", "Core.Function2", { vt }, ERR_L_SUCCESS);
+				LoadFunction(&l, "Core", "Core.Function2", { nullptr }, ERR_L_PROGRAM);
 			}
 		}
 		//TODO subtype (loader API, to function ret, to type)

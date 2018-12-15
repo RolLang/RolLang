@@ -76,7 +76,7 @@ protected:
 			{
 				if (!func->Args.Arguments.IsEmpty())
 				{
-					throw RuntimeLoaderException("Invalid native function.");
+					throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid native function.");
 				}
 				info.EntryPtr = n.FunctionPtr;
 				info.Data = n.Data;

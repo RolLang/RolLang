@@ -42,8 +42,8 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				LoadType(&l, "Core", "Core.TestType1", false);
-				LoadType(&l, "Core", "Core.TestType2", true);
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_GENERIC);
 			}
 		}
 
@@ -101,8 +101,8 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				LoadType(&l, "Core", "Core.TestType1", false);
-				LoadType(&l, "Core", "Core.TestType2", true);
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_GENERIC);
 			}
 		}
 
@@ -159,9 +159,9 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				LoadType(&l, "Core", "Core.TestType1", false);
-				LoadType(&l, "Core", "Core.TestType2", true);
-				LoadType(&l, "Core", "Core.TestType3", true);
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType3", ERR_L_GENERIC);
 			}
 		}
 
@@ -223,7 +223,7 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				LoadType(&l, "Core", "Core.TestType", false);
+				LoadType(&l, "Core", "Core.TestType", ERR_L_SUCCESS);
 			}
 		}
 	};

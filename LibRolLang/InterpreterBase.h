@@ -72,11 +72,11 @@ public: //Loader API
 				args.Arguments.AppendLast(_loader->GetTypeById(genericArgs.Get(i, j)));
 			}
 		}
-		std::string err;
+		LoaderErrorInformation err;
 		auto ret = _loader->GetType(args, err);
 		if (!ret)
 		{
-			ReturnWithException({}, ERR_PROGRAM, err);
+			ReturnWithException({}, ERR_PROGRAM, err.Message);
 			return SIZE_MAX;
 		}
 		return ret->TypeId;
@@ -101,11 +101,11 @@ public: //Loader API
 				args.Arguments.AppendLast(_loader->GetTypeById(genericArgs.Get(i, j)));
 			}
 		}
-		std::string err;
+		LoaderErrorInformation err;
 		auto ret = _loader->GetFunction(args, err);
 		if (!ret)
 		{
-			ReturnWithException({}, ERR_PROGRAM, err);
+			ReturnWithException({}, ERR_PROGRAM, err.Message);
 			return SIZE_MAX;
 		}
 		return ret->FunctionId;
@@ -195,11 +195,11 @@ protected:
 		{
 			return type->PointerType;
 		}
-		std::string err;
+		LoaderErrorInformation err;
 		auto ret = _loader->LoadPointerType(type, err);
 		if (ret == nullptr)
 		{
-			throw InterpreterException(_stacktracer.GetStacktrace(), ERR_PROGRAM, err);
+			throw InterpreterException(_stacktracer.GetStacktrace(), ERR_PROGRAM, err.Message);
 		}
 		return ret;
 	}

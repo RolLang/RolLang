@@ -263,15 +263,43 @@ struct RuntimeFunctionCodeStorage
 	std::vector<std::shared_ptr<RuntimeFunctionCode>> Data;
 };
 
+enum LoaderErrorCodes
+{
+	//Success (not an error).
+	ERR_L_SUCCESS,
+	//Unknown error (not RuntimeLoaderException).
+	ERR_L_UNKNOWN,
+	//Error of the data structures in one assembly.
+	ERR_L_PROGRAM,
+	//Error of looking for another assembly or objects of another assembly.
+	ERR_L_LINK,
+	//Circular check.
+	ERR_L_CIRCULAR,
+	//Limit exceeded (loading limit option).
+	ERR_L_LIMIT,
+	//Error of generic argument check.
+	ERR_L_GENERIC,
+};
+
+struct LoaderErrorInformation
+{
+	LoaderErrorCodes ErrorCode;
+	std::string Message;
+	//TODO more information
+};
+
 //TODO Move to some other place
 //Exception thrown internally within RuntimeLoader (and subclasses).
 class RuntimeLoaderException : public std::runtime_error
 {
 public:
-	RuntimeLoaderException(const std::string& msg)
-		: std::runtime_error(msg)
+	RuntimeLoaderException(LoaderErrorCodes e, const std::string& msg)
+		: std::runtime_error(msg), info({ e, msg })
 	{
 	}
+
+public:
+	LoaderErrorInformation info;
 };
 
 //TODO Move to some other place

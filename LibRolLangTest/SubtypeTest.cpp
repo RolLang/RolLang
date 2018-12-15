@@ -28,7 +28,7 @@ namespace LibRolLangTest
 			RuntimeLoader l(b.Build());
 			{
 				auto n = LoadNativeType(&l, "Core", "Core.NativeType", 4);
-				auto t = LoadType(&l, "Core", "Core.TestType", false);
+				auto t = LoadType(&l, "Core", "Core.TestType", ERR_L_SUCCESS);
 				CheckValueTypeBasic(&l, t);
 				CheckValueTypeSize(t, 4, 4);
 				CheckFieldOffset(t, { 0 });
@@ -85,7 +85,7 @@ namespace LibRolLangTest
 				LoadNativeType(&l, "Core", "Core.Native1", 1);
 				LoadNativeType(&l, "Core", "Core.Native2", 2);
 				LoadNativeType(&l, "Core", "Core.Native4", 4);
-				auto tc = LoadType(&l, "Core", "Core.C", false);
+				auto tc = LoadType(&l, "Core", "Core.C", ERR_L_SUCCESS);
 				auto t = tc->Fields[0].Type;
 				CheckValueTypeBasic(&l, t);
 				CheckValueTypeSize(t, 8, 4);

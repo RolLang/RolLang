@@ -21,7 +21,7 @@ namespace LibRolLangTest
 
 		static void CheckEmptyFunction(RuntimeLoader* loader)
 		{
-			auto f = LoadFunction(loader, "Test", "Test.EmptyFunc", false);
+			auto f = LoadFunction(loader, "Test", "Test.EmptyFunc", ERR_L_SUCCESS);
 			CheckFunctionBasic(loader, f);
 			CheckFunctionTypes(f, 0, {});
 		}
@@ -42,7 +42,7 @@ namespace LibRolLangTest
 		{
 			LoadNativeType(loader, "Test", "Test.Native4", 4);
 
-			auto f = LoadFunction(loader, "Test", "Test.TestFunc1", false);
+			auto f = LoadFunction(loader, "Test", "Test.TestFunc1", ERR_L_SUCCESS);
 			CheckFunctionBasic(loader, f);
 			CheckFunctionTypes(f, 4, { 4, 4 });
 		}
@@ -68,7 +68,7 @@ namespace LibRolLangTest
 
 		static void CheckReferencingTypeFunction(RuntimeLoader* loader)
 		{
-			auto f2 = LoadFunction(loader, "Test", "Test.TestFunc2", false);
+			auto f2 = LoadFunction(loader, "Test", "Test.TestFunc2", ERR_L_SUCCESS);
 			auto t1 = f2->ReturnValue;
 			Assert::IsNotNull(t1);
 			auto f1 = t1->Finalizer;
@@ -99,7 +99,7 @@ namespace LibRolLangTest
 
 		static void CheckCyclicFunction(RuntimeLoader* loader)
 		{
-			auto f2 = LoadFunction(loader, "Test", "Test.TestFunc2", false);
+			auto f2 = LoadFunction(loader, "Test", "Test.TestFunc2", ERR_L_SUCCESS);
 			auto f1 = f2->References.Functions[0];
 			Assert::IsNotNull(f1);
 

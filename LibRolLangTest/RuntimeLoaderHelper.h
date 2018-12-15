@@ -8,7 +8,7 @@ namespace LibRolLangTest
 
 		static RuntimeType* LoadTypeMulti(RuntimeLoader* loader,
 			const std::string& a, const std::string& n,
-			MultiList<RuntimeType*> args, bool shouldFail)
+			MultiList<RuntimeType*> args, LoaderErrorCodes err)
 		{
 			LoadingArguments la;
 			GenericDefArgumentListSize importSize;
@@ -22,30 +22,23 @@ namespace LibRolLangTest
 			}
 			loader->FindExportType({ a, n, importSize }, la);
 			la.Arguments = args;
-			std::string err;
-			auto ret = loader->GetType(la, err);
-			if (shouldFail)
-			{
-				Assert::IsNull(ret, ToString(err.c_str()).c_str());
-			}
-			else
-			{
-				Assert::IsNotNull(ret, ToString(err.c_str()).c_str());
-			}
+			LoaderErrorInformation e;
+			auto ret = loader->GetType(la, e);
+			Assert::AreEqual((std::size_t)err, (std::size_t)e.ErrorCode, ToString(e.Message.c_str()).c_str());
 			return ret;
 		}
 
 		static RuntimeType* LoadType(RuntimeLoader* loader,
 			const std::string& a, const std::string& n,
-			std::vector<RuntimeType*> args, bool shouldFail)
+			std::vector<RuntimeType*> args, LoaderErrorCodes err)
 		{
-			return LoadTypeMulti(loader, a, n, args, shouldFail);
+			return LoadTypeMulti(loader, a, n, args, err);
 		}
 
 		static RuntimeType* LoadType(RuntimeLoader* loader,
-			const std::string& a, const std::string& n, bool shouldFail)
+			const std::string& a, const std::string& n, LoaderErrorCodes err)
 		{
-			return LoadTypeMulti(loader, a, n, {}, shouldFail);
+			return LoadTypeMulti(loader, a, n, {}, err);
 		}
 
 		static RuntimeType* LoadNativeType(RuntimeLoader* loader,
@@ -100,7 +93,7 @@ namespace LibRolLangTest
 
 		static RuntimeFunction* LoadFunctionMulti(RuntimeLoader* loader,
 			const std::string& a, const std::string& n,
-			MultiList<RuntimeType*> args, bool shouldFail)
+			MultiList<RuntimeType*> args, LoaderErrorCodes err)
 		{
 			LoadingArguments la;
 			GenericDefArgumentListSize importSize;
@@ -114,30 +107,23 @@ namespace LibRolLangTest
 			}
 			loader->FindExportFunction({ a, n, importSize }, la);
 			la.Arguments = args;
-			std::string err;
-			auto ret = loader->GetFunction(la, err);
-			if (shouldFail)
-			{
-				Assert::IsNull(ret, ToString(err.c_str()).c_str());
-			}
-			else
-			{
-				Assert::IsNotNull(ret, ToString(err.c_str()).c_str());
-			}
+			LoaderErrorInformation e;
+			auto ret = loader->GetFunction(la, e);
+			Assert::AreEqual((std::size_t)err, (std::size_t)e.ErrorCode, ToString(e.Message.c_str()).c_str());
 			return ret;
 		}
 
 		static RuntimeFunction* LoadFunction(RuntimeLoader* loader,
 			const std::string& a, const std::string& n,
-			std::vector<RuntimeType*> args, bool shouldFail)
+			std::vector<RuntimeType*> args, LoaderErrorCodes err)
 		{
-			return LoadFunctionMulti(loader, a, n, { args }, shouldFail);
+			return LoadFunctionMulti(loader, a, n, { args }, err);
 		}
 
 		static RuntimeFunction* LoadFunction(RuntimeLoader* loader,
-			const std::string& a, const std::string& n, bool shouldFail)
+			const std::string& a, const std::string& n, LoaderErrorCodes err)
 		{
-			return LoadFunctionMulti(loader, a, n, {}, shouldFail);
+			return LoadFunctionMulti(loader, a, n, {}, err);
 		}
 
 		static void CheckFunctionBasic(RuntimeLoader* loader, RuntimeFunction* f)

@@ -67,12 +67,12 @@ namespace LibRolLangTest
 				LoadNativeType(&loader, "Core", "Core.NativeType", 1);
 				LoadNativeType(&loader, "Test", "Test.NativeType", 2);
 
-				auto t = LoadType(&loader, "Test", "Test.TestType", false);
+				auto t = LoadType(&loader, "Test", "Test.TestType", ERR_L_SUCCESS);
 				CheckValueTypeBasic(&loader, t);
 				CheckValueTypeSize(t, 8, 2);
 				CheckFieldOffset(t, { 0, 1, 4 });
 
-				auto f = LoadFunction(&loader, "Test", "Test.TestFunction", false);
+				auto f = LoadFunction(&loader, "Test", "Test.TestFunction", ERR_L_SUCCESS);
 				CheckFunctionBasic(&loader, f);
 				CheckFunctionTypes(f, 0, {});
 				auto f1 = f->References.Functions[fid1];
@@ -151,8 +151,8 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader loader(builder.Build());
 			{
-				LoadType(&loader, "Core", "Core.TestType1", false);
-				LoadType(&loader, "Core", "Core.TestType2", true);
+				LoadType(&loader, "Core", "Core.TestType1", ERR_L_SUCCESS);
+				LoadType(&loader, "Core", "Core.TestType2", ERR_L_GENERIC);
 			}
 		}
 
@@ -185,10 +185,10 @@ namespace LibRolLangTest
 			RuntimeLoader loader(builder.Build());
 			{
 				LoadNativeType(&loader, "Core", "Core.TestType", 1);
-				auto t = LoadType(&loader, "Test", "Test.ExportType", false);
+				auto t = LoadType(&loader, "Test", "Test.ExportType", ERR_L_SUCCESS);
 				CheckValueTypeBasic(&loader, t);
 				CheckValueTypeSize(t, 1, 1);
-				auto f = LoadFunction(&loader, "Test", "Test.ExportFunction", false);
+				auto f = LoadFunction(&loader, "Test", "Test.ExportFunction", ERR_L_SUCCESS);
 				CheckFunctionBasic(&loader, f);
 				CheckFunctionTypes(f, 0, { 1 });
 			}

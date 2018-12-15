@@ -32,9 +32,9 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto vt = LoadType(&l, "Core", "Core.ValueType", false);
+				auto vt = LoadType(&l, "Core", "Core.ValueType", ERR_L_SUCCESS);
 				CheckValueTypeBasic(&l, vt);
-				auto tt = LoadType(&l, "Core", "Core.TestType", false);
+				auto tt = LoadType(&l, "Core", "Core.TestType", ERR_L_SUCCESS);
 				CheckValueTypeBasic(&l, vt);
 				CheckFieldOffset(tt, { 0 });
 				Assert::AreEqual((std::uintptr_t)vt, (std::uintptr_t)tt->Fields[0].Type);

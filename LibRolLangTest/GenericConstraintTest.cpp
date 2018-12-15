@@ -26,8 +26,8 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				LoadType(&l, "Core", "Core.SuccessType", false);
-				LoadType(&l, "Core", "Core.FailType", true);
+				LoadType(&l, "Core", "Core.SuccessType", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.FailType", ERR_L_GENERIC);
 			}
 		}
 
@@ -62,10 +62,10 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto td = LoadType(&l, "Core", "Core.D", false);
-				auto te = LoadType(&l, "Core", "Core.E", false);
-				LoadType(&l, "Core", "Core.A", { td }, false);
-				LoadType(&l, "Core", "Core.A", { te }, true);
+				auto td = LoadType(&l, "Core", "Core.D", ERR_L_SUCCESS);
+				auto te = LoadType(&l, "Core", "Core.E", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.A", { td }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.A", { te }, ERR_L_GENERIC);
 			}
 		}
 
@@ -125,20 +125,20 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto v2 = LoadType(&l, "Core", "Core.ValueType2", false);
-				auto v3 = LoadType(&l, "Core", "Core.ValueType3", false);
-				auto i2 = LoadType(&l, "Core", "Core.Interface2", false);
-				auto i3 = LoadType(&l, "Core", "Core.Interface3", false);
-				auto r1 = LoadType(&l, "Core", "Core.RefType1", false);
-				auto r2 = LoadType(&l, "Core", "Core.RefType2", false);
+				auto v2 = LoadType(&l, "Core", "Core.ValueType2", ERR_L_SUCCESS);
+				auto v3 = LoadType(&l, "Core", "Core.ValueType3", ERR_L_SUCCESS);
+				auto i2 = LoadType(&l, "Core", "Core.Interface2", ERR_L_SUCCESS);
+				auto i3 = LoadType(&l, "Core", "Core.Interface3", ERR_L_SUCCESS);
+				auto r1 = LoadType(&l, "Core", "Core.RefType1", ERR_L_SUCCESS);
+				auto r2 = LoadType(&l, "Core", "Core.RefType2", ERR_L_SUCCESS);
 
-				LoadType(&l, "Core", "Core.TestType1", { v2 }, false);
-				LoadType(&l, "Core", "Core.TestType1", { v3 }, true);
-				LoadType(&l, "Core", "Core.TestType2", { i2 }, false);
-				LoadType(&l, "Core", "Core.TestType2", { i3 }, true);
-				LoadType(&l, "Core", "Core.TestType2", { r1 }, true);
-				LoadType(&l, "Core", "Core.TestType2", { r2 }, false);
-				LoadType(&l, "Core", "Core.TestType3", { r2 }, false);
+				LoadType(&l, "Core", "Core.TestType1", { v2 }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType1", { v3 }, ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType2", { i2 }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType2", { i3 }, ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType2", { r1 }, ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType2", { r2 }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType3", { r2 }, ERR_L_SUCCESS);
 			}
 		}
 
@@ -167,7 +167,7 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				LoadType(&l, "Core", "Core.TestType", false);
+				LoadType(&l, "Core", "Core.TestType", ERR_L_SUCCESS);
 			}
 		}
 
@@ -198,12 +198,12 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto tv1 = LoadType(&l, "Core", "Core.ValueType1", false);
-				auto tv2 = LoadType(&l, "Core", "Core.ValueType2", false);
-				LoadType(&l, "Core", "Core.TestType", { tv1, tv1 }, false);
-				LoadType(&l, "Core", "Core.TestType", { tv2, tv1 }, true);
-				LoadType(&l, "Core", "Core.TestType", { tv1, tv2 }, true);
-				LoadType(&l, "Core", "Core.TestType", { tv2, tv2 }, true);
+				auto tv1 = LoadType(&l, "Core", "Core.ValueType1", ERR_L_SUCCESS);
+				auto tv2 = LoadType(&l, "Core", "Core.ValueType2", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType", { tv1, tv1 }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType", { tv2, tv1 }, ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType", { tv1, tv2 }, ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType", { tv2, tv2 }, ERR_L_GENERIC);
 			}
 		}
 
@@ -231,10 +231,10 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto tv1 = LoadType(&l, "Core", "Core.ValueType1", false);
-				auto tv2 = LoadType(&l, "Core", "Core.ValueType2", false);
-				LoadType(&l, "Core", "Core.TestType", { tv1 }, false);
-				LoadType(&l, "Core", "Core.TestType", { tv2 }, true);
+				auto tv1 = LoadType(&l, "Core", "Core.ValueType1", ERR_L_SUCCESS);
+				auto tv2 = LoadType(&l, "Core", "Core.ValueType2", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType", { tv1 }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType", { tv2 }, ERR_L_GENERIC);
 				//Needs manually step-in to check where it throws.
 				//Should be in loading Core.TestType instead of Core.ConstraintType.
 				//TODO use exception tracing, loader constraint API or type overload when any is available.
@@ -279,11 +279,11 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto t1 = LoadType(&l, "Core", "Core.BasicType1", false);
-				auto t2 = LoadType(&l, "Core", "Core.BasicType2", false);
-				LoadType(&l, "Core", "Core.CheckType1", { t1 }, false);
-				LoadType(&l, "Core", "Core.CheckType1", { t2 }, true);
-				LoadType(&l, "Core", "Core.CheckType2", { t1 }, true);
+				auto t1 = LoadType(&l, "Core", "Core.BasicType1", ERR_L_SUCCESS);
+				auto t2 = LoadType(&l, "Core", "Core.BasicType2", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.CheckType1", { t1 }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.CheckType1", { t2 }, ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.CheckType2", { t1 }, ERR_L_GENERIC);
 			}
 		}
 
@@ -308,8 +308,8 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto t = LoadType(&l, "Core", "Core.BasicType", false);
-				LoadType(&l, "Core", "Core.TestType", { t }, true);
+				auto t = LoadType(&l, "Core", "Core.BasicType", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType", { t }, ERR_L_CIRCULAR);
 			}
 		}
 
@@ -374,14 +374,14 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				auto t1 = LoadType(&l, "Core", "Core.FieldType1", false);
-				auto t2 = LoadType(&l, "Core", "Core.FieldType2", false);
-				auto t3 = LoadType(&l, "Core", "Core.FieldType3", { t2 }, false);
-				LoadType(&l, "Core", "Core.TestType1", false);
-				LoadType(&l, "Core", "Core.TestType2", true);
-				LoadType(&l, "Core", "Core.TestType3", true);
-				LoadType(&l, "Core", "Core.TestType4", false);
-				LoadType(&l, "Core", "Core.TestType5", { t2 }, false);
+				auto t1 = LoadType(&l, "Core", "Core.FieldType1", ERR_L_SUCCESS);
+				auto t2 = LoadType(&l, "Core", "Core.FieldType2", ERR_L_SUCCESS);
+				auto t3 = LoadType(&l, "Core", "Core.FieldType3", { t2 }, ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType3", ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType4", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType5", { t2 }, ERR_L_SUCCESS);
 			}
 		}
 
@@ -414,7 +414,7 @@ namespace LibRolLangTest
 			}
 			RuntimeLoader l(b.Build());
 			{
-				LoadType(&l, "Core", "Core.TestType", false);
+				LoadType(&l, "Core", "Core.TestType", ERR_L_SUCCESS);
 			}
 		}
 	};
