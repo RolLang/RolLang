@@ -59,10 +59,10 @@ FIELD_SERIALIZER_END()
 
 Note that for one trait on one GenericDeclaration, we have 3 different
 type lists:
-1. TypeReferences in GenericConstrain
-	Not only for trait constrain, but also for system defined constrains. 
+1. TypeReferences in GenericConstraint
+	Not only for trait constraint, but also for system defined constraints. 
 	Elements in this list are calculated as required by Target and Arguments 
-	before evaluation of the constrain. 
+	before evaluation of the constraint. 
 	This list is to allow something like
 		class A<T> requires T : IComparable<List<T>>
 	Any error in calculating the elements of this list is an loader error.
@@ -75,27 +75,27 @@ type lists:
 		[3]: REF_ARG, 0
 		[4]: REF_EMPTY
 		[5]: REF_EMPTY
-		Type = CONSTRAIN_BASE
+		Type = CONSTRAINT_BASE
 		Target = #3
 		Arguments = [#0]
 	Note that the elements that is not used are not calculated, and all results 
 	of this list are never recorded, so they cannot be referenced by parent.
 	Note that this list has no function counterpart.
-	We should allow this list to reference exported types from another constrain
-	(limited to constrains that are already checked).
+	We should allow this list to reference exported types from another constraint
+	(limited to constraints that are already checked).
 	Note that list list cannot contain REF_SELF. Using it potentially leads to 
 	cyclic referencing:
 		class A<T> requires A<T> : SomeTrait
 	Here A<T> must be exist before we can check SomeTrait. So, for A<int> for 
 	example, A<int> exists => SomeTrait(A<int>) => A<int> exists
 	Only this list can contain REF_ANY, which gives an undetermined type to the 
-	constrain (can be trait or system-defined constrain).
+	constraint (can be trait or system-defined constraint).
 
 2. Types in GenericDeclaration of the trait
 	This list helps the calculation of the trait:
-	(1) Have additional constrains.
-		If any constrain of a trait fails, the trait will not be instantiated 
-		and therefore the constrain check fails. The target of sub-constrain 
+	(1) Have additional constraints.
+		If any constraint of a trait fails, the trait will not be instantiated 
+		and therefore the constraint check fails. The target of sub-constraint 
 		can be different from parent.
 	(2) Contain reference types used by the trait.
 		When defining a function in a trait, we need some other types.
@@ -109,10 +109,10 @@ type lists:
 */
 /*
 
-Type export from constrain to parent generic declaration:
+Type export from constraint to parent generic declaration:
 <name>/<name>/.../<object_name>
 For type and <object_name> = '.target', export the target type. This is very
-useful for CONSTRAIN_EXIST.
+useful for CONSTRAINT_EXIST.
 
 */
 

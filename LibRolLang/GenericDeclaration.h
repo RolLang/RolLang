@@ -15,7 +15,7 @@ enum ReferenceType_ : unsigned char
 	REF_CLONE, //refer to another entry in the list. index = index in the same list
 	REF_ASSEMBLY, //index = assembly type/function array index
 	REF_IMPORT, //index = import #
-	REF_CONSTRAIN, //import from constrain. index = index in name list
+	REF_CONSTRAINT, //import from constraint. index = index in name list
 
 	REF_ARGUMENT, //index = generic parameter list index. must be followed by a REF_ARGUMENTSEG
 	REF_SELF, //for type, the type itself. for trait, the target type
@@ -27,9 +27,9 @@ enum ReferenceType_ : unsigned char
 	REF_FIELDID, //index = field id
 	//TODO member field by name
 
-	//Following 2 are only for constrain type list only
+	//Following 2 are only for constraint type list only
 	REF_TRY, //same as CLONE except for that it allow the refered calculation to fail (not an error)
-	REF_ANY, //undetermined generic type in trait constrains (can only be used as argument)
+	REF_ANY, //undetermined generic type in trait constraints (can only be used as argument)
 
 	REF_REFTYPES = 127,
 	REF_FORCELOAD = 128,
@@ -47,7 +47,7 @@ struct ReferenceType
 		{
 			"EMPTY",
 			"END", "SEGMENT", "ARGSEG",
-			"CLONE", "ASSEMBLY", "IMPORT", "CONSTRAIN",
+			"CLONE", "ASSEMBLY", "IMPORT", "CONSTRAINT",
 			"ARG", "SELF", "SUBTYPE", "CLONETYPE",
 			"FIELDID",
 			"TRY", "ANY",
@@ -83,14 +83,14 @@ struct Serializer<ReferenceType>
 	}
 };
 
-enum ConstrainType : unsigned char
+enum ConstraintType : unsigned char
 {
-	CONSTRAIN_EXIST, //(T) -> T exists
-	CONSTRAIN_SAME, //<T1>(T) -> T1 == T
-	CONSTRAIN_BASE, //<T1>(T) -> T1 == T or T1 is in the base type chain from T
-	CONSTRAIN_INTERFACE, //<T1>(T) -> T implements T1
-	CONSTRAIN_TRAIT_ASSEMBLY, //<...>(T) -> check trait (in the same assembly)
-	CONSTRAIN_TRAIT_IMPORT, //import trait
+	CONSTRAINT_EXIST, //(T) -> T exists
+	CONSTRAINT_SAME, //<T1>(T) -> T1 == T
+	CONSTRAINT_BASE, //<T1>(T) -> T1 == T or T1 is in the base type chain from T
+	CONSTRAINT_INTERFACE, //<T1>(T) -> T implements T1
+	CONSTRAINT_TRAIT_ASSEMBLY, //<...>(T) -> check trait (in the same assembly)
+	CONSTRAINT_TRAIT_IMPORT, //import trait
 };
 
 struct DeclarationReference
@@ -103,9 +103,9 @@ FIELD_SERIALIZER_BEGIN(DeclarationReference)
 	SERIALIZE_FIELD(Index)
 FIELD_SERIALIZER_END()
 
-struct GenericConstrain
+struct GenericConstraint
 {
-	ConstrainType Type;
+	ConstraintType Type;
 	std::size_t Index;
 
 	std::vector<DeclarationReference> TypeReferences;
@@ -115,7 +115,7 @@ struct GenericConstrain
 
 	std::string ExportName;
 };
-FIELD_SERIALIZER_BEGIN(GenericConstrain)
+FIELD_SERIALIZER_BEGIN(GenericConstraint)
 	SERIALIZE_FIELD(Type)
 	SERIALIZE_FIELD(Index)
 	SERIALIZE_FIELD(TypeReferences)
@@ -157,7 +157,7 @@ struct GenericDefArgumentListSize
 	bool CanMatch(const std::vector<std::size_t>& size) const
 	{
 		//For backward compatibility (temporary), ignore empty single dimension
-		//TODO remove this (after support for multilist on Constrain arg)
+		//TODO remove this (after support for multilist on Constraint arg)
 		if (size.size() == 1 && size[0] == 0)
 		{
 			if (IsEmpty()) return true;
@@ -204,7 +204,7 @@ FIELD_SERIALIZER_END()
 struct GenericDeclaration
 {
 	GenericDefArgumentListSize ParameterCount;
-	std::vector<GenericConstrain> Constrains;
+	std::vector<GenericConstraint> Constraints;
 
 	std::vector<DeclarationReference> Types;
 	std::vector<DeclarationReference> Functions;
@@ -213,7 +213,7 @@ struct GenericDeclaration
 };
 FIELD_SERIALIZER_BEGIN(GenericDeclaration)
 	SERIALIZE_FIELD(ParameterCount)
-	SERIALIZE_FIELD(Constrains)
+	SERIALIZE_FIELD(Constraints)
 	SERIALIZE_FIELD(Types)
 	SERIALIZE_FIELD(Functions)
 	SERIALIZE_FIELD(Fields)

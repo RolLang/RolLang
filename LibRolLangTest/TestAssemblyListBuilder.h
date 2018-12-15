@@ -21,7 +21,7 @@ namespace
 			TR_SUBTYPE,
 			TR_ANY,
 			TR_TRY,
-			TR_CONSTRAIN,
+			TR_CONSTRAINT,
 		};
 
 		enum FunctionReferenceType
@@ -78,9 +78,9 @@ namespace
 			return { TR_TRY, 0, { t } };
 		}
 
-		TypeReference ConstrainImportType(const std::string& name)
+		TypeReference ConstraintImportType(const std::string& name)
 		{
-			return { TR_CONSTRAIN , 0, {}, name };
+			return { TR_CONSTRAINT , 0, {}, name };
 		}
 
 		void BeginAssembly(const std::string& name)
@@ -282,19 +282,19 @@ namespace
 			return { TR_ARGUMENT, n, { { TR_ARGUMENT, seg, {} } } };
 		}
 
-		void AddConstrain(TypeReference target, const std::vector<TypeReference>& args,
-			ConstrainType type, std::size_t id, const std::string& name = "")
+		void AddConstraint(TypeReference target, const std::vector<TypeReference>& args,
+			ConstraintType type, std::size_t id, const std::string& name = "")
 		{
-			GenericConstrain constrain = {};
-			constrain.Type = type;
-			constrain.Index = id;
-			constrain.Target = WriteTypeRef(constrain, target, false);
-			constrain.ExportName = name;
+			GenericConstraint constraint = {};
+			constraint.Type = type;
+			constraint.Index = id;
+			constraint.Target = WriteTypeRef(constraint, target, false);
+			constraint.ExportName = name;
 			for (auto& a : args)
 			{
-				constrain.Arguments.push_back(WriteTypeRef(constrain, a, false));
+				constraint.Arguments.push_back(WriteTypeRef(constraint, a, false));
 			}
-			CurrentDeclaration().Constrains.emplace_back(std::move(constrain));
+			CurrentDeclaration().Constraints.emplace_back(std::move(constraint));
 		}
 
 		TypeReference MakeType(const TypeReference& base, std::vector<TypeReference> args)
@@ -603,8 +603,8 @@ namespace
 				: Types(g.Types), NamesList(g.NamesList)
 			{
 			}
-			ReferenceTypeWriteTarget(GenericConstrain& constrain)
-				: Types(constrain.TypeReferences), NamesList(constrain.NamesList)
+			ReferenceTypeWriteTarget(GenericConstraint& constraint)
+				: Types(constraint.TypeReferences), NamesList(constraint.NamesList)
 			{
 			}
 		};
@@ -668,11 +668,11 @@ namespace
 				g.Types.push_back({ ForceLoad(REF_TRY, forceLoad), args[0] });
 				return ret;
 			}
-			case TR_CONSTRAIN:
+			case TR_CONSTRAINT:
 			{
 				auto nameid = g.NamesList.size();
 				g.NamesList.push_back(t.SubtypeName);
-				g.Types.push_back({ ForceLoad(REF_CONSTRAIN, forceLoad), nameid });
+				g.Types.push_back({ ForceLoad(REF_CONSTRAINT, forceLoad), nameid });
 				return ret;
 			}
 			default:

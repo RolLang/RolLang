@@ -57,16 +57,16 @@ private:
 	inline void AppendToSymbol(RuntimeObjectSymbol& s);
 };
 
-enum ConstrainExportListEntryType
+enum ConstraintExportListEntryType
 {
-	CONSTRAIN_EXPORT_TYPE = 1,
-	CONSTRAIN_EXPORT_FUNCTION = 2,
-	CONSTRAIN_EXPORT_FIELD = 3,
+	CONSTRAINT_EXPORT_TYPE = 1,
+	CONSTRAINT_EXPORT_FUNCTION = 2,
+	CONSTRAINT_EXPORT_FIELD = 3,
 };
 
-struct ConstrainExportListEntry
+struct ConstraintExportListEntry
 {
-	ConstrainExportListEntryType EntryType;
+	ConstraintExportListEntryType EntryType;
 	std::size_t Index;
 	union
 	{
@@ -76,7 +76,7 @@ struct ConstrainExportListEntry
 	};
 };
 
-typedef std::vector<ConstrainExportListEntry> ConstrainExportList;
+typedef std::vector<ConstraintExportListEntry> ConstraintExportList;
 
 struct Initializable
 {
@@ -147,7 +147,7 @@ struct RuntimeType : Initializable
 	std::vector<InheritanceInfo> Interfaces;
 
 	//TODO move to internal structure
-	ConstrainExportList ConstrainExportList;
+	ConstraintExportList ConstraintExportList;
 
 #if _DEBUG
 	std::string Fullname;
@@ -228,7 +228,7 @@ struct RuntimeFunction : Initializable
 	std::vector<RuntimeType*> Parameters;
 
 	//TODO move to internal structure
-	ConstrainExportList ConstrainExportList;
+	ConstraintExportList ConstraintExportList;
 
 #if _DEBUG
 	std::string Fullname;

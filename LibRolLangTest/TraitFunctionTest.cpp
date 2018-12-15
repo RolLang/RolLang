@@ -32,11 +32,11 @@ namespace LibRolLangTest
 
 				b.BeginType(TSM_VALUE, "Core.TestType1");
 				b.Link(true, false);
-				b.AddConstrain(tt, {}, CONSTRAIN_TRAIT_ASSEMBLY, tr1.Id);
+				b.AddConstraint(tt, {}, CONSTRAINT_TRAIT_ASSEMBLY, tr1.Id);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType2");
 				b.Link(true, false);
-				b.AddConstrain(tt, {}, CONSTRAIN_TRAIT_ASSEMBLY, tr2.Id);
+				b.AddConstraint(tt, {}, CONSTRAINT_TRAIT_ASSEMBLY, tr2.Id);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -66,7 +66,7 @@ namespace LibRolLangTest
 				auto tr = b.BeginTrait("Core.Trait");
 				auto tg1 = b.AddGenericParameter();
 				auto tg2 = b.AddGenericParameter();
-				b.AddConstrain(tg1, { tg2 }, CONSTRAIN_SAME, 0);
+				b.AddConstraint(tg1, { tg2 }, CONSTRAINT_SAME, 0);
 				b.AddTraitFunction({}, { vt1, tg1, b.MakeType(vt3, { tg2 }) }, "F", "F");
 				b.EndTrait();
 
@@ -91,11 +91,11 @@ namespace LibRolLangTest
 
 				b.BeginType(TSM_VALUE, "Core.TestType1");
 				b.Link(true, false);
-				b.AddConstrain(tt1, { b.AnyType(), b.AnyType() }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.AddConstraint(tt1, { b.AnyType(), b.AnyType() }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType2");
 				b.Link(true, false);
-				b.AddConstrain(tt2, { b.AnyType(), b.AnyType() }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.AddConstraint(tt2, { b.AnyType(), b.AnyType() }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -142,18 +142,18 @@ namespace LibRolLangTest
 
 				b.BeginType(TSM_VALUE, "Core.TestType1");
 				b.Link(true, false);
-				b.AddConstrain(b.MakeType(tt, { vt1 }), 
-					{ vt1, b.MakeType(vt3, { vt2 }) }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.AddConstraint(b.MakeType(tt, { vt1 }), 
+					{ vt1, b.MakeType(vt3, { vt2 }) }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType2");
 				b.Link(true, false);
-				b.AddConstrain(b.MakeType(tt, { vt1 }),
-					{ vt2, b.MakeType(vt3, { vt2 }) }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.AddConstraint(b.MakeType(tt, { vt1 }),
+					{ vt2, b.MakeType(vt3, { vt2 }) }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType3");
 				b.Link(true, false);
-				b.AddConstrain(b.MakeType(tt, { vt1 }),
-					{ vt1, vt2 }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.AddConstraint(b.MakeType(tt, { vt1 }),
+					{ vt1, vt2 }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -217,7 +217,7 @@ namespace LibRolLangTest
 
 				b.BeginType(TSM_VALUE, "Core.TestType");
 				b.Link(true, false);
-				b.AddConstrain(b.MakeType(tlist, { tele }), { b.AnyType() }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.AddConstraint(b.MakeType(tlist, { tele }), { b.AnyType() }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
 				b.EndType();
 				b.EndAssembly();
 			}

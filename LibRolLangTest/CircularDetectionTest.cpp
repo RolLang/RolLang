@@ -82,7 +82,7 @@ namespace LibRolLangTest
 			}
 		}
 
-		TEST_METHOD(CircularTypeConstrainCheck)
+		TEST_METHOD(CircularTypeConstraintCheck)
 		{
 			Builder b;
 			{
@@ -93,7 +93,7 @@ namespace LibRolLangTest
 				b.EndType();
 				auto tt = b.BeginType(TSM_REFERENCE, "Core.TargetType");
 				auto g = b.AddGenericParameter();
-				b.AddConstrain(b.MakeType(tt, { g }), {}, CONSTRAIN_EXIST, 0);
+				b.AddConstraint(b.MakeType(tt, { g }), {}, CONSTRAINT_EXIST, 0);
 				b.EndType();
 				b.BeginType(TSM_REFERENCE, "Core.TestType");
 				b.Link(true, false);

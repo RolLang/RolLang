@@ -16,8 +16,8 @@ public:
 		_postLoadingTypes.clear();
 		_finishedLoadingTypes.clear();
 		_finishedLoadingFunctions.clear();
-		_constrainCheckingTypes.clear();
-		_constrainCheckingFunctions.clear();
+		_constraintCheckingTypes.clear();
+		_constraintCheckingFunctions.clear();
 	}
 
 	void CheckLoadingSizeLimit(std::size_t limit)
@@ -32,8 +32,8 @@ public:
 public:
 	std::vector<RuntimeType*> _loadingTypes;
 	std::vector<SubMemberLoadingArguments> _loadingSubtypes;
-	std::vector<LoadingArguments> _constrainCheckingTypes;
-	std::vector<LoadingArguments> _constrainCheckingFunctions;
+	std::vector<LoadingArguments> _constraintCheckingTypes;
+	std::vector<LoadingArguments> _constraintCheckingFunctions;
 
 	//Loading queues. We need to keep order.
 	std::deque<std::unique_ptr<RuntimeType>> _loadingRefTypes;

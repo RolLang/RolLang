@@ -5,7 +5,7 @@ namespace LibRolLangTest
 	using namespace RuntimeLoaderHelper;
 	using Builder = TestAssemblyListBuilder;
 
-	TEST_CLASS(GenericConstrainTest)
+	TEST_CLASS(GenericConstraintTest)
 	{
 		TEST_METHOD(SimpleTypeExist)
 		{
@@ -16,11 +16,11 @@ namespace LibRolLangTest
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.SuccessType");
 				b.Link(true, false);
-				b.AddConstrain(te, {}, CONSTRAIN_EXIST, 0);
+				b.AddConstraint(te, {}, CONSTRAINT_EXIST, 0);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.FailType");
 				b.Link(true, false);
-				b.AddConstrain(b.AnyType(), {}, CONSTRAIN_EXIST, 0);
+				b.AddConstraint(b.AnyType(), {}, CONSTRAINT_EXIST, 0);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -56,7 +56,7 @@ namespace LibRolLangTest
 				auto tg = b.AddGenericParameter();
 				auto lhs = b.MakeType(tb, { tg, b.MakeType(tc, { tg }) });
 				auto rhs = b.MakeType(tb, { td, b.AnyType() });
-				b.AddConstrain(lhs, { rhs }, CONSTRAIN_SAME, 0); //TODO lhs, lhs
+				b.AddConstraint(lhs, { rhs }, CONSTRAINT_SAME, 0); //TODO lhs, lhs
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -108,17 +108,17 @@ namespace LibRolLangTest
 
 				b.BeginType(TSM_VALUE, "Core.TestType1");
 				auto t1g = b.AddGenericParameter();
-				b.AddConstrain(t1g, { v1 }, CONSTRAIN_BASE, 0);
+				b.AddConstraint(t1g, { v1 }, CONSTRAINT_BASE, 0);
 				b.Link(true, false);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType2");
 				auto t2g = b.AddGenericParameter();
-				b.AddConstrain(t2g, { i1 }, CONSTRAIN_INTERFACE, 0);
+				b.AddConstraint(t2g, { i1 }, CONSTRAINT_INTERFACE, 0);
 				b.Link(true, false);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType3");
 				auto t3g = b.AddGenericParameter();
-				b.AddConstrain(t3g, { r1 }, CONSTRAIN_BASE, 0);
+				b.AddConstraint(t3g, { r1 }, CONSTRAINT_BASE, 0);
 				b.Link(true, false);
 				b.EndType();
 				b.EndAssembly();
@@ -155,9 +155,9 @@ namespace LibRolLangTest
 				auto r2 = b.BeginType(TSM_REFERENCE, "Core.RefType2");
 				b.SetBaseType(r1, {}, {});
 				b.EndType();
-				auto ct = b.BeginType(TSM_VALUE, "Core.ConstrainedType");
+				auto ct = b.BeginType(TSM_VALUE, "Core.ConstraintedType");
 				auto g = b.AddGenericParameter();
-				b.AddConstrain(g, { r1 }, CONSTRAIN_BASE, 0);
+				b.AddConstraint(g, { r1 }, CONSTRAINT_BASE, 0);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType");
 				b.Link(true, false);
@@ -185,14 +185,14 @@ namespace LibRolLangTest
 				auto tt = b.BeginTrait("Core.Trait1");
 				auto cg1 = b.SelfType();
 				auto cg2 = b.AddGenericParameter();
-				b.AddConstrain(cg1, { tv1 }, CONSTRAIN_SAME, 0);
-				b.AddConstrain(cg2, { tv1 }, CONSTRAIN_SAME, 0);
+				b.AddConstraint(cg1, { tv1 }, CONSTRAINT_SAME, 0);
+				b.AddConstraint(cg2, { tv1 }, CONSTRAINT_SAME, 0);
 				b.EndTrait();
 				b.BeginType(TSM_VALUE, "Core.TestType");
 				b.Link(true, false);
 				auto tg1 = b.AddGenericParameter();
 				auto tg2 = b.AddGenericParameter();
-				b.AddConstrain(tg1, { tg2 }, CONSTRAIN_TRAIT_ASSEMBLY, tt.Id);
+				b.AddConstraint(tg1, { tg2 }, CONSTRAINT_TRAIT_ASSEMBLY, tt.Id);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -218,14 +218,14 @@ namespace LibRolLangTest
 				auto tv2 = b.BeginType(TSM_VALUE, "Core.ValueType2");
 				b.Link(true, false);
 				b.EndType();
-				auto ct = b.BeginType(TSM_VALUE, "Core.ConstrainType");
+				auto ct = b.BeginType(TSM_VALUE, "Core.ConstraintType");
 				auto cg = b.AddGenericParameter();
-				b.AddConstrain(cg, { tv1 }, CONSTRAIN_SAME, 0);
+				b.AddConstraint(cg, { tv1 }, CONSTRAINT_SAME, 0);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType");
 				b.Link(true, false);
 				auto tg = b.AddGenericParameter();
-				b.AddConstrain(b.TryType(b.MakeType(ct, { tg })), {}, CONSTRAIN_EXIST, 0);
+				b.AddConstraint(b.TryType(b.MakeType(ct, { tg })), {}, CONSTRAINT_EXIST, 0);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -236,8 +236,8 @@ namespace LibRolLangTest
 				LoadType(&l, "Core", "Core.TestType", { tv1 }, false);
 				LoadType(&l, "Core", "Core.TestType", { tv2 }, true);
 				//Needs manually step-in to check where it throws.
-				//Should be in loading Core.TestType instead of Core.ConstrainType.
-				//TODO use exception tracing, loader constrain API or type overload when any is available.
+				//Should be in loading Core.TestType instead of Core.ConstraintType.
+				//TODO use exception tracing, loader constraint API or type overload when any is available.
 			}
 		}
 
@@ -260,7 +260,7 @@ namespace LibRolLangTest
 				b.EndType();
 				auto tg = b.BeginType(TSM_VALUE, "Core.GenericType");
 				auto g1 = b.AddGenericParameter();
-				b.AddConstrain(g1, { t1 }, CONSTRAIN_SAME, 0);
+				b.AddConstraint(g1, { t1 }, CONSTRAINT_SAME, 0);
 				b.EndType();
 				auto tp = b.BeginType(TSM_VALUE, "Core.ParentType");
 				b.AddSubType("S1", b.MakeType(tg, { b.AddAdditionalGenericParameter(0) }));
@@ -268,12 +268,12 @@ namespace LibRolLangTest
 				b.BeginType(TSM_VALUE, "Core.CheckType1");
 				b.Link(true, false);
 				auto g2 = b.AddGenericParameter();
-				b.AddConstrain(b.TryType(b.MakeSubtype(tp, "S1", { g2 })), {}, CONSTRAIN_EXIST, 0);
+				b.AddConstraint(b.TryType(b.MakeSubtype(tp, "S1", { g2 })), {}, CONSTRAINT_EXIST, 0);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.CheckType2");
 				b.Link(true, false);
 				auto g3 = b.AddGenericParameter();
-				b.AddConstrain(b.TryType(b.MakeSubtype(tp, "S2", { g3 })), {}, CONSTRAIN_EXIST, 0);
+				b.AddConstraint(b.TryType(b.MakeSubtype(tp, "S2", { g3 })), {}, CONSTRAINT_EXIST, 0);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -287,7 +287,7 @@ namespace LibRolLangTest
 			}
 		}
 
-		TEST_METHOD(CircularConstrain_TypeExist)
+		TEST_METHOD(CircularConstraint_TypeExist)
 		{
 			Builder b;
 			{
@@ -297,12 +297,12 @@ namespace LibRolLangTest
 				b.EndType();
 				auto t1 = b.ForwardDeclareType();
 				auto trait = b.BeginTrait("TestTrait");
-				b.AddConstrain(b.MakeType(t1, { b.SelfType() }), {}, CONSTRAIN_EXIST, 0);
+				b.AddConstraint(b.MakeType(t1, { b.SelfType() }), {}, CONSTRAINT_EXIST, 0);
 				b.EndTrait();
 				b.BeginType(TSM_VALUE, "Core.TestType", t1);
 				b.Link(true, false);
 				auto g = b.AddGenericParameter();
-				b.AddConstrain(g, {}, CONSTRAIN_TRAIT_ASSEMBLY, trait.Id);
+				b.AddConstraint(g, {}, CONSTRAINT_TRAIT_ASSEMBLY, trait.Id);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -351,24 +351,24 @@ namespace LibRolLangTest
 
 				b.BeginType(TSM_VALUE, "Core.TestType1");
 				b.Link(true, false);
-				b.AddConstrain(target, {}, CONSTRAIN_TRAIT_ASSEMBLY, t1.Id);
+				b.AddConstraint(target, {}, CONSTRAINT_TRAIT_ASSEMBLY, t1.Id);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType2");
 				b.Link(true, false);
-				b.AddConstrain(target, {}, CONSTRAIN_TRAIT_ASSEMBLY, t2.Id);
+				b.AddConstraint(target, {}, CONSTRAINT_TRAIT_ASSEMBLY, t2.Id);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType3");
 				b.Link(true, false);
-				b.AddConstrain(target, {}, CONSTRAIN_TRAIT_ASSEMBLY, t3.Id);
+				b.AddConstraint(target, {}, CONSTRAINT_TRAIT_ASSEMBLY, t3.Id);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType4");
 				b.Link(true, false);
-				b.AddConstrain(target, { b.AnyType() }, CONSTRAIN_TRAIT_ASSEMBLY, t4.Id);
+				b.AddConstraint(target, { b.AnyType() }, CONSTRAINT_TRAIT_ASSEMBLY, t4.Id);
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType5");
 				b.Link(true, false);
 				auto gx = b.AddGenericParameter();
-				b.AddConstrain(target, { gx }, CONSTRAIN_TRAIT_ASSEMBLY, t4.Id);
+				b.AddConstraint(target, { gx }, CONSTRAINT_TRAIT_ASSEMBLY, t4.Id);
 				b.EndType();
 				b.EndAssembly();
 			}
@@ -403,12 +403,12 @@ namespace LibRolLangTest
 				b.EndType();
 				auto tr = b.BeginTrait("Core.Trait");
 				auto g3 = b.AddGenericParameter();
-				b.AddConstrain(g3, { b.MakeType(i, { vt }) }, CONSTRAIN_INTERFACE, 0);
+				b.AddConstraint(g3, { b.MakeType(i, { vt }) }, CONSTRAINT_INTERFACE, 0);
 				b.AddTraitField(g3, "FieldA", "FieldA");
 				b.EndTrait();
 				b.BeginType(TSM_VALUE, "Core.TestType");
 				b.Link(true, false);
-				b.AddConstrain(b.MakeType(rt, { vt }), { b.AnyType() }, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id);
+				b.AddConstraint(b.MakeType(rt, { vt }), { b.AnyType() }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
 				b.EndType();
 				b.EndAssembly();
 			}

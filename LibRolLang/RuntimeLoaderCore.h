@@ -8,8 +8,8 @@ struct RuntimeLoaderCore : RuntimeLoaderData
 {
 public: //Forward declaration
 
-	inline bool CheckConstrains(const std::string& srcAssebly, GenericDeclaration* g,
-		const MultiList<RuntimeType*>& args, ConstrainExportList* exportList);
+	inline bool CheckConstraints(const std::string& srcAssebly, GenericDeclaration* g,
+		const MultiList<RuntimeType*>& args, ConstraintExportList* exportList);
 
 	inline bool FindSubType(const SubMemberLoadingArguments& args, LoadingArguments& la);
 	//No SubFunction. All member function reference is exported from trait.
@@ -153,28 +153,28 @@ public: //External API (for RuntimeLoader external API)
 
 public: //Internal API (for other modules)
 	bool CheckTypeGenericArguments(GenericDeclaration& g, const LoadingArguments& args,
-		ConstrainExportList* exportList)
+		ConstraintExportList* exportList)
 	{
-		auto check = LoadingStackScopeGuard<LoadingArguments>(_loading->_constrainCheckingTypes, args);
+		auto check = LoadingStackScopeGuard<LoadingArguments>(_loading->_constraintCheckingTypes, args);
 		return CheckGenericArguments(g, args, exportList);
 	}
 
 	bool CheckFunctionGenericArguments(GenericDeclaration& g, const LoadingArguments& args,
-		ConstrainExportList* exportList)
+		ConstraintExportList* exportList)
 	{
-		auto check = LoadingStackScopeGuard<LoadingArguments>(_loading->_constrainCheckingFunctions, args);
+		auto check = LoadingStackScopeGuard<LoadingArguments>(_loading->_constraintCheckingFunctions, args);
 		return CheckGenericArguments(g, args, exportList);
 	}
 
 	bool CheckGenericArguments(GenericDeclaration& g, const LoadingArguments& args,
-		ConstrainExportList* exportList)
+		ConstraintExportList* exportList)
 	{
 		//TODO match multi-dimension
 		if (!g.ParameterCount.CanMatch(args.Arguments.GetSizeList()))
 		{
 			return false;
 		}
-		return CheckConstrains(args.Assembly, &g, args.Arguments, exportList);
+		return CheckConstraints(args.Assembly, &g, args.Arguments, exportList);
 	}
 
 	RuntimeType* LoadTypeInternal(const LoadingArguments& args, bool skipArgumentCheck)
@@ -215,14 +215,14 @@ public: //Internal API (for other modules)
 			}
 		}
 
-		ConstrainExportList exportList;
+		ConstraintExportList exportList;
 		auto typeTemplate = FindTypeTemplate(args);
 		if (!skipArgumentCheck && !CheckTypeGenericArguments(typeTemplate->Generic, args, &exportList))
 		{
 			throw RuntimeLoaderException("Invalid generic arguments");
 		}
 
-		//Check constrains of internal types currently not supported by the constrain system.
+		//Check constraints of internal types currently not supported by the constraint system.
 		if (args.Assembly == "Core" && args.Id == _boxTypeId)
 		{
 			assert(args.Arguments.IsSingle());
@@ -250,7 +250,7 @@ public: //Internal API (for other modules)
 		t->Args = args;
 		t->TypeId = _nextTypeId++;
 		t->Storage = typeTemplate->GCMode;
-		t->ConstrainExportList = std::move(exportList);
+		t->ConstraintExportList = std::move(exportList);
 #if _DEBUG
 		t->Fullname = t->GetFullname();
 #endif
@@ -293,7 +293,7 @@ public: //Internal API (for other modules)
 			}
 		}
 
-		ConstrainExportList exportList;
+		ConstraintExportList exportList;
 		auto funcTemplate = FindFunctionTemplate(args.Assembly, args.Id);
 		if (!skipArgumentCheck && !CheckFunctionGenericArguments(funcTemplate->Generic, args, &exportList))
 		{
@@ -305,7 +305,7 @@ public: //Internal API (for other modules)
 		f->Parent = _loader;
 		f->FunctionId = _nextFunctionId++;
 		f->Code = GetCode(args.Assembly, args.Id);
-		f->ConstrainExportList = std::move(exportList);
+		f->ConstraintExportList = std::move(exportList);
 
 		auto ret = f.get();
 		_loading->_loadingFunctions.push_back(std::move(f));
@@ -784,12 +784,12 @@ private:
 			return g.Fields[index].Index;
 		case REF_IMPORT:
 			return LoadImportConstant(assembly, g.Fields[index].Index);
-		case REF_CONSTRAIN:
+		case REF_CONSTRAINT:
 		{
-			ConstrainExportList* list = &f->ConstrainExportList;
+			ConstraintExportList* list = &f->ConstraintExportList;
 			for (auto& e : *list)
 			{
-				if (e.EntryType == CONSTRAIN_EXPORT_FIELD && e.Index == index)
+				if (e.EntryType == CONSTRAINT_EXPORT_FIELD && e.Index == index)
 				{
 					return e.Field;
 				}

@@ -220,21 +220,21 @@ public:
 			}
 			return true;
 		}
-		case REF_CONSTRAIN:
+		case REF_CONSTRAINT:
 		{
-			ConstrainExportList* list;
+			ConstraintExportList* list;
 			if (lg.SelfType != nullptr)
 			{
-				list = &lg.SelfType->ConstrainExportList;
+				list = &lg.SelfType->ConstraintExportList;
 			}
 			else
 			{
 				assert(lg.SelfFunction);
-				list = &lg.SelfFunction->ConstrainExportList;
+				list = &lg.SelfFunction->ConstraintExportList;
 			}
 			for (auto& e : *list)
 			{
-				if (e.EntryType == CONSTRAIN_EXPORT_TYPE && e.Index == typeId)
+				if (e.EntryType == CONSTRAINT_EXPORT_TYPE && e.Index == typeId)
 				{
 					la = e.Type->Args;
 					return true;
@@ -307,21 +307,21 @@ public:
 			}
 			return true;
 		}
-		case REF_CONSTRAIN:
+		case REF_CONSTRAINT:
 		{
-			ConstrainExportList* list;
+			ConstraintExportList* list;
 			if (lg.SelfType != nullptr)
 			{
-				list = &lg.SelfType->ConstrainExportList;
+				list = &lg.SelfType->ConstraintExportList;
 			}
 			else
 			{
 				assert(lg.SelfFunction);
-				list = &lg.SelfFunction->ConstrainExportList;
+				list = &lg.SelfFunction->ConstraintExportList;
 			}
 			for (auto& e : *list)
 			{
-				if (e.EntryType == CONSTRAIN_EXPORT_FUNCTION && e.Index == funcId)
+				if (e.EntryType == CONSTRAINT_EXPORT_FUNCTION && e.Index == funcId)
 				{
 					la = e.Function->Args;
 					return true;

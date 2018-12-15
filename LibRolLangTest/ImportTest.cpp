@@ -139,13 +139,13 @@ namespace LibRolLangTest
 				builder.EndType();
 				builder.BeginType(TSM_VALUE, "Core.TestType1");
 				builder.Link(true, false);
-				builder.AddConstrain(tt1, {}, CONSTRAIN_TRAIT_IMPORT, tri.Id);
+				builder.AddConstraint(tt1, {}, CONSTRAINT_TRAIT_IMPORT, tri.Id);
 				builder.EndType();
 				auto tt2 = builder.BeginType(TSM_VALUE, "Core.TargetType2");
 				builder.EndType();
 				builder.BeginType(TSM_VALUE, "Core.TestType2");
 				builder.Link(true, false);
-				builder.AddConstrain(tt2, {}, CONSTRAIN_TRAIT_IMPORT, tri.Id);
+				builder.AddConstraint(tt2, {}, CONSTRAINT_TRAIT_IMPORT, tri.Id);
 				builder.EndType();
 				builder.EndAssembly();
 			}

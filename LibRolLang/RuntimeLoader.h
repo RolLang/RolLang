@@ -1,22 +1,22 @@
 #pragma once
-#include "RuntimeLoaderConstrain.h"
+#include "RuntimeLoaderConstraint.h"
 
 //TODO Trait component export
-//TODO Import virtual function from constrain (trait)
-//TODO Consider put constrain on imported types (automatically checked and exported by member name)?
+//TODO Import virtual function from constraint (trait)
+//TODO Consider put constraint on imported types (automatically checked and exported by member name)?
 //TODO Parameter pack
 //TODO Variable sized object (array, string)
 //TODO Embed ref types
 //TODO Field index reference (no need to import index as constant) in GenericDeclaration
 //TODO Multiple type template (partial specialization)
 //TODO Attribute
-//TODO Public API for subtype and constrain
+//TODO Public API for subtype and constraint
 //TODO Test for pointer size
 //TODO Test for import trait
 
 namespace RolLang {
 
-class RuntimeLoader : RuntimeLoaderConstrain
+class RuntimeLoader : RuntimeLoaderConstraint
 {
 public:
 	RuntimeLoader(AssemblyList assemblies, std::size_t ptrSize = sizeof(void*),

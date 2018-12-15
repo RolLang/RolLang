@@ -5,7 +5,7 @@ namespace LibRolLangTest
 	using namespace RuntimeLoaderHelper;
 	using Builder = TestAssemblyListBuilder;
 
-	TEST_CLASS(ConstrainMemberExportTest)
+	TEST_CLASS(ConstraintMemberExportTest)
 	{
 		TEST_METHOD(ExportSubType)
 		{
@@ -14,7 +14,7 @@ namespace LibRolLangTest
 				b.BeginAssembly("Core");
 				auto tr = b.BeginTrait("Core.Trait");
 				auto subtype = b.MakeSubtype(b.SelfType(), "A", {});
-				b.AddConstrain(b.TryType(subtype), {}, CONSTRAIN_EXIST, 0);
+				b.AddConstraint(b.TryType(subtype), {}, CONSTRAINT_EXIST, 0);
 				b.AddTraitType(subtype, "a");
 				b.EndTrait();
 				auto vt = b.BeginType(TSM_VALUE, "Core.ValueType");
@@ -25,8 +25,8 @@ namespace LibRolLangTest
 				b.EndType();
 				b.BeginType(TSM_VALUE, "Core.TestType");
 				b.Link(true, false);
-				b.AddConstrain(tt, {}, CONSTRAIN_TRAIT_ASSEMBLY, tr.Id, "subtype");
-				b.AddField(b.ConstrainImportType("subtype/a"));
+				b.AddConstraint(tt, {}, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id, "subtype");
+				b.AddField(b.ConstraintImportType("subtype/a"));
 				b.EndType();
 				b.EndAssembly();
 			}
