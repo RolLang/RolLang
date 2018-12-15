@@ -351,6 +351,10 @@ private:
 			{
 				auto t = std::move(_loading->_loadingRefTypes.front());
 				_loading->_loadingRefTypes.pop_front();
+				if (t == nullptr)
+				{
+					continue;
+				}
 				LoadFields(std::move(t), nullptr);
 				assert(_loading->_loadingTypes.size() == 0);
 				continue;
@@ -366,13 +370,12 @@ private:
 			if (_loading->_loadingFunctions.size())
 			{
 				auto t = std::move(_loading->_loadingFunctions.front());
+				_loading->_loadingFunctions.pop_front();
 				if (t == nullptr)
 				{
-					//We sometimes need to force function loading, in which case
-					//the unique_ptr is moved out. See EnsureFunctionLoaded.
+					//See EnsureFunctionLoaded.
 					continue;
 				}
-				_loading->_loadingFunctions.pop_front();
 				PostLoadFunction(std::move(t));
 				assert(_loading->_loadingTypes.size() == 0);
 				continue;
@@ -405,6 +408,11 @@ private:
 		auto baseType = LoadRefType({ type.get(), tt->Generic }, tt->Base.InheritedType);
 		if (baseType != nullptr)
 		{
+			if (baseType->Alignment == 0)
+			{
+				//For reference base type, we have to force loading it here.
+				EnsureRefTypeLoaded(baseType);
+			}
 			if (type->Storage == TSM_GLOBAL)
 			{
 				throw RuntimeLoaderException("Global type cannot have base type");
@@ -678,6 +686,18 @@ private:
 		}
 	}
 
+	void EnsureRefTypeLoaded(RuntimeType* f)
+	{
+		for (auto& type : _loading->_loadingRefTypes)
+		{
+			if (type.get() == f)
+			{
+				LoadFields(std::move(type), nullptr);
+				break;
+			}
+		}
+	}
+
 	void EnsureFunctionLoaded(RuntimeFunction* f)
 	{
 		for (auto& func : _loading->_loadingFunctions)
@@ -685,6 +705,7 @@ private:
 			if (func.get() == f)
 			{
 				PostLoadFunction(std::move(func));
+				break;
 			}
 		}
 	}
@@ -706,6 +727,11 @@ private:
 	RuntimeType::InheritanceInfo LoadVirtualTable(RuntimeType* type, RuntimeType* target, GenericDeclaration& g,
 		const std::vector<InheritanceVirtualFunctionInfo>& types, RuntimeType* baseType)
 	{
+		if (baseType != nullptr && baseType->Alignment == 0)
+		{
+			throw RuntimeLoaderException("Circular base type detected");
+		}
+
 		RuntimeType::InheritanceInfo ret = {};
 		ret.Type = baseType;
 		Type* tt = FindTypeTemplate(type->Args);

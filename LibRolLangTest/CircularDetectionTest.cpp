@@ -108,5 +108,48 @@ namespace LibRolLangTest
 				LoadEmptyType(&l, "B");
 			}
 		}
+
+		TEST_METHOD(CircularInterface)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				AddType(b, "A");
+				AddType(b, "B");
+				AddType(b, "C");
+
+				auto i2 = b.ForwardDeclareType();
+				auto i1 = b.BeginType(TSM_INTERFACE, "Core.Interface1");
+				b.AddInterface(i2, {}, {});
+				b.EndType();
+				b.BeginType(TSM_INTERFACE, "Core.Interface2", i2);
+				b.AddInterface(i1, {}, {});
+				b.EndType();
+
+				auto i3 = b.BeginType(TSM_INTERFACE, "Core.Interface3");
+				b.EndType();
+				auto i4 = b.BeginType(TSM_INTERFACE, "Core.Interface4");
+				b.AddInterface(i3, {}, {});
+				b.EndType();
+
+				auto tt1 = b.BeginType(TSM_REFERENCE, "Core.TestType1");
+				b.Link(true, false);
+				b.AddInterface(i2, {}, {});
+				b.EndType();
+				auto tt2 = b.BeginType(TSM_REFERENCE, "Core.TestType2");
+				b.Link(true, false);
+				b.AddInterface(i4, {}, {});
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build(), sizeof(void*), sizeof(void*), SIZE_MAX);
+			{
+				LoadEmptyType(&l, "A");
+				LoadType(&l, "Core", "Core.TestType1", true);
+				LoadEmptyType(&l, "B");
+				LoadType(&l, "Core", "Core.TestType2", false);
+				LoadEmptyType(&l, "C");
+			}
+		}
 	};
 }
