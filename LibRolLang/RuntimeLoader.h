@@ -122,7 +122,13 @@ private:
 		auto& t = sym.Hierarchy[x++];
 		if (t.Assembly.length() == 0 && t.Id == SIZE_MAX && t.ArgumentCount == 0)
 		{
+			//new segment
 			return "";
+		}
+		if (t.Assembly.length() == 0 && t.Id == 0 && t.ArgumentCount == 0)
+		{
+			//empty
+			return "void";
 		}
 		auto a = FindAssemblyNoThrow(t.Assembly);
 		if (a == nullptr) return "[error]";

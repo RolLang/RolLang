@@ -160,6 +160,7 @@
     <ClCompile Include="CircularDetectionTest.cpp" />
     <ClCompile Include="ConstrainMemberExportTest.cpp" />
     <ClCompile Include="EmbedTypeTest.cpp" />
+    <ClCompile Include="EmptyTypeTest.cpp" />
     <ClCompile Include="ExecuteSimpleNativeFunctionTest.cpp" />
     <ClCompile Include="ExecuteSimpleProgramTest.cpp" />
     <ClCompile Include="GenericConstraintTest.cpp" />

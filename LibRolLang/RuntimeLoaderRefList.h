@@ -191,12 +191,20 @@ public:
 			return true;
 		}
 		case REF_ARGUMENT:
-			la = GetRefArgument(lg.Declaration.Types, typeId,
-				lg.Arguments.Arguments, lg.AdditionalArguments)->Args;
+		{
+			auto argType = GetRefArgument(lg.Declaration.Types, typeId,
+				lg.Arguments.Arguments, lg.AdditionalArguments);
+			if (argType == nullptr)
+			{
+				return false;
+			}
+			la = argType->Args;
 			return true;
+		}
 		case REF_SELF:
 			if (lg.SelfType == nullptr)
 			{
+				//Note that void cannot be self type. This always indicates an error.
 				throw RuntimeLoaderException("Invalid type reference");
 			}
 			la = lg.SelfType->Args;
@@ -240,7 +248,7 @@ public:
 					return true;
 				}
 			}
-			return false;
+			throw RuntimeLoaderException("Invalid REF_CONSTRAINT reference");
 		}
 		case REF_CLONETYPE:
 		case REF_LISTEND:
@@ -327,7 +335,7 @@ public:
 					return true;
 				}
 			}
-			return false;
+			throw RuntimeLoaderException("Invalid REF_CONSTRAINT reference");
 		}
 		case REF_CLONETYPE:
 		case REF_ARGUMENT:

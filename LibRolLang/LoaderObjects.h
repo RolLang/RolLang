@@ -192,7 +192,15 @@ inline void LoadingArguments::AppendToSymbol(RuntimeObjectSymbol& s)
 		s.Hierarchy.push_back({ "", SIZE_MAX, 0 });
 		for (std::size_t j = 0; j < size[i]; ++j)
 		{
-			Arguments.Get(i, j)->Args.AppendToSymbol(s);
+			auto t = Arguments.Get(i, j);
+			if (t == nullptr)
+			{
+				s.Hierarchy.push_back({ "", 0, 0 });
+			}
+			else
+			{
+				t->Args.AppendToSymbol(s);
+			}
 		}
 	}
 }
