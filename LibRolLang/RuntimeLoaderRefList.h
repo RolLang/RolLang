@@ -373,7 +373,7 @@ public:
 		}
 
 		auto check = LoadingStackScopeGuard<SubMemberLoadingArguments>(_loading->_loadingSubtypes, args);
-		_loading->CheckLoadingSizeLimit(_loadingLimit);
+		_loading->CheckLoadingSizeLimit();
 
 		return FindRefType({ args.Parent, tt->Generic, args.Arguments }, id, la);
 	}

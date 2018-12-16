@@ -152,7 +152,7 @@ namespace LibRolLangTest
 			}
 		}
 
-		//Should be moved to elsewhere
+		//Should move to elsewhere
 		TEST_METHOD(InfiniteGeneric)
 		{
 			Builder b;
@@ -171,8 +171,7 @@ namespace LibRolLangTest
 			RuntimeLoader l(b.Build(), sizeof(void*), sizeof(void*), 20);
 			{
 				auto t = LoadType(&l, "Core", "Core.ValueType", ERR_L_SUCCESS);
-				//TODO Currently failing (limit check need to check more list).
-				//LoadType(&l, "Test", "Test.CycType5", { t }, ERR_L_LIMIT);
+				LoadType(&l, "Core", "Core.CycType", { t }, ERR_L_LIMIT);
 			}
 		}
 	};

@@ -164,6 +164,7 @@ public: //Internal API (for other modules)
 		ConstraintExportList* exportList)
 	{
 		auto check = LoadingStackScopeGuard<LoadingArguments>(_loading->_constraintCheckingTypes, args);
+		_loading->CheckLoadingSizeLimit();
 		return CheckGenericArguments(g, args, exportList);
 	}
 
@@ -171,6 +172,7 @@ public: //Internal API (for other modules)
 		ConstraintExportList* exportList)
 	{
 		auto check = LoadingStackScopeGuard<LoadingArguments>(_loading->_constraintCheckingFunctions, args);
+		_loading->CheckLoadingSizeLimit();
 		return CheckGenericArguments(g, args, exportList);
 	}
 
@@ -271,6 +273,7 @@ public: //Internal API (for other modules)
 		{
 			RuntimeType* ret = t.get();
 			_loading->_loadingRefTypes.push_back(std::move(t));
+			_loading->CheckLoadingSizeLimit();
 			return ret;
 		}
 		else
@@ -325,7 +328,7 @@ public: //Internal API (for other modules)
 
 		auto ret = f.get();
 		_loading->_loadingFunctions.push_back(std::move(f));
-		_loading->CheckLoadingSizeLimit(_loadingLimit);
+		_loading->CheckLoadingSizeLimit();
 
 		return ret;
 	}
@@ -404,7 +407,7 @@ private:
 	RuntimeType* LoadFields(std::unique_ptr<RuntimeType> type, Type* typeTemplate)
 	{
 		auto check = LoadingStackScopeGuard<RuntimeType*>(_loading->_loadingTypes, type.get());
-		_loading->CheckLoadingSizeLimit(_loadingLimit);
+		_loading->CheckLoadingSizeLimit();
 
 		Type* tt = typeTemplate;
 		if (tt == nullptr)
@@ -513,6 +516,7 @@ private:
 
 		auto ret = type.get();
 		_loading->_postLoadingTypes.emplace_back(std::move(type));
+		_loading->CheckLoadingSizeLimit();
 		return ret;
 	}
 

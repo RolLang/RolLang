@@ -1,13 +1,9 @@
 #pragma once
 #include "RuntimeLoaderConstraint.h"
 
-//TODO Trait component export
-//TODO Import virtual function from constraint (trait)
 //TODO Consider put constraint on imported types (automatically checked and exported by member name)?
 //TODO Parameter pack
 //TODO Variable sized object (array, string)
-//TODO Embed ref types
-//TODO Field index reference (no need to import index as constant) in GenericDeclaration
 //TODO Multiple type template (partial specialization)
 //TODO Attribute
 //TODO Public API for subtype and constraint
@@ -55,8 +51,7 @@ public: //Public API
 				return t.get();
 			}
 		}
-		RuntimeLoaderLoadingData loading = {};
-		_loading = &loading;
+		RuntimeLoaderLoadingData loading(_loading, _loadingLimit);
 		return LoadTypeEntry(args, err);
 	}
 
@@ -71,8 +66,7 @@ public: //Public API
 				return f.get();
 			}
 		}
-		RuntimeLoaderLoadingData loading = {};
-		_loading = &loading;
+		RuntimeLoaderLoadingData loading(_loading, _loadingLimit);
 		return LoadFunctionEntry(args, err);
 	}
 

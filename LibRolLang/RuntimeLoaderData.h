@@ -8,6 +8,17 @@ namespace RolLang {
 struct RuntimeLoaderLoadingData
 {
 public:
+	RuntimeLoaderLoadingData(RuntimeLoaderLoadingData*& r, std::size_t limit)
+		: _ref(&r), _limit(limit)
+	{
+		*_ref = this;
+	}
+
+	~RuntimeLoaderLoadingData()
+	{
+		*_ref = nullptr;
+	}
+
 	void ClearLoadingLists()
 	{
 		_loadingTypes.clear();
@@ -20,10 +31,12 @@ public:
 		_constraintCheckingFunctions.clear();
 	}
 
-	void CheckLoadingSizeLimit(std::size_t limit)
+	void CheckLoadingSizeLimit()
 	{
 		if (_loadingTypes.size() + _loadingFunctions.size() +
-			_loadingSubtypes.size() > limit)
+			_constraintCheckingTypes.size() + _constraintCheckingFunctions.size() +
+			_loadingRefTypes.size() + _postLoadingTypes.size() +
+			_loadingSubtypes.size() > _limit)
 		{
 			throw RuntimeLoaderException(ERR_L_LIMIT, "Loading object limit exceeded.");
 		}
@@ -39,8 +52,13 @@ public:
 	std::deque<std::unique_ptr<RuntimeType>> _loadingRefTypes;
 	std::deque<std::unique_ptr<RuntimeType>> _postLoadingTypes;
 	std::deque<std::unique_ptr<RuntimeFunction>> _loadingFunctions;
+
 	std::deque<std::unique_ptr<RuntimeType>> _finishedLoadingTypes;
 	std::deque<std::unique_ptr<RuntimeFunction>> _finishedLoadingFunctions;
+
+private:
+	RuntimeLoaderLoadingData** _ref;
+	std::size_t _limit;
 };
 
 template <typename T>
