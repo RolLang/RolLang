@@ -152,6 +152,57 @@ namespace LibRolLangTest
 			}
 		}
 
+		TEST_METHOD(CircularSubtype)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				AddType(b, "A");
+				AddType(b, "B");
+				AddType(b, "C");
+				AddType(b, "D");
+				auto t2 = b.ForwardDeclareType();
+				auto t1 = b.BeginType(TSM_VALUE, "Core.A");
+				auto t1g = b.AddGenericParameter();
+				auto st2 = b.MakeSubtype(b.MakeType(t2, { t1g, b.AddAdditionalGenericParameter(0) }), "S2", {});
+				b.AddSubType("S1", st2);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.B", t2);
+				auto t2g1 = b.AddGenericParameter();
+				auto t2g2 = b.AddGenericParameter();
+				auto st1 = b.MakeSubtype(b.MakeType(t1, { t2g2 }), "S1", { t2g1 });
+				b.AddSubType("S2", st1);
+				b.EndType();
+				auto vt1 = b.BeginType(TSM_VALUE, "Core.ValueType1");
+				b.EndType();
+				auto vt2 = b.BeginType(TSM_VALUE, "Core.ValueType2");
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType1");
+				b.Link(true, true);
+				b.AddField(b.MakeSubtype(b.MakeType(t2, { vt1, vt1 }), "S2", {}));
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType2");
+				b.Link(true, true);
+				b.AddField(b.MakeSubtype(b.MakeType(t2, { vt1, vt2 }), "S2", {}));
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType3");
+				b.Link(true, true);
+				b.AddField(b.MakeType(t2, { vt1, vt2 }));
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadEmptyType(&l, "A");
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_CIRCULAR);
+				LoadEmptyType(&l, "B");
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_CIRCULAR);
+				LoadEmptyType(&l, "C");
+				LoadType(&l, "Core", "Core.TestType3", ERR_L_SUCCESS);
+				LoadEmptyType(&l, "D");
+			}
+		}
+
 		//Should move to elsewhere
 		TEST_METHOD(InfiniteGeneric)
 		{
