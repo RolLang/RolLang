@@ -843,6 +843,14 @@ private:
 			break;
 		case REF_ASSEMBLY:
 		case REF_IMPORT:
+		{
+			MultiList<int> notUsed;
+			for (auto&& e : GetRefArgList(g.Types, id, notUsed))
+			{
+				GetTypeAdditionalArgumentNumberInternal(g, e.Index, result);
+			}
+			break;
+		}
 		case REF_SUBTYPE:
 		{
 			MultiList<int> notUsed;
