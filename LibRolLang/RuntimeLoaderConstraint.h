@@ -20,6 +20,16 @@ public:
 				cargs.AppendLast(ConstraintType::RT(&root, args.Get(i, j)));
 			}
 		}
+		return CheckConstraintsInternal(srcAssebly, g, cargs, root, exportList);
+	}
+
+	//TODO Move backwards to avoid declaration
+private:
+	struct ConstraintType;
+	struct ConstraintCalculationCacheRoot;
+	bool CheckConstraintsInternal(const std::string& srcAssebly, GenericDeclaration* g,
+		MultiList<ConstraintType>& cargs, ConstraintCalculationCacheRoot& root, ConstraintExportList* exportList)
+	{
 		for (auto& constraint : g->Constraints)
 		{
 			auto c = CreateConstraintCache(constraint, srcAssebly, cargs, ConstraintType::Fail(&root), &root);
@@ -205,11 +215,20 @@ private:
 		ConstraintType TypeInTarget;
 		std::size_t FieldIndex;
 	};
+	struct TraitCacheFunctionConstrainExportInfo
+	{
+		std::size_t NameIndex;
+		ConstraintType UndeterminedType;
+	};
 	struct TraitCacheFunctionOverloadInfo
 	{
 		std::size_t Index;
+		std::string FunctionTemplateAssembly;
+		Function* FunctionTemplate;
+		MultiList<ConstraintType> GenericArguments;
 		ConstraintType ReturnType;
 		std::vector<ConstraintType> ParameterTypes;
+		std::vector<TraitCacheFunctionConstrainExportInfo> ExportTypes;
 	};
 	struct TraitCacheFunctionInfo
 	{
@@ -748,19 +767,23 @@ private:
 		{
 			assert(e.Entry.Type == REF_CLONETYPE);
 			funcArgs.AppendLast(ConstructConstraintRefListType(parent.Root,
-				g, type_assembly, e.Entry.Index, typeArgs, target));
+				g, type_assembly, e.Entry.Index, typeArgs, target, nullptr));
 		}
 
 		Function* ft = FindFunctionTemplate(la.Assembly, la.Id);
 
 		//Construct ConstraintType for ret and params.
 		result.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
-			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr);
+			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, &result.ExportTypes);
 		for (auto& parameter : ft->Parameters)
 		{
 			result.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
-				la.Assembly, parameter.TypeId, funcArgs, nullptr));
+				la.Assembly, parameter.TypeId, funcArgs, nullptr, &result.ExportTypes));
 		}
+
+		result.FunctionTemplate = ft;
+		result.GenericArguments = std::move(funcArgs);
+
 		return true;
 	}
 
@@ -962,7 +985,8 @@ private:
 	}
 
 	ConstraintType ConstructConstraintRefListType(ConstraintCalculationCacheRoot* root, GenericDeclaration& g,
-		const std::string& src, std::size_t i, MultiList<ConstraintType>& arguments, RuntimeType* selfType)
+		const std::string& src, std::size_t i, MultiList<ConstraintType>& arguments, RuntimeType* selfType,
+		std::vector<TraitCacheFunctionConstrainExportInfo>* exportList)
 	{
 		if (i >= g.Types.size())
 		{
@@ -994,7 +1018,7 @@ private:
 			for (auto&& e : GetRefArgList(g.Types, i, ret.Args))
 			{
 				ret.Args.AppendLast(ConstructConstraintRefListType(ret.Root,
-					g, src, e.Index, arguments, selfType));
+					g, src, e.Index, arguments, selfType, exportList));
 			}
 			return ret;
 		}
@@ -1015,7 +1039,7 @@ private:
 			for (auto&& e : GetRefArgList(g.Types, i, ret.Args))
 			{
 				ret.Args.AppendLast(ConstructConstraintRefListType(ret.Root,
-					g, src, e.Index, arguments, selfType));
+					g, src, e.Index, arguments, selfType, exportList));
 			}
 			return ret;
 		}
@@ -1023,13 +1047,42 @@ private:
 		{
 			ConstraintType ret = ConstraintType::SUB(root, g.NamesList[g.Types[i].Index]);
 			ret.ParentType.emplace_back(ConstructConstraintRefListType(ret.Root, g, src, i + 1,
-				arguments, selfType));
+				arguments, selfType, exportList));
 			for (auto&& e : GetRefArgList(g.Types, i + 1, ret.Args))
 			{
 				ret.Args.AppendLast(ConstructConstraintRefListType(ret.Root,
-					g, src, e.Index, arguments, selfType));
+					g, src, e.Index, arguments, selfType, exportList));
 			}
 			return ret;
+		}
+		case REF_CONSTRAINT:
+		{
+			if (selfType != nullptr)
+			{
+				//Calling for determined type. Calculate REF_CONSTRAINT.
+				for (auto& ct : selfType->ConstraintExportList)
+				{
+					if (ct.EntryType == CONSTRAINT_EXPORT_TYPE && ct.Index == g.Types[i].Index)
+					{
+						return ConstraintType::RT(root, ct.Type);
+					}
+				}
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
+			}
+			else
+			{
+				assert(exportList != nullptr);
+				for (auto& ct : *exportList)
+				{
+					if (ct.NameIndex == g.Types[i].Index)
+					{
+						return ct.UndeterminedType;
+					}
+				}
+				ConstraintType newType = ConstraintType::UD(root);
+				exportList->push_back({ g.Types[i].Index, newType });
+				return newType;
+			}
 		}
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
@@ -1099,6 +1152,7 @@ private:
 		case REF_LISTEND:
 		case REF_ANY:
 		case REF_TRY:
+		case REF_CONSTRAINT:
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
@@ -1168,6 +1222,7 @@ private:
 			}
 			return ret;
 		}
+		case REF_CONSTRAINT:
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
@@ -1570,11 +1625,55 @@ private:
 		for (auto& tf : cache.TraitFunctions)
 		{
 			auto& overload = tf.Overloads[tf.CurrentOverload];
-			if (!CheckDeterminedTypesEqual(tf.TraitReturnType, overload.ReturnType))
+
+			//Match function types (return & parameters).
+			//Note that there might still be undetermined (because of how we resolve REF_CONSTRAINT).
+			if (!CheckTypePossiblyEqual(tf.TraitReturnType, overload.ReturnType))
 			{
 				return false;
 			}
 			assert(tf.TraitParameterTypes.size() == overload.ParameterTypes.size());
+			for (std::size_t i = 0; i < tf.TraitParameterTypes.size(); ++i)
+			{
+				if (!CheckTypePossiblyEqual(tf.TraitParameterTypes[i], overload.ParameterTypes[i]))
+				{
+					return false;
+				}
+			}
+
+			//Simplify generic arguments before checking constraints.
+			for (auto& t : overload.GenericArguments.GetAll())
+			{
+				SimplifyConstraintType(t);
+			}
+
+			//Check function template constrains.
+			ConstraintExportList exportList;
+			if (!CheckConstraintsInternal(overload.FunctionTemplateAssembly, &overload.FunctionTemplate->Generic,
+				overload.GenericArguments, *cache.Root, &exportList))
+			{
+				return false;
+			}
+
+			//Make REF_CONSTRAINT types equal to the export list we got from the constraint check.
+			for (auto& ct : overload.ExportTypes)
+			{
+				for (auto& et : exportList)
+				{
+					if (et.EntryType == CONSTRAINT_EXPORT_TYPE && et.Index == ct.NameIndex)
+					{
+						assert(ct.UndeterminedType.CType == CTT_ANY);
+						ct.UndeterminedType.DeductRT(et.Type);
+						break;
+					}
+				}
+			}
+
+			//Final check (now there should be no REF_ANY).
+			if (!CheckDeterminedTypesEqual(tf.TraitReturnType, overload.ReturnType))
+			{
+				return false;
+			}
 			for (std::size_t i = 0; i < tf.TraitParameterTypes.size(); ++i)
 			{
 				if (!CheckDeterminedTypesEqual(tf.TraitParameterTypes[i], overload.ParameterTypes[i]))

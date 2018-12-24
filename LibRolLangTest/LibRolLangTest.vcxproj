@@ -175,6 +175,7 @@
     </ClCompile>
     <ClCompile Include="SerializerTest.cpp" />
     <ClCompile Include="SubtypeTest.cpp" />
+    <ClCompile Include="TraitFunctionConstraintTest.cpp" />
     <ClCompile Include="TraitFunctionTest.cpp" />
   </ItemGroup>
   <ItemGroup>
