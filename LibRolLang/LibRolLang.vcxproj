@@ -33,6 +33,7 @@
     <ClInclude Include="LoaderObjects.h" />
     <ClInclude Include="RuntimeLoader.h" />
     <ClInclude Include="RuntimeLoaderConstraint.h" />
+    <ClInclude Include="RuntimeLoaderConstraintObjects.h" />
     <ClInclude Include="RuntimeLoaderCore.h" />
     <ClInclude Include="RuntimeLoaderData.h" />
     <ClInclude Include="RuntimeLoaderRefList.h" />
