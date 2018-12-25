@@ -32,6 +32,8 @@ private:
 	{
 		for (auto& constraint : g->Constraints)
 		{
+			auto save = root.SaveState();
+
 			auto c = CreateConstraintCache(constraint, srcAssebly, cargs, ConstraintType::Fail(&root), &root);
 			if (!CheckConstraintCached(c.get()))
 			{
@@ -100,7 +102,7 @@ private:
 				}
 			}
 
-			root.Clear();
+			root.RestoreState(save);
 		}
 		
 		return true;
@@ -260,6 +262,13 @@ private:
 		std::vector<TraitCacheFunctionInfo> TraitFunctions;
 		std::vector<ConstraintType> TraitFunctionUndetermined;
 	};
+	//TODO separate root and source to two different class
+	struct ConstraintCalculationCacheRootSave
+	{
+		std::size_t Size;
+		std::vector<ConstraintType*> BacktrackList;
+		std::vector<std::size_t> BacktrackListSize;
+	};
 	struct ConstraintCalculationCacheRoot : ConstraintUndeterminedTypeSource
 	{
 		std::size_t Size;
@@ -267,7 +276,21 @@ private:
 		std::vector<ConstraintType*> BacktrackList;
 		std::vector<std::size_t> BacktrackListSize;
 
-		void Clear()
+		ConstraintCalculationCacheRootSave SaveState()
+		{
+			auto s = Size;
+			Size = 0;
+			return { s, std::move(BacktrackList), std::move(BacktrackListSize) };
+		}
+
+		void RestoreState(ConstraintCalculationCacheRootSave& s)
+		{
+			Size = s.Size;
+			BacktrackList = std::move(s.BacktrackList);
+			BacktrackListSize = std::move(s.BacktrackListSize);
+		}
+
+		void Clear_()
 		{
 			Size = 0;
 			BacktrackList.clear();
@@ -771,6 +794,11 @@ private:
 		}
 
 		Function* ft = FindFunctionTemplate(la.Assembly, la.Id);
+		if (!ft->Generic.ParameterCount.CanMatch(funcArgs.GetSizeList()))
+		{
+			//Argument count mismatch.
+			return false;
+		}
 
 		//Construct ConstraintType for ret and params.
 		result.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
@@ -783,6 +811,7 @@ private:
 
 		result.FunctionTemplate = ft;
 		result.GenericArguments = std::move(funcArgs);
+		result.FunctionTemplateAssembly = la.Assembly;
 
 		return true;
 	}
@@ -1088,7 +1117,7 @@ private:
 					}
 				}
 				ConstraintType newType = ConstraintType::UD(root);
-				exportList->push_back({ g.Types[i].Index, newType });
+				exportList->push_back({ i, newType });
 				return newType;
 			}
 		}
@@ -1671,7 +1700,7 @@ private:
 					if (et.EntryType == CONSTRAINT_EXPORT_TYPE && et.Index == ct.NameIndex)
 					{
 						assert(ct.UndeterminedType.CType == CTT_ANY);
-						ct.UndeterminedType.DeductRT(et.Type);
+						ct.UndeterminedType.Root->Determined(ct.UndeterminedType.Undetermined, et.Type);
 						break;
 					}
 				}
