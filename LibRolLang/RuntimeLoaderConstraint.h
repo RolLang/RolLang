@@ -9,8 +9,10 @@ public:
 	bool CheckConstraintsImpl(const std::string& srcAssebly, GenericDeclaration* g,
 		const MultiList<RuntimeType*>& args, ConstraintExportList* exportList)
 	{
+		ConstraintUndeterminedTypeSource ud = {};
+		ConstraintCalculationCacheRoot root(ud);
+
 		MultiList<ConstraintType> cargs;
-		ConstraintCalculationCacheRoot root = {};
 		auto& argsSize = args.GetSizeList();
 		for (std::size_t i = 0; i < argsSize.size(); ++i)
 		{
@@ -20,92 +22,9 @@ public:
 				cargs.AppendLast(ConstraintType::RT(&root, args.Get(i, j)));
 			}
 		}
-		return CheckConstraintsInternal(srcAssebly, g, cargs, root, exportList);
-	}
 
-	//TODO Move backwards to avoid declaration
-private:
-	struct ConstraintType;
-	struct ConstraintCalculationCacheRoot;
-	bool CheckConstraintsInternal(const std::string& srcAssebly, GenericDeclaration* g,
-		MultiList<ConstraintType>& cargs, ConstraintCalculationCacheRoot& root, ConstraintExportList* exportList)
-	{
-		for (auto& constraint : g->Constraints)
-		{
-			auto save = root.SaveState();
-
-			auto c = CreateConstraintCache(constraint, srcAssebly, cargs, ConstraintType::Fail(&root), &root);
-			if (!CheckConstraintCached(c.get()))
-			{
-				return false;
-			}
-
-			auto prefix = constraint.ExportName + "/";
-
-			if (exportList != nullptr)
-			{
-				//Export types
-				for (std::size_t i = 0; i < g->Types.size(); ++i)
-				{
-					if ((g->Types[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
-					auto& name = g->NamesList[g->Types[i].Index];
-					if (name.compare(0, prefix.length(), prefix) == 0)
-					{
-						auto type = FindConstraintExportType(c.get(), name.substr(prefix.length()));
-						if (type != nullptr)
-						{
-							ConstraintExportListEntry entry;
-							entry.EntryType = CONSTRAINT_EXPORT_TYPE;
-							entry.Index = i;
-							entry.Type = type;
-							exportList->push_back(entry);
-						}
-					}
-				}
-
-				//Export functions
-				for (std::size_t i = 0; i < g->Functions.size(); ++i)
-				{
-					if ((g->Functions[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
-					auto& name = g->NamesList[g->Functions[i].Index];
-					if (name.compare(0, prefix.length(), prefix) == 0)
-					{
-						auto func = FindConstraintExportFunction(c.get(), name.substr(prefix.length()));
-						if (func != nullptr)
-						{
-							ConstraintExportListEntry entry;
-							entry.EntryType = CONSTRAINT_EXPORT_FUNCTION;
-							entry.Index = i;
-							entry.Function = func;
-							exportList->push_back(entry);
-						}
-					}
-				}
-
-				//Export field
-				for (std::size_t i = 0; i < g->Fields.size(); ++i)
-				{
-					if ((g->Fields[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
-					auto& name = g->NamesList[g->Fields[i].Index];
-					if (name.compare(0, prefix.length(), prefix) == 0)
-					{
-						auto field = FindConstraintExportField(c.get(), name.substr(prefix.length()));
-						if (field != SIZE_MAX)
-						{
-							ConstraintExportListEntry entry;
-							entry.EntryType = CONSTRAINT_EXPORT_FIELD;
-							entry.Index = i;
-							entry.Field = field;
-							exportList->push_back(entry);
-						}
-					}
-				}
-			}
-
-			root.RestoreState(save);
-		}
-		
-		return true;
+		//Not using the same root, but they share the same udList.
+		return CheckConstraintsInternal(srcAssebly, g, cargs, ud, exportList);
 	}
 
 private:
@@ -126,14 +45,6 @@ private:
 	struct ConstraintUndeterminedTypeSource
 	{
 		std::vector<ConstraintUndeterminedTypeInfo> UndeterminedTypes;
-		RuntimeType* GetDetermined(std::size_t i)
-		{
-			return UndeterminedTypes[i].Determined;
-		}
-		void Determined(std::size_t i, RuntimeType* t)
-		{
-			UndeterminedTypes[i].Determined = t;
-		}
 	};
 	struct ConstraintCalculationCacheRoot;
 	struct ConstraintType
@@ -165,8 +76,8 @@ private:
 
 		static ConstraintType UD(ConstraintCalculationCacheRoot* root)
 		{
-			auto id = root->UndeterminedTypes.size();
-			root->UndeterminedTypes.push_back({});
+			auto id = root->UndeterminedList->UndeterminedTypes.size();
+			root->UndeterminedList->UndeterminedTypes.push_back({});
 			return { root, CTT_ANY, nullptr, {}, 0, {}, {}, id };
 		}
 
@@ -251,9 +162,9 @@ private:
 		std::string SrcAssembly;
 		ConstraintType Target;
 		MultiList<ConstraintType> Arguments;
-		std::vector<std::unique_ptr<ConstraintCalculationCache>> Children;
 
 		//Following fields are only for trait constraints.
+		std::vector<std::unique_ptr<ConstraintCalculationCache>> Children;
 		bool TraitCacheCreated;
 		bool TraitMemberResolved;
 		Trait* Trait;
@@ -262,39 +173,33 @@ private:
 		std::vector<TraitCacheFunctionInfo> TraitFunctions;
 		std::vector<ConstraintType> TraitFunctionUndetermined;
 	};
-	//TODO separate root and source to two different class
-	struct ConstraintCalculationCacheRootSave
+	struct ConstraintCalculationCacheRoot
 	{
+		ConstraintUndeterminedTypeSource* UndeterminedList;
 		std::size_t Size;
 		std::vector<ConstraintType*> BacktrackList;
 		std::vector<std::size_t> BacktrackListSize;
-	};
-	struct ConstraintCalculationCacheRoot : ConstraintUndeterminedTypeSource
-	{
-		std::size_t Size;
 
-		std::vector<ConstraintType*> BacktrackList;
-		std::vector<std::size_t> BacktrackListSize;
-
-		ConstraintCalculationCacheRootSave SaveState()
+		ConstraintCalculationCacheRoot(ConstraintUndeterminedTypeSource& udList)
+			: UndeterminedList(&udList), Size(0)
 		{
-			auto s = Size;
-			Size = 0;
-			return { s, std::move(BacktrackList), std::move(BacktrackListSize) };
 		}
 
-		void RestoreState(ConstraintCalculationCacheRootSave& s)
-		{
-			Size = s.Size;
-			BacktrackList = std::move(s.BacktrackList);
-			BacktrackListSize = std::move(s.BacktrackListSize);
-		}
-
-		void Clear_()
+		void Clear()
 		{
 			Size = 0;
 			BacktrackList.clear();
 			BacktrackListSize.clear();
+		}
+
+		RuntimeType* GetDetermined(std::size_t i)
+		{
+			return UndeterminedList->UndeterminedTypes[i].Determined;
+		}
+
+		void Determined(std::size_t i, RuntimeType* t)
+		{
+			UndeterminedList->UndeterminedTypes[i].Determined = t;
 		}
 
 		bool IsUndeterminedType(ConstraintType& ct)
@@ -352,6 +257,133 @@ private:
 			return BacktrackListSize.size();
 		}
 	};
+
+private:
+	bool CheckConstraintsInternal(const std::string& srcAssebly, GenericDeclaration* g,
+		MultiList<ConstraintType>& cargs, ConstraintUndeterminedTypeSource& udList, ConstraintExportList* exportList)
+	{
+		ConstraintCalculationCacheRoot root(udList);
+		for (auto& constraint : g->Constraints)
+		{
+			auto c = CreateConstraintCache(constraint, srcAssebly, cargs, ConstraintType::Fail(&root), &root);
+			if (!CheckConstraintCached(c.get()))
+			{
+				return false;
+			}
+
+			if (exportList != nullptr)
+			{
+				CalculateExportList(c.get(), g, exportList);
+			}
+			root.Clear();
+		}
+		return true;
+	}
+
+private:
+	//TODO separate create+basic fields from load argument/target types (reduce # of args)
+	std::unique_ptr<ConstraintCalculationCache> CreateConstraintCache(GenericConstraint& constraint,
+		const std::string& srcAssebly, const MultiList<ConstraintType>& args, ConstraintType checkTarget,
+		ConstraintCalculationCacheRoot* root)
+	{
+		root->Size += 1;
+		//TODO check loading limit (low priority) (should include other roots)
+
+		auto ret = std::make_unique<ConstraintCalculationCache>();
+		ret->Root = root;
+		ret->Source = &constraint;
+		ret->SrcAssembly = srcAssebly;
+		ret->CheckArguments = args;
+		ret->CheckTarget = checkTarget;
+		ret->Target = ConstructConstraintArgumentType(*ret.get(), constraint, constraint.Target);
+
+		//TODO segment support
+		ret->Arguments.NewList();
+		for (auto a : constraint.Arguments)
+		{
+			ret->Arguments.AppendLast(ConstructConstraintArgumentType(*ret.get(), constraint, a));
+		}
+
+		if (constraint.Type == CONSTRAINT_TRAIT_ASSEMBLY ||
+			constraint.Type == CONSTRAINT_TRAIT_IMPORT)
+		{
+			InitTraitConstraintCache(*ret.get());
+		}
+		return ret;
+	}
+
+	//Check without changing function overload candidates.
+	bool CheckConstraintCachedSinglePass(ConstraintCalculationCache* cache)
+	{
+		//TODO we only need to  do it for trait
+		//One pass to create function list (will produce more REF_ANY).
+		if (TryDetermineConstraintArgument(*cache) == -1) return false;
+		while (CheckCacheContainsUndetermined(cache))
+		{
+			auto check = TryDetermineConstraintArgument(*cache);
+			if (check == 1) continue;
+			return false;
+		}
+		//All REF_ANY are resolved.
+		if (!CheckConstraintDetermined(*cache))
+		{
+			return false;
+		}
+		return true;
+	}
+
+	bool CheckConstraintCached(ConstraintCalculationCache* cache)
+	{
+		do
+		{
+			auto id = cache->Root->StartBacktrackPoint();
+			if (CheckConstraintCachedSinglePass(cache)) return true;
+			cache->Root->DoBacktrack(id);
+		} while (MoveToNextCandidates(cache));
+		return false;
+	}
+
+	bool MoveToNextCandidates(ConstraintCalculationCache* cache)
+	{
+		//First move children (they may cause parent to fail).
+		//But we don't need to create the children if they don't exist,
+		//because if so, they can't make parent to fail.
+		for (auto& t : cache->Children)
+		{
+			if (MoveToNextCandidates(t.get()))
+			{
+				return true;
+			}
+		}
+		for (std::size_t i = 0; i < cache->TraitFunctions.size(); ++i)
+		{
+			//Reverse iterate
+			auto& f = cache->TraitFunctions[cache->TraitFunctions.size() - 1 - i];
+			if (++f.CurrentOverload < f.Overloads.size())
+			{
+				return true;
+			}
+			f.CurrentOverload = 0;
+		}
+
+		//Failed (no more overloads). Note that all have been set back to 0.
+		return false;
+	}
+
+	static bool CheckCacheContainsUndetermined(ConstraintCalculationCache* cache)
+	{
+		ConstraintCalculationCacheRoot* root = cache->Root;
+		for (auto& a : cache->Arguments.GetAll())
+		{
+			if (root->IsUndeterminedType(a)) return true;
+		}
+		for (auto& a : cache->TraitFunctionUndetermined)
+		{
+			if (root->IsUndeterminedType(a)) return true;
+		}
+		if (root->IsUndeterminedType(cache->Target)) return true;
+		return false;
+	}
 
 private:
 	void InitTraitConstraintCache(ConstraintCalculationCache& cache)
@@ -915,110 +947,6 @@ private:
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
-	}
-
-	//TODO separate create+basic fields from load argument/target types (reduce # of args)
-	std::unique_ptr<ConstraintCalculationCache> CreateConstraintCache(GenericConstraint& constraint,
-		const std::string& srcAssebly, const MultiList<ConstraintType>& args, ConstraintType checkTarget,
-		ConstraintCalculationCacheRoot* root)
-	{
-		root->Size += 1;
-		//TODO check loading limit (low priority)
-
-		auto ret = std::make_unique<ConstraintCalculationCache>();
-		ret->Root = root;
-		ret->Source = &constraint;
-		ret->SrcAssembly = srcAssebly;
-		ret->CheckArguments = args;
-		ret->CheckTarget = checkTarget;
-		ret->Target = ConstructConstraintArgumentType(*ret.get(), constraint, constraint.Target);
-
-		//TODO segment support
-		ret->Arguments.NewList();
-		for (auto a : constraint.Arguments)
-		{
-			ret->Arguments.AppendLast(ConstructConstraintArgumentType(*ret.get(), constraint, a));
-		}
-
-		if (constraint.Type == CONSTRAINT_TRAIT_ASSEMBLY ||
-			constraint.Type == CONSTRAINT_TRAIT_IMPORT)
-		{
-			InitTraitConstraintCache(*ret.get());
-		}
-		return ret;
-	}
-
-	//Check without changing function overload candidates.
-	bool CheckConstraintCachedSinglePass(ConstraintCalculationCache* cache)
-	{
-		//TODO we only need to  do it for trait
-		//One pass to create function list (will produce more REF_ANY).
-		if (TryDetermineConstraintArgument(*cache) == -1) return false;
-		while (CheckCacheContainsUndetermined(cache))
-		{
-			auto check = TryDetermineConstraintArgument(*cache);
-			if (check == 1) continue;
-			return false;
-		}
-		//All REF_ANY are resolved.
-		if (!CheckConstraintDetermined(*cache))
-		{
-			return false;
-		}
-		return true;
-	}
-
-	bool CheckConstraintCached(ConstraintCalculationCache* cache)
-	{
-		do
-		{
-			auto id = cache->Root->StartBacktrackPoint();
-			if (CheckConstraintCachedSinglePass(cache)) return true;
-			cache->Root->DoBacktrack(id);
-		} while (MoveToNextCandidates(cache));
-		return false;
-	}
-
-	bool MoveToNextCandidates(ConstraintCalculationCache* cache)
-	{
-		//First move children (they may cause parent to fail).
-		//But we don't need to create the children if they don't exist,
-		//because if so, they can't make parent to fail.
-		for (auto& t : cache->Children)
-		{
-			if (MoveToNextCandidates(t.get()))
-			{
-				return true;
-			}
-		}
-		for (std::size_t i = 0; i < cache->TraitFunctions.size(); ++i)
-		{
-			//Reverse iterate
-			auto& f = cache->TraitFunctions[cache->TraitFunctions.size() - 1 - i];
-			if (++f.CurrentOverload < f.Overloads.size())
-			{
-				return true;
-			}
-			f.CurrentOverload = 0;
-		}
-
-		//Failed (no more overloads). Note that all have been set back to 0.
-		return false;
-	}
-
-	static bool CheckCacheContainsUndetermined(ConstraintCalculationCache* cache)
-	{
-		ConstraintCalculationCacheRoot* root = cache->Root;
-		for (auto& a : cache->Arguments.GetAll())
-		{
-			if (root->IsUndeterminedType(a)) return true;
-		}
-		for (auto& a : cache->TraitFunctionUndetermined)
-		{
-			if (root->IsUndeterminedType(a)) return true;
-		}
-		if (root->IsUndeterminedType(cache->Target)) return true;
-		return false;
 	}
 
 	ConstraintType ConstructConstraintRefListType(ConstraintCalculationCacheRoot* root, GenericDeclaration& g,
@@ -1687,7 +1615,7 @@ private:
 			//Check function template constrains.
 			ConstraintExportList exportList;
 			if (!CheckConstraintsInternal(overload.FunctionTemplateAssembly, &overload.FunctionTemplate->Generic,
-				overload.GenericArguments, *cache.Root, &exportList))
+				overload.GenericArguments, *cache.Root->UndeterminedList, &exportList))
 			{
 				return false;
 			}
@@ -1824,6 +1752,68 @@ private:
 			return CheckTraitDetermined(cache);
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid constraint type");
+		}
+	}
+
+	void CalculateExportList(ConstraintCalculationCache* cache, GenericDeclaration* g, ConstraintExportList* exportList)
+	{
+		auto prefix = cache->Source->ExportName + "/";
+
+		//Export types
+		for (std::size_t i = 0; i < g->Types.size(); ++i)
+		{
+			if ((g->Types[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
+			auto& name = g->NamesList[g->Types[i].Index];
+			if (name.compare(0, prefix.length(), prefix) == 0)
+			{
+				auto type = FindConstraintExportType(cache, name.substr(prefix.length()));
+				if (type != nullptr)
+				{
+					ConstraintExportListEntry entry;
+					entry.EntryType = CONSTRAINT_EXPORT_TYPE;
+					entry.Index = i;
+					entry.Type = type;
+					exportList->push_back(entry);
+				}
+			}
+		}
+
+		//Export functions
+		for (std::size_t i = 0; i < g->Functions.size(); ++i)
+		{
+			if ((g->Functions[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
+			auto& name = g->NamesList[g->Functions[i].Index];
+			if (name.compare(0, prefix.length(), prefix) == 0)
+			{
+				auto func = FindConstraintExportFunction(cache, name.substr(prefix.length()));
+				if (func != nullptr)
+				{
+					ConstraintExportListEntry entry;
+					entry.EntryType = CONSTRAINT_EXPORT_FUNCTION;
+					entry.Index = i;
+					entry.Function = func;
+					exportList->push_back(entry);
+				}
+			}
+		}
+
+		//Export field
+		for (std::size_t i = 0; i < g->Fields.size(); ++i)
+		{
+			if ((g->Fields[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
+			auto& name = g->NamesList[g->Fields[i].Index];
+			if (name.compare(0, prefix.length(), prefix) == 0)
+			{
+				auto field = FindConstraintExportField(cache, name.substr(prefix.length()));
+				if (field != SIZE_MAX)
+				{
+					ConstraintExportListEntry entry;
+					entry.EntryType = CONSTRAINT_EXPORT_FIELD;
+					entry.Index = i;
+					entry.Field = field;
+					exportList->push_back(entry);
+				}
+			}
 		}
 	}
 
