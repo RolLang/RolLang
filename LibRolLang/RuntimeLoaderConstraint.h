@@ -392,7 +392,11 @@ private:
 		}
 
 		auto target = parent.Target.DeterminedType;
-		assert(target);
+		if (target == nullptr)
+		{
+			//Trait on void type (REF_EMPTY).
+			return -1;
+		}
 
 		auto tt = FindTypeTemplate(target->Args);
 
@@ -774,7 +778,6 @@ private:
 				return ConstraintCheckType::Determined(root, selfType);
 			}
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
-			return ConstraintCheckType::Fail(root);
 		case REF_ASSEMBLY:
 		{
 			auto ret = ConstraintCheckType::Generic(root, src, g.Types[i].Index);
@@ -985,6 +988,8 @@ private:
 			}
 			return ret;
 		}
+		case REF_EMPTY:
+			return ConstraintCheckType::Empty(cache.Root);
 		case REF_CONSTRAINT:
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
@@ -1022,6 +1027,10 @@ private:
 		}
 		else if (a.CType == CTT_RT)
 		{
+			if (a.DeterminedType == nullptr)
+			{
+				return false; //empty type != any generic type.
+			}
 			auto& sa = a.DeterminedType->Args.Arguments.GetSizeList();
 			auto& sb = b.Args.GetSizeList();
 			if (a.DeterminedType->Args.Assembly != b.TypeTemplateAssembly ||
@@ -1099,6 +1108,10 @@ private:
 		}
 		else if (a.CType == CTT_RT)
 		{
+			if (a.DeterminedType == nullptr)
+			{
+				return -1;
+			}
 			auto& sa = a.DeterminedType->Args.Arguments.GetSizeList();
 			auto& sb = b.Args.GetSizeList();
 			if (a.DeterminedType->Args.Assembly != b.TypeTemplateAssembly ||
@@ -1237,7 +1250,6 @@ private:
 			}
 			return false;
 		}
-		assert(t.DeterminedType);
 		return true;
 	}
 
@@ -1250,9 +1262,9 @@ private:
 			//Elemental type. Can't simplify.
 			return;
 		case CTT_ANY:
-			if (auto rt = t.Root->GetDetermined(t.UndeterminedId))
+			if (t.Root->IsDetermined(t.UndeterminedId))
 			{
-				t.DeductRT(rt);
+				t.DeductRT(t.Root->GetDetermined(t.UndeterminedId));
 			}
 			return;
 		case CTT_GENERIC:
@@ -1556,13 +1568,13 @@ private:
 			auto& name = g->NamesList[g->Types[i].Index];
 			if (name.compare(0, prefix.length(), prefix) == 0)
 			{
-				auto type = FindConstraintExportType(cache, name.substr(prefix.length()));
-				if (type != nullptr)
+				RuntimeType* result;
+				if (FindConstraintExportType(cache, name.substr(prefix.length()), &result))
 				{
 					ConstraintExportListEntry entry;
 					entry.EntryType = CONSTRAINT_EXPORT_TYPE;
 					entry.Index = i;
-					entry.Type = type;
+					entry.Type = result;
 					exportList->push_back(entry);
 				}
 			}
@@ -1607,18 +1619,18 @@ private:
 		}
 	}
 
-	RuntimeType* FindConstraintExportType(ConstraintCalculationCache* cache, const std::string& name)
+	bool FindConstraintExportType(ConstraintCalculationCache* cache, const std::string& name, RuntimeType** result)
 	{
-		if (name.length() == 0) return nullptr;
+		if (name.length() == 0) return false;
 		auto& constraintName = cache->Source->ExportName;
 		auto slash = name.find('/');
-		if (slash == 0) return nullptr;
+		if (slash == 0) return false;
 		if (slash == std::string::npos)
 		{
 			if (name == ".target")
 			{
-				assert(cache->Target.DeterminedType);
-				return cache->Target.DeterminedType;
+				*result = cache->Target.DeterminedType;
+				return true;
 			}
 			switch (cache->Source->Type)
 			{
@@ -1631,16 +1643,13 @@ private:
 						auto ct = ConstructConstraintTraitType(*cache, e.Index);
 						SimplifyConstraintType(ct);
 						assert(ct.CType == CTT_RT);
-						if (ct.CType == CTT_RT)
-						{
-							assert(ct.DeterminedType);
-							return ct.DeterminedType;
-						}
+						*result = ct.DeterminedType;
+						return true;
 					}
 				}
-				return nullptr;
+				return false;
 			default:
-				return nullptr;
+				return false;
 			}
 		}
 		else
@@ -1657,13 +1666,13 @@ private:
 				{
 					if (constraintList[i].ExportName == childName)
 					{
-						return FindConstraintExportType(cache->Children[i].get(), name.substr(slash + 1));
+						return FindConstraintExportType(cache->Children[i].get(), name.substr(slash + 1), result);
 					}
 				}
-				return nullptr;
+				return false;
 			}
 			default:
-				return nullptr;
+				return false;
 			}
 		}
 	}

@@ -246,6 +246,11 @@ public:
 			{
 				if (e.EntryType == CONSTRAINT_EXPORT_TYPE && e.Index == typeId)
 				{
+					if (e.Type == nullptr)
+					{
+						la = LoadingArguments::Empty();
+						return true;
+					}
 					la = e.Type->Args;
 					return true;
 				}
