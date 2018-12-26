@@ -142,7 +142,6 @@ private:
 		switch (ct.CType)
 		{
 		case CTT_RT:
-		case CTT_EMPTY:
 			return false;
 		case CTT_SUBTYPE:
 			if (IsTypeUndetermined(root, ct.ParentType[0])) return true;
@@ -238,7 +237,6 @@ private:
 
 		switch (a.CType)
 		{
-		case CTT_EMPTY:
 		case CTT_FAIL:
 			//Although we don't know whether they come from the same type,
 			//since they both fail, they will lead to the same result (and
@@ -388,7 +386,7 @@ private:
 		auto trait = parent.Trait;
 
 		SimplifyConstraintType(parent.Target);
-		if (parent.Target.CType != CTT_RT && parent.Target.CType != CTT_EMPTY)
+		if (parent.Target.CType != CTT_RT)
 		{
 			return 0;
 		}
@@ -997,10 +995,6 @@ private:
 	{
 		//We only need a quick check to eliminate most overloads. Don't simplify.
 		if (a.CType == CTT_FAIL || a.CType == CTT_FAIL) return false;
-		if (a.CType == CTT_EMPTY || b.CType == CTT_EMPTY)
-		{
-			return a.CType == b.CType;
-		}
 		if (a.CType == CTT_ANY || b.CType == CTT_ANY) return true;
 		if (a.CType == CTT_SUBTYPE || b.CType == CTT_SUBTYPE) return true;
 		if (a.CType == CTT_RT && b.CType == CTT_RT)
@@ -1059,11 +1053,6 @@ private:
 
 		SimplifyConstraintType(a);
 		SimplifyConstraintType(b);
-		if (a.CType == CTT_EMPTY || b.CType == CTT_EMPTY)
-		{
-			//We don't allow CTT_ANY to be empty.
-			return 0;
-		}
 		if (a.CType == CTT_FAIL || b.CType == CTT_FAIL) return -1;
 		if (a.CType == CTT_ANY || b.CType == CTT_ANY)
 		{
@@ -1257,7 +1246,6 @@ private:
 		switch (t.CType)
 		{
 		case CTT_RT:
-		case CTT_EMPTY:
 		case CTT_FAIL:
 			//Elemental type. Can't simplify.
 			return;
@@ -1348,12 +1336,11 @@ private:
 	bool CheckSimplifiedConstraintType(ConstraintCheckType& t)
 	{
 		SimplifyConstraintType(t);
-		if (t.CType != CTT_RT && t.CType != CTT_EMPTY)
+		if (t.CType != CTT_RT)
 		{
 			assert(t.CType == CTT_FAIL);
 			return false;
 		}
-		assert(t.DeterminedType || t.CType == CTT_EMPTY);
 		return true;
 	}
 
@@ -1460,8 +1447,6 @@ private:
 	{
 		if (!CheckSimplifiedConstraintType(a)) return false;
 		if (!CheckSimplifiedConstraintType(b)) return false;
-		assert(a.DeterminedType || a.CType == CTT_EMPTY);
-		assert(b.DeterminedType || b.CType == CTT_EMPTY);
 		return a.DeterminedType == b.DeterminedType;
 	}
 
@@ -1645,7 +1630,7 @@ private:
 					{
 						auto ct = ConstructConstraintTraitType(*cache, e.Index);
 						SimplifyConstraintType(ct);
-						assert(ct.CType == CTT_RT || ct.CType == CTT_EMPTY);
+						assert(ct.CType == CTT_RT);
 						if (ct.CType == CTT_RT)
 						{
 							assert(ct.DeterminedType);

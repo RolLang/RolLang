@@ -10,7 +10,6 @@ enum ConstraintCheckTypeType
 	CTT_GENERIC,
 	CTT_SUBTYPE,
 	CTT_RT,
-	CTT_EMPTY,
 };
 
 struct ConstraintUndeterminedTypeInfo
@@ -149,7 +148,7 @@ public:
 
 	static ConstraintCheckType Empty(ConstraintCalculationCacheRoot* root)
 	{
-		return { root, CTT_EMPTY };
+		return Determined(root, nullptr);
 	}
 
 	void DeductFail()
