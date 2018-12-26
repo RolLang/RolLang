@@ -1303,6 +1303,11 @@ private:
 				return;
 			}
 			lg = { t.ParentType[0].DeterminedType, t.SubtypeName };
+			if (lg.Parent == nullptr)
+			{
+				t.DeductFail();
+				return;
+			}
 			bool breakFlag = false;
 			t.Args.CopyList(lg.Arguments, [&breakFlag, &t, this](ConstraintCheckType& arg)
 			{

@@ -312,6 +312,24 @@ namespace LibRolLangTest
 			}
 		}
 
+		TEST_METHOD(SubtypeParent)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				b.BeginType(TSM_VALUE, "Core.TestType");
+				b.Link(true, false);
+				auto type = b.MakeSubtype({}, "Type", {});
+				b.AddConstraint(b.TryType(type), {}, CONSTRAINT_EXIST, 0);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType", ERR_L_GENERIC);
+			}
+		}
+
 		TEST_METHOD(BuiltinConstraint)
 		{
 			Builder b;
