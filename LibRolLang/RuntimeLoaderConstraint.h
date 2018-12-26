@@ -381,6 +381,7 @@ private:
 	//ret 1: all members successfully resolved. 0: cannot resolve (not determined). -1: constraint fails
 	int TryCalculateTraitSubMember(ConstraintCalculationCache& parent)
 	{
+		EnsureSubConstraintCached(parent);
 		assert(parent.TraitCacheCreated);
 
 		if (parent.TraitMemberResolved) return 1;
@@ -1152,7 +1153,6 @@ private:
 		case CONSTRAINT_TRAIT_ASSEMBLY:
 		case CONSTRAINT_TRAIT_IMPORT:
 		{
-			EnsureSubConstraintCached(cache);
 			if (!cache.TraitMemberResolved)
 			{
 				return TryCalculateTraitSubMember(cache);
@@ -1367,21 +1367,10 @@ private:
 			return false;
 		}
 
-		//Sub-constraints in trait
-		for (auto& subconstraint : cache.Children)
-		{
-			//Not guaranteed to be determined, and we also need to calculate exports,
-			//so use CheckConstraintCached.
-			if (!CheckConstraintCached(subconstraint.get()))
-			{
-				return false;
-			}
-		}
-
 		auto target = cache.Target.DeterminedType;
 		assert(target);
 
-		//Field
+		//Fields
 		for (auto& tf : cache.TraitFields)
 		{
 			if (!CheckDeterminedTypesEqual(tf.Type, tf.TypeInTarget))
@@ -1390,6 +1379,7 @@ private:
 			}
 		}
 
+		//Functions
 		for (auto& tf : cache.TraitFunctions)
 		{
 			auto& overload = tf.Overloads[tf.CurrentOverload];
@@ -1416,6 +1406,7 @@ private:
 			}
 
 			//Check function template constrains.
+			//TODO detect circular calculation
 			ConstraintExportList exportList;
 			if (!CheckConstraintsInternal(overload.FunctionTemplateAssembly, &overload.FunctionTemplate->Generic,
 				overload.GenericArguments, *cache.Root->UndeterminedList, &exportList))
@@ -1448,6 +1439,17 @@ private:
 				{
 					return false;
 				}
+			}
+		}
+
+		//Sub-constraints in trait
+		for (auto& subconstraint : cache.Children)
+		{
+			//Not guaranteed to be determined, and we also need to calculate exports,
+			//so use CheckConstraintCached.
+			if (!CheckConstraintCached(subconstraint.get()))
+			{
+				return false;
 			}
 		}
 
@@ -1784,7 +1786,9 @@ private:
 	}
 };
 
-}
+} }
+
+namespace RolLang {
 
 using ConstraintObjects::RuntimeLoaderConstraint;
 
