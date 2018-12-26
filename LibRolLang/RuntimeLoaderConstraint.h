@@ -1464,6 +1464,7 @@ private:
 
 	bool CheckLoadingTypeBase(RuntimeType* typeChecked, RuntimeType* typeBase)
 	{
+		if (typeChecked == nullptr || typeBase == nullptr) return false;
 		if (typeChecked == typeBase) return true;
 
 		//Loaded
@@ -1481,6 +1482,7 @@ private:
 
 	bool CheckLoadingTypeInterface(RuntimeType* typeChecked, RuntimeType* typeBase)
 	{
+		if (typeChecked == nullptr || typeBase == nullptr) return false;
 		if (typeChecked == typeBase) return true;
 
 		//Loaded

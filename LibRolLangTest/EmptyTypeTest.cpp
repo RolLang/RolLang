@@ -257,9 +257,104 @@ namespace LibRolLangTest
 			}
 		}
 
-		//TODO subtype (loader API, to function ret, to type)
-		//TODO trait argument
-		//TODO trait target (equal, exist)
-		//TODO argument passing
+		TEST_METHOD(EmptySubtype)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto vt = b.BeginType(TSM_VALUE, "Core.ValueType");
+				b.EndType();
+
+				auto tf1 = b.BeginFunction("Core.TargetFunction");
+				b.Signature({}, {});
+				b.EndFunction();
+				auto tf2 = b.BeginFunction("Core.TargetFunction");
+				b.Signature(vt, {});
+				b.EndFunction();
+
+				auto tt1 = b.BeginType(TSM_VALUE, "Core.TargetType1");
+				b.AddSubType("RetType", {});
+				b.AddMemberFunction("Func", tf1);
+				b.EndType();
+				auto tt2 = b.BeginType(TSM_VALUE, "Core.TargetType2");
+				b.AddSubType("RetType", vt);
+				b.AddMemberFunction("Func", tf2);
+				b.EndType();
+				auto tt3 = b.BeginType(TSM_VALUE, "Core.TargetType3");
+				b.AddSubType("RetType", vt);
+				b.AddMemberFunction("Func", tf1);
+				b.EndType();
+				
+				auto tr = b.BeginTrait("Core.Trait");
+				auto trret = b.MakeSubtype(b.SelfType(), "RetType", {});
+				b.AddTraitFunction(trret, {}, "Func", "Func");
+				b.EndTrait();
+
+				b.BeginType(TSM_VALUE, "Core.TestType1");
+				b.Link(true, false);
+				b.AddConstraint(tt1, {}, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType2");
+				b.Link(true, false);
+				b.AddConstraint(tt2, {}, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType3");
+				b.Link(true, false);
+				b.AddConstraint(tt3, {}, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType3", ERR_L_GENERIC);
+			}
+		}
+
+		TEST_METHOD(BuiltinConstraint)
+		{
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto vt = b.BeginType(TSM_VALUE, "Core.ValueType");
+				b.EndType();
+
+				b.BeginType(TSM_VALUE, "Core.TestType1");
+				b.Link(true, false);
+				b.AddConstraint({}, { {} }, CONSTRAINT_SAME, 0);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType2");
+				b.Link(true, false);
+				b.AddConstraint({}, {}, CONSTRAINT_EXIST, 0);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType3");
+				b.Link(true, false);
+				b.AddConstraint({}, { vt }, CONSTRAINT_BASE, 0);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType4");
+				b.Link(true, false);
+				b.AddConstraint(vt, { {} }, CONSTRAINT_BASE, 0);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType5");
+				b.Link(true, false);
+				b.AddConstraint({}, { vt }, CONSTRAINT_INTERFACE, 0);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType6");
+				b.Link(true, false);
+				b.AddConstraint(vt, { {} }, CONSTRAINT_INTERFACE, 0);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType3", ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType4", ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType5", ERR_L_GENERIC);
+				LoadType(&l, "Core", "Core.TestType6", ERR_L_GENERIC);
+			}
+		}
 	};
 }
