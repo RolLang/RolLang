@@ -220,6 +220,11 @@ struct TraitFunctionType
 {
 	ConstraintCheckType ReturnType;
 	std::vector<ConstraintCheckType> ParameterTypes;
+
+	std::vector<ConstraintType> ConstraintTypeList;
+	std::vector<Trait*> ConstraintTraitList;
+	std::vector<std::size_t> EqualTypeNumberList;
+
 	std::vector<ConstraintCheckType> ConstraintEqualTypes;
 };
 
@@ -232,6 +237,7 @@ struct TraitCacheFunctionOverloadInfo
 	TraitFunctionType Type;
 	std::vector<TraitCacheFunctionConstrainExportInfo> ExportTypes;
 };
+
 struct TraitCacheFunctionInfo
 {
 	std::vector<TraitCacheFunctionOverloadInfo> Overloads;

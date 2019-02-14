@@ -185,40 +185,40 @@ private:
 	}
 
 private:
-	void InitTraitConstraintCache(ConstraintCalculationCache& cache)
+	void FindTraitFromConstraint(GenericConstraint& c, std::string& srcAssembly,
+		Trait*& traitPtr, std::string& traitAssembly)
 	{
-		switch (cache.Source->Type)
+		if (c.Type == CONSTRAINT_TRAIT_ASSEMBLY)
 		{
-		case CONSTRAINT_TRAIT_ASSEMBLY:
-		{
-			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
-			if (cache.Source->Index >= assembly->Traits.size())
+			auto assembly = FindAssemblyThrow(srcAssembly);
+			if (c.Index >= assembly->Traits.size())
 			{
 				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid trait reference");
 			}
-			cache.Trait = &assembly->Traits[cache.Source->Index];
-			cache.TraitAssembly = cache.SrcAssembly;
-			break;
+			traitPtr = &assembly->Traits[c.Index];
+			traitAssembly = srcAssembly;
 		}
-		case CONSTRAINT_TRAIT_IMPORT:
+		else
 		{
-			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
+			assert(c.Type == CONSTRAINT_TRAIT_IMPORT);
+			auto assembly = FindAssemblyThrow(srcAssembly);
 			LoadingArguments la;
-			if (cache.Source->Index >= assembly->ImportTraits.size())
+			if (c.Index >= assembly->ImportTraits.size())
 			{
 				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid trait reference");
 			}
-			if (!FindExportTrait(assembly->ImportTraits[cache.Source->Index], la))
+			if (!FindExportTrait(assembly->ImportTraits[c.Index], la))
 			{
 				throw RuntimeLoaderException(ERR_L_LINK, "Invalid trait reference");
 			}
-			cache.Trait = &FindAssemblyThrow(la.Assembly)->Traits[la.Id];
-			cache.TraitAssembly = la.Assembly;
-			break;
+			traitPtr = &FindAssemblyThrow(la.Assembly)->Traits[la.Id];
+			traitAssembly = la.Assembly;
 		}
-		default:
-			assert(0);
-		}
+	}
+
+	void InitTraitConstraintCache(ConstraintCalculationCache& cache)
+	{
+		FindTraitFromConstraint(*cache.Source, cache.SrcAssembly, cache.Trait, cache.TraitAssembly);
 
 		//We don't create cache here (higher chance to fail elsewhere).
 		cache.TraitCacheCreated = false;
@@ -548,8 +548,13 @@ private:
 			if (!CheckTypePossiblyEqual(gf.Type.ParameterTypes[j], fi.Type.ParameterTypes[j])) return false;
 		}
 
-		//TODO check constraints
-		assert(gf.Type.ConstraintEqualTypes.size() == 0);
+		if (gf.Type.ConstraintTypeList != fi.Type.ConstraintTypeList ||
+			gf.Type.ConstraintTraitList != fi.Type.ConstraintTraitList ||
+			gf.Type.EqualTypeNumberList != fi.Type.EqualTypeNumberList)
+		{
+			return false;
+		}
+
 		if (gf.Type.ConstraintEqualTypes.size() != fi.Type.ConstraintEqualTypes.size()) return false;
 		for (std::size_t j = 0; j < gf.Type.ConstraintEqualTypes.size(); ++j)
 		{
@@ -772,10 +777,32 @@ private:
 				la.Assembly, parameter.TypeId, funcArgs, nullptr, nullptr));
 		}
 
-		if (ft->Generic.Constraints.size() != 0)
+		for (auto& c : ft->Generic.Constraints)
 		{
-			//TODO should support constraint matching (add target & args to result.TraitConstraintEqualTypes)
-			throw RuntimeLoaderException(ERR_L_PROGRAM, "Generic function matching with constraint not supported");
+			type.ConstraintTypeList.push_back(c.Type);
+			type.EqualTypeNumberList.push_back(c.Arguments.size() + 1); //TODO support variable size
+			if (c.Type == CONSTRAINT_TRAIT_ASSEMBLY ||
+				c.Type == CONSTRAINT_TRAIT_IMPORT)
+			{
+				Trait* t;
+				std::string ta;
+				FindTraitFromConstraint(c, la.Assembly, t, ta);
+				type.ConstraintTraitList.push_back(t);
+			}
+			
+			//To use ConstructConstraintRefListType, we create a fake GenericDecl.
+			//TODO use another struct to represent type list in GenericDecl
+			GenericDeclaration g;
+			g.NamesList = c.NamesList;
+			g.Types = c.TypeReferences;
+
+			type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, g,
+				la.Assembly, c.Target, funcArgs, nullptr, nullptr));
+			for (std::size_t i = 0; i < c.Arguments.size(); ++i)
+			{
+				type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, g,
+					la.Assembly, c.Arguments[i], funcArgs, nullptr, nullptr));
+			}
 		}
 
 		additionalNumber = std::move(additional);
