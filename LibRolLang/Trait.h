@@ -31,23 +31,34 @@ FIELD_SERIALIZER_BEGIN(TraitFunction)
 	SERIALIZE_FIELD(ExportName)
 FIELD_SERIALIZER_END()
 
-//TODO Avoid use of this struct. Use individual type for each field.
-struct TraitExportItem
+struct TraitGenericFunction
 {
-	std::string ExportName;
+	std::string ElementName;
 	std::size_t Index;
+	std::string ExportName;
 };
-FIELD_SERIALIZER_BEGIN(TraitExportItem)
-	SERIALIZE_FIELD(ExportName)
+FIELD_SERIALIZER_BEGIN(TraitGenericFunction)
+	SERIALIZE_FIELD(ElementName)
 	SERIALIZE_FIELD(Index)
+	SERIALIZE_FIELD(ExportName)
+FIELD_SERIALIZER_END()
+
+struct TraitReferencedType
+{
+	std::size_t Index;
+	std::string ExportName;
+};
+FIELD_SERIALIZER_BEGIN(TraitReferencedType)
+	SERIALIZE_FIELD(Index)
+	SERIALIZE_FIELD(ExportName)
 FIELD_SERIALIZER_END()
 
 struct Trait
 {
 	GenericDeclaration Generic;
-	std::vector<TraitExportItem> Types;
+	std::vector<TraitReferencedType> Types;
 	std::vector<TraitFunction> Functions;
-	std::vector<TraitExportItem> GenericFunctions;
+	std::vector<TraitGenericFunction> GenericFunctions;
 	std::vector<TraitField> Fields;
 };
 FIELD_SERIALIZER_BEGIN(Trait)

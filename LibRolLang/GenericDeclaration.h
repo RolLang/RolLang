@@ -32,6 +32,7 @@ enum ReferenceType_ : unsigned char
 	REF_TRY, //same as CLONE except for that it allow the refered calculation to fail (not an error)
 	REF_ANY, //undetermined generic type in trait constraints (can only be used as argument)
 
+	REF_DEBUGNAME_SIZE, //only to check debugNames array
 	REF_REFTYPES = 127,
 	REF_FORCELOAD = 128,
 };
@@ -53,6 +54,9 @@ struct ReferenceType
 			"FIELDID",
 			"TRY", "ANY",
 		};
+		static_assert(sizeof(debugNames) / sizeof(const char*) == REF_DEBUGNAME_SIZE,
+			"Incorrect debugNames array size");
+
 		DebugString = debugNames[type & REF_REFTYPES];
 		if (type & REF_FORCELOAD)
 		{

@@ -216,25 +216,27 @@ struct TraitCacheFunctionConstrainExportInfo
 	ConstraintCheckType UndeterminedType;
 };
 
+struct TraitFunctionType
+{
+	ConstraintCheckType ReturnType;
+	std::vector<ConstraintCheckType> ParameterTypes;
+	std::vector<ConstraintCheckType> ConstraintEqualTypes;
+};
+
 struct TraitCacheFunctionOverloadInfo
 {
 	std::size_t Index;
 	std::string FunctionTemplateAssembly;
 	Function* FunctionTemplate;
 	MultiList<ConstraintCheckType> GenericArguments;
-	ConstraintCheckType ReturnType;
-	std::vector<ConstraintCheckType> ParameterTypes;
-	std::vector<ConstraintCheckType> ConstraintEqualTypes;
+	TraitFunctionType Type;
 	std::vector<TraitCacheFunctionConstrainExportInfo> ExportTypes;
 };
 struct TraitCacheFunctionInfo
 {
 	std::vector<TraitCacheFunctionOverloadInfo> Overloads;
 	std::size_t CurrentOverload;
-	ConstraintCheckType TraitReturnType;
-	std::vector<ConstraintCheckType> TraitParameterTypes;
-
-	std::vector<ConstraintCheckType> TraitConstraintEqualTypes;
+	TraitFunctionType Type;
 	std::vector<std::size_t> AdditionalGenericNumber;
 };
 

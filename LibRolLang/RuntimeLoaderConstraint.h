@@ -370,10 +370,10 @@ private:
 		for (auto& func : trait->Functions)
 		{
 			TraitCacheFunctionInfo func_info = {};
-			func_info.TraitReturnType = ConstructConstraintTraitType(parent, func.ReturnType);
+			func_info.Type.ReturnType = ConstructConstraintTraitType(parent, func.ReturnType);
 			for (auto p : func.ParameterTypes)
 			{
-				func_info.TraitParameterTypes.push_back(ConstructConstraintTraitType(parent, p));
+				func_info.Type.ParameterTypes.push_back(ConstructConstraintTraitType(parent, p));
 			}
 			parent.TraitFunctions.emplace_back(std::move(func_info));
 		}
@@ -478,7 +478,29 @@ private:
 			}
 		}
 
-		//TODO generic functions
+		for (std::size_t i = 0; i < trait->GenericFunctions.size(); ++i)
+		{
+			//Virtual function lists can have generic functions
+			for (auto func : tt->PublicFunctions)
+			{
+				if (func.Name != trait->GenericFunctions[i].ElementName) continue;
+				TraitCacheFunctionOverloadInfo fi = {};
+				fi.Index = func.Id;
+				//TODO load and check
+				//plan:
+				//1. modify TraitCacheFunctionInfo and TraitCacheFunctionOverloadInfo to share ret/arg/constraint types
+				//2. modify LoadTraitGenericFunctionInfo
+				//2.1. add g as parameter (can be from trait or type)
+				//2.2. write to the shared struct of TraitCacheFunctionInfo and TraitCacheFunctionOverloadInfo
+				//3. use that function to create
+				//4. check
+				parent.TraitGenericFunctions[i].Overloads.emplace_back(std::move(fi));
+			}
+			if (parent.TraitGenericFunctions[i].Overloads.size() == 0)
+			{
+				return -1;
+			}
+		}
 
 		parent.TraitMemberResolved = true;
 		return 1;
@@ -495,18 +517,18 @@ private:
 			return false;
 		}
 		//TODO handle parameter pack
-		if (fi.ParameterTypes.size() != f.ParameterTypes.size())
+		if (fi.Type.ParameterTypes.size() != f.ParameterTypes.size())
 		{
 			return false;
 		}
-		if (!CheckTypePossiblyEqual(fi.ReturnType, parent.TraitFunctions[i].TraitReturnType))
+		if (!CheckTypePossiblyEqual(fi.Type.ReturnType, parent.TraitFunctions[i].Type.ReturnType))
 		{
 			return false;
 		}
-		for (std::size_t k = 0; k < fi.ParameterTypes.size(); ++k)
+		for (std::size_t k = 0; k < fi.Type.ParameterTypes.size(); ++k)
 		{
-			if (!CheckTypePossiblyEqual(fi.ParameterTypes[k],
-				parent.TraitFunctions[i].TraitParameterTypes[k]))
+			if (!CheckTypePossiblyEqual(fi.Type.ParameterTypes[k],
+				parent.TraitFunctions[i].Type.ParameterTypes[k]))
 			{
 				return false;
 			}
@@ -616,11 +638,11 @@ private:
 		}
 
 		//Construct ConstraintCheckType for ret and params.
-		result.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
+		result.Type.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
 			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, &result.ExportTypes);
 		for (auto& parameter : ft->Parameters)
 		{
-			result.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
+			result.Type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
 				la.Assembly, parameter.TypeId, funcArgs, nullptr, &result.ExportTypes));
 		}
 
@@ -720,11 +742,11 @@ private:
 			//Argument count mismatch.
 			throw RuntimeLoaderException(ERR_L_GENERIC, "Generic argument number mismatches");
 		}
-		result.TraitReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
+		result.Type.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
 			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, nullptr);
 		for (auto& parameter : ft->Parameters)
 		{
-			result.TraitParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
+			result.Type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
 				la.Assembly, parameter.TypeId, funcArgs, nullptr, nullptr));
 		}
 
@@ -1336,13 +1358,13 @@ private:
 		TraitCacheFunctionOverloadInfo& overload = f.Overloads[id];
 		int ret = 0;
 		
-		ret = TryDetermineEqualTypes(f.TraitReturnType, overload.ReturnType);
+		ret = TryDetermineEqualTypes(f.Type.ReturnType, overload.Type.ReturnType);
 		if (ret != 0) return ret;
 
-		assert(f.TraitParameterTypes.size() == overload.ParameterTypes.size());
-		for (std::size_t i = 0; i < f.TraitParameterTypes.size(); ++i)
+		assert(f.Type.ParameterTypes.size() == overload.Type.ParameterTypes.size());
+		for (std::size_t i = 0; i < f.Type.ParameterTypes.size(); ++i)
 		{
-			ret = TryDetermineEqualTypes(f.TraitParameterTypes[i], overload.ParameterTypes[i]);
+			ret = TryDetermineEqualTypes(f.Type.ParameterTypes[i], overload.Type.ParameterTypes[i]);
 			if (ret != 0) return ret;
 		}
 
@@ -1505,14 +1527,14 @@ private:
 
 			//Match function types (return & parameters).
 			//Note that there might still be undetermined (because of how we resolve REF_CONSTRAINT).
-			if (!CheckTypePossiblyEqual(tf.TraitReturnType, overload.ReturnType))
+			if (!CheckTypePossiblyEqual(tf.Type.ReturnType, overload.Type.ReturnType))
 			{
 				return false;
 			}
-			assert(tf.TraitParameterTypes.size() == overload.ParameterTypes.size());
-			for (std::size_t i = 0; i < tf.TraitParameterTypes.size(); ++i)
+			assert(tf.Type.ParameterTypes.size() == overload.Type.ParameterTypes.size());
+			for (std::size_t i = 0; i < tf.Type.ParameterTypes.size(); ++i)
 			{
-				if (!CheckTypePossiblyEqual(tf.TraitParameterTypes[i], overload.ParameterTypes[i]))
+				if (!CheckTypePossiblyEqual(tf.Type.ParameterTypes[i], overload.Type.ParameterTypes[i]))
 				{
 					return false;
 				}
@@ -1548,13 +1570,13 @@ private:
 			}
 
 			//Final check (now there should be no REF_ANY).
-			if (!CheckDeterminedTypesEqual(tf.TraitReturnType, overload.ReturnType))
+			if (!CheckDeterminedTypesEqual(tf.Type.ReturnType, overload.Type.ReturnType))
 			{
 				return false;
 			}
-			for (std::size_t i = 0; i < tf.TraitParameterTypes.size(); ++i)
+			for (std::size_t i = 0; i < tf.Type.ParameterTypes.size(); ++i)
 			{
-				if (!CheckDeterminedTypesEqual(tf.TraitParameterTypes[i], overload.ParameterTypes[i]))
+				if (!CheckDeterminedTypesEqual(tf.Type.ParameterTypes[i], overload.Type.ParameterTypes[i]))
 				{
 					return false;
 				}

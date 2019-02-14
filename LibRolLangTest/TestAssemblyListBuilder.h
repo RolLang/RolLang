@@ -482,7 +482,7 @@ namespace
 		void AddTraitType(const TypeReference& type, const std::string& export_name)
 		{
 			auto id = WriteTypeRef(_assembly.Traits[_currentTrait].Generic, type);
-			_assembly.Traits[_currentTrait].Types.push_back({ export_name, id });
+			_assembly.Traits[_currentTrait].Types.push_back({ id, export_name });
 		}
 
 		void AddTraitField(const TypeReference& type, const std::string& name, const std::string& export_name)
