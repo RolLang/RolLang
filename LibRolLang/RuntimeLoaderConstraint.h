@@ -382,7 +382,7 @@ private:
 		for (auto& func : trait->GenericFunctions)
 		{
 			TraitCacheFunctionInfo func_info = {};
-			LoadTraitGenericFunctionInfo(parent, func.Index, func_info);
+			LoadTraitGenericFunctionInfo(parent, trait->Generic, func.Index, func_info.Type, func_info.AdditionalGenericNumber);
 			parent.TraitGenericFunctions.emplace_back(std::move(func_info));
 		}
 
@@ -486,14 +486,10 @@ private:
 				if (func.Name != trait->GenericFunctions[i].ElementName) continue;
 				TraitCacheFunctionOverloadInfo fi = {};
 				fi.Index = func.Id;
-				//TODO load and check
-				//plan:
-				//1. modify TraitCacheFunctionInfo and TraitCacheFunctionOverloadInfo to share ret/arg/constraint types
-				//2. modify LoadTraitGenericFunctionInfo
-				//2.1. add g as parameter (can be from trait or type)
-				//2.2. write to the shared struct of TraitCacheFunctionInfo and TraitCacheFunctionOverloadInfo
-				//3. use that function to create
-				//4. check
+				if (!CheckTraitTargetGenericFunctionOverload(parent, i, tt, fi))
+				{
+					continue;
+				}
 				parent.TraitGenericFunctions[i].Overloads.emplace_back(std::move(fi));
 			}
 			if (parent.TraitGenericFunctions[i].Overloads.size() == 0)
@@ -533,6 +529,33 @@ private:
 				return false;
 			}
 		}
+		return true;
+	}
+
+	bool CheckTraitTargetGenericFunctionOverload(ConstraintCalculationCache& parent, std::size_t i, Type* tt,
+		TraitCacheFunctionOverloadInfo& fi)
+	{
+		auto& gf = parent.TraitGenericFunctions[i];
+		std::vector<std::size_t> additional;
+		LoadTraitGenericFunctionInfo(parent, tt->Generic, fi.Index, fi.Type, additional);
+
+		if (additional != gf.AdditionalGenericNumber) return false;
+		if (!CheckTypePossiblyEqual(gf.Type.ReturnType, fi.Type.ReturnType)) return false;
+
+		if (gf.Type.ParameterTypes.size() != fi.Type.ParameterTypes.size()) return false;
+		for (std::size_t j = 0; j < gf.Type.ParameterTypes.size(); ++j)
+		{
+			if (!CheckTypePossiblyEqual(gf.Type.ParameterTypes[j], fi.Type.ParameterTypes[j])) return false;
+		}
+
+		//TODO check constraints
+		assert(gf.Type.ConstraintEqualTypes.size() == 0);
+		if (gf.Type.ConstraintEqualTypes.size() != fi.Type.ConstraintEqualTypes.size()) return false;
+		for (std::size_t j = 0; j < gf.Type.ConstraintEqualTypes.size(); ++j)
+		{
+			if (!CheckTypePossiblyEqual(gf.Type.ConstraintEqualTypes[j], fi.Type.ConstraintEqualTypes[j])) return false;
+		}
+
 		return true;
 	}
 
@@ -653,11 +676,10 @@ private:
 		return true;
 	}
 
-	void LoadTraitGenericFunctionInfo(ConstraintCalculationCache& parent, std::size_t id,
-		TraitCacheFunctionInfo& result)
+	//TODO additionalNumber support variable size
+	void LoadTraitGenericFunctionInfo(ConstraintCalculationCache& parent, GenericDeclaration& g, std::size_t id,
+		TraitFunctionType& type, std::vector<std::size_t>& additionalNumber)
 	{
-		auto trait = parent.Trait;
-		auto& g = trait->Generic;
 		if (id >= g.Functions.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
@@ -742,11 +764,11 @@ private:
 			//Argument count mismatch.
 			throw RuntimeLoaderException(ERR_L_GENERIC, "Generic argument number mismatches");
 		}
-		result.Type.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
+		type.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
 			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, nullptr);
 		for (auto& parameter : ft->Parameters)
 		{
-			result.Type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
+			type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
 				la.Assembly, parameter.TypeId, funcArgs, nullptr, nullptr));
 		}
 
@@ -756,7 +778,7 @@ private:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Generic function matching with constraint not supported");
 		}
 
-		result.AdditionalGenericNumber = std::move(additional);
+		additionalNumber = std::move(additional);
 	}
 
 	//Scan the function reference. Make sure it's valid. Return the total number of args needed.
@@ -1321,12 +1343,10 @@ private:
 			//First check functions with only one candidate.
 			for (auto& f : cache.TraitFunctions)
 			{
-				if (f.Overloads.size() == 0)
-				{
-					return -1;
-				}
+				assert(f.Overloads.size() != 0);
 				if (f.Overloads.size() == 1)
 				{
+					assert(f.CurrentOverload == 0);
 					auto ret = TryDetermineEqualFunctions(f, 0);
 					if (ret != 0) return ret;
 				}
@@ -1343,7 +1363,12 @@ private:
 				if (ret != 0) return ret;
 			}
 
-			//TODO also need to process GenericFunctions.
+			//Generic functions (in one pass)
+			for (auto& f : cache.TraitGenericFunctions)
+			{
+				auto ret = TryDetermineEqualFunctions(f, f.CurrentOverload);
+				if (ret != 0) return ret;
+			}
 
 			return 0;
 		}
@@ -1365,6 +1390,13 @@ private:
 		for (std::size_t i = 0; i < f.Type.ParameterTypes.size(); ++i)
 		{
 			ret = TryDetermineEqualTypes(f.Type.ParameterTypes[i], overload.Type.ParameterTypes[i]);
+			if (ret != 0) return ret;
+		}
+
+		assert(f.Type.ConstraintEqualTypes.size() == overload.Type.ConstraintEqualTypes.size());
+		for (std::size_t i = 0; i < f.Type.ConstraintEqualTypes.size(); ++i)
+		{
+			ret = TryDetermineEqualTypes(f.Type.ConstraintEqualTypes[i], overload.Type.ConstraintEqualTypes[i]);
 			if (ret != 0) return ret;
 		}
 
@@ -1577,6 +1609,33 @@ private:
 			for (std::size_t i = 0; i < tf.Type.ParameterTypes.size(); ++i)
 			{
 				if (!CheckDeterminedTypesEqual(tf.Type.ParameterTypes[i], overload.Type.ParameterTypes[i]))
+				{
+					return false;
+				}
+			}
+		}
+
+		//Generic functions
+		for (auto& tf : cache.TraitGenericFunctions)
+		{
+			auto& overload = tf.Overloads[tf.CurrentOverload];
+
+			if (!CheckDeterminedTypesEqual(tf.Type.ReturnType, overload.Type.ReturnType))
+			{
+				return false;
+			}
+			assert(tf.Type.ParameterTypes.size() == overload.Type.ParameterTypes.size());
+			for (std::size_t i = 0; i < tf.Type.ParameterTypes.size(); ++i)
+			{
+				if (!CheckDeterminedTypesEqual(tf.Type.ParameterTypes[i], overload.Type.ParameterTypes[i]))
+				{
+					return false;
+				}
+			}
+			assert(tf.Type.ConstraintEqualTypes.size() == overload.Type.ConstraintEqualTypes.size());
+			for (std::size_t i = 0; i < tf.Type.ConstraintEqualTypes.size(); ++i)
+			{
+				if (!CheckDeterminedTypesEqual(tf.Type.ConstraintEqualTypes[i], overload.Type.ConstraintEqualTypes[i]))
 				{
 					return false;
 				}
