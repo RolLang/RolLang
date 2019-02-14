@@ -137,6 +137,17 @@ public:
 		}
 		return *ret;
 	}
+	static const void GetRefArgument(const std::vector<DeclarationReference>& list, std::size_t head,
+		std::size_t& ret_segment, std::size_t& ret_index)
+	{
+		assert((list[head].Type & REF_REFTYPES) == REF_ARGUMENT);
+		if (head + 1 >= list.size() || list[head + 1].Type != REF_ARGUMENTSEG)
+		{
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
+		}
+		ret_segment = list[head + 1].Index;
+		ret_index = list[head].Index;
+	}
 
 public:
 	bool FindRefTypeImpl(const LoadingRefArguments& lg, std::size_t typeId, LoadingArguments& la)

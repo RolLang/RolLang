@@ -10,6 +10,7 @@ enum ConstraintCheckTypeType
 	CTT_GENERIC,
 	CTT_SUBTYPE,
 	CTT_RT,
+	CTT_PARAMETER, //Used only for generic function matching
 };
 
 struct ConstraintUndeterminedTypeInfo
@@ -87,6 +88,7 @@ struct ConstraintCheckType
 	std::size_t UndeterminedId;
 	bool TryArgumentConstraint;
 	std::vector<ConstraintCheckType> ParentType; //TODO any better idea?
+	std::size_t ParameterSegment, ParameterIndex;
 
 	//Following 2 fields are related to backtracking.
 	ConstraintCheckTypeType OType;
@@ -139,6 +141,15 @@ public:
 		return ret;
 	}
 
+	static ConstraintCheckType Parameter(ConstraintCalculationCacheRoot* root, std::size_t s, std::size_t i, std::string name = "")
+	{
+		ConstraintCheckType ret(root, CTT_PARAMETER);
+		ret.ParameterSegment = s;
+		ret.ParameterIndex = i;
+		ret.SubtypeName = name;
+		return ret;
+	}
+
 	static ConstraintCheckType Try(ConstraintCheckType&& t)
 	{
 		auto ret = ConstraintCheckType(std::move(t));
@@ -153,6 +164,7 @@ public:
 
 	void DeductFail()
 	{
+		//TODO check the CTT allows to deduct
 		assert(CLevel == 0);
 		OType = CType;
 		CLevel = Root->GetCurrentLevel();
@@ -162,6 +174,7 @@ public:
 
 	void DeductRT(RuntimeType* rt)
 	{
+		//TODO check the CTT allows to deduct
 		assert(CLevel == 0);
 		OType = CType;
 		CLevel = Root->GetCurrentLevel();
@@ -211,6 +224,7 @@ struct TraitCacheFunctionOverloadInfo
 	MultiList<ConstraintCheckType> GenericArguments;
 	ConstraintCheckType ReturnType;
 	std::vector<ConstraintCheckType> ParameterTypes;
+	std::vector<ConstraintCheckType> ConstraintEqualTypes;
 	std::vector<TraitCacheFunctionConstrainExportInfo> ExportTypes;
 };
 struct TraitCacheFunctionInfo
@@ -219,6 +233,9 @@ struct TraitCacheFunctionInfo
 	std::size_t CurrentOverload;
 	ConstraintCheckType TraitReturnType;
 	std::vector<ConstraintCheckType> TraitParameterTypes;
+
+	std::vector<ConstraintCheckType> TraitConstraintEqualTypes;
+	std::vector<std::size_t> AdditionalGenericNumber;
 };
 
 struct ConstraintCalculationCache
@@ -242,7 +259,140 @@ struct ConstraintCalculationCache
 	std::string TraitAssembly;
 	std::vector<TraitCacheFieldInfo> TraitFields;
 	std::vector<TraitCacheFunctionInfo> TraitFunctions;
+	std::vector<TraitCacheFunctionInfo> TraitGenericFunctions;
 	std::vector<ConstraintCheckType> TraitFunctionUndetermined;
+};
+
+struct TypeTemplateFunctionEntry
+{
+	const std::string& Name;
+	std::size_t Index;
+};
+
+struct TypeTemplateFunctionIterator
+{
+public:
+	TypeTemplateFunctionIterator(Type* tt, std::size_t stage)
+		: _typeTemplate(tt), _stage(stage), _interfaceIndex(0), _functionIndex(0)
+	{
+	}
+
+public:
+	bool operator!=(const TypeTemplateFunctionIterator& rhs) const
+	{
+		assert(_typeTemplate == rhs._typeTemplate);
+		return _stage != rhs._stage ||
+			_interfaceIndex != rhs._interfaceIndex ||
+			_functionIndex != rhs._functionIndex;
+	}
+
+	TypeTemplateFunctionIterator& operator++()
+	{
+		switch (_stage)
+		{
+		case 0:
+			_stage = 1;
+			_functionIndex = SIZE_MAX;
+			//fall through
+		case 1:
+			if (++_functionIndex < _typeTemplate->PublicFunctions.size())
+			{
+				break;
+			}
+			_functionIndex = SIZE_MAX;
+			_stage = 2;
+			//fall through
+		case 2:
+			if (++_functionIndex < _typeTemplate->Base.VirtualFunctions.size())
+			{
+				break;
+			}
+			if (_typeTemplate->Interfaces.size() == 0)
+			{
+				_stage = 4;
+				break;
+			}
+			_interfaceIndex = 0;
+			_functionIndex = SIZE_MAX;
+			_stage = 3;
+			//fall through
+		case 3:
+			//TODO make the logic more clear
+			while (1)
+			{
+				if (++_functionIndex == _typeTemplate->Interfaces[_interfaceIndex].VirtualFunctions.size())
+				{
+					_functionIndex = SIZE_MAX;
+					if (++_interfaceIndex == _typeTemplate->Interfaces.size())
+					{
+						_stage = 4;
+						break;
+					}
+					//continue loop
+				}
+				else
+				{
+					break;
+				}
+			}
+			break;
+		case 4:
+			break;
+		}
+		return *this;
+	}
+
+	TypeTemplateFunctionEntry operator*() const
+	{
+		assert(_stage > 0);
+		assert(_stage < 4);
+		switch (_stage)
+		{
+		case 1:
+		{
+			auto& e = _typeTemplate->PublicFunctions[_functionIndex];
+			return { e.Name, e.Id };
+		}
+		case 2:
+		{
+			auto& e = _typeTemplate->Base.VirtualFunctions[_functionIndex];
+			//Bind to the virtual version.
+			return { e.Name, e.VirtualFunction };
+		}
+		default: //3
+		{
+			auto& e = _typeTemplate->Interfaces[_interfaceIndex].VirtualFunctions[_functionIndex];
+			return { e.Name, e.VirtualFunction };
+		}
+		}
+	}
+
+private:
+	Type* _typeTemplate;
+	std::size_t _stage;
+	std::size_t _interfaceIndex;
+	std::size_t _functionIndex;
+};
+
+struct TypeTemplateFunctionList
+{
+	TypeTemplateFunctionList(Type* tt)
+		: typeTemplate(tt)
+	{
+	}
+
+	TypeTemplateFunctionIterator begin()
+	{
+		return ++TypeTemplateFunctionIterator(typeTemplate, 0);
+	}
+
+	TypeTemplateFunctionIterator end()
+	{
+		return { typeTemplate, 4 };
+	}
+
+private:
+	Type* typeTemplate;
 };
 
 } }

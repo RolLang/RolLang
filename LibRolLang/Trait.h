@@ -31,6 +31,7 @@ FIELD_SERIALIZER_BEGIN(TraitFunction)
 	SERIALIZE_FIELD(ExportName)
 FIELD_SERIALIZER_END()
 
+//TODO Avoid use of this struct. Use individual type for each field.
 struct TraitExportItem
 {
 	std::string ExportName;
@@ -46,12 +47,14 @@ struct Trait
 	GenericDeclaration Generic;
 	std::vector<TraitExportItem> Types;
 	std::vector<TraitFunction> Functions;
+	std::vector<TraitExportItem> GenericFunctions;
 	std::vector<TraitField> Fields;
 };
 FIELD_SERIALIZER_BEGIN(Trait)
 	SERIALIZE_FIELD(Generic)
 	SERIALIZE_FIELD(Types)
 	SERIALIZE_FIELD(Functions)
+	SERIALIZE_FIELD(GenericFunctions)
 	SERIALIZE_FIELD(Fields)
 FIELD_SERIALIZER_END()
 

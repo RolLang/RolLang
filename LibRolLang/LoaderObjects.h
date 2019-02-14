@@ -32,7 +32,6 @@ struct LoadingArguments
 {
 	std::string Assembly;
 	std::size_t Id;
-	//std::vector<RuntimeType*> Arguments;
 	MultiList<RuntimeType*> Arguments;
 
 	bool operator== (const LoadingArguments &b) const
@@ -75,6 +74,7 @@ enum ConstraintExportListEntryType
 	CONSTRAINT_EXPORT_TYPE = 1,
 	CONSTRAINT_EXPORT_FUNCTION = 2,
 	CONSTRAINT_EXPORT_FIELD = 3,
+	//TODO generic function
 };
 
 struct ConstraintExportListEntry

@@ -85,11 +85,12 @@ private:
 	//Check without changing function overload candidates.
 	bool CheckConstraintCachedSinglePass(ConstraintCalculationCache* cache)
 	{
-		while (CheckCacheContainsUndetermined(cache))
+		while (IsCacheUndetermined(cache))
 		{
-			auto check = TryDetermineConstraintArgument(*cache);
-			if (check == 1) continue;
-			return false;
+			if (TryDetermineConstraintArgument(*cache) != 1)
+			{
+				return false;
+			}
 		}
 		//All REF_ANY are resolved.
 		if (!CheckConstraintDetermined(*cache))
@@ -142,6 +143,7 @@ private:
 		switch (ct.CType)
 		{
 		case CTT_RT:
+		case CTT_PARAMETER:
 			return false;
 		case CTT_SUBTYPE:
 			if (IsTypeUndetermined(root, ct.ParentType[0])) return true;
@@ -160,7 +162,7 @@ private:
 		}
 	}
 
-	static bool CheckCacheContainsUndetermined(ConstraintCalculationCache* cache)
+	static bool IsCacheUndetermined(ConstraintCalculationCache* cache)
 	{
 		auto ctype = cache->Source->Type;
 		if (ctype == CONSTRAINT_TRAIT_ASSEMBLY || ctype == CONSTRAINT_TRAIT_IMPORT)
@@ -242,6 +244,10 @@ private:
 			//since they both fail, they will lead to the same result (and
 			//keep failing in children).
 			return true;
+		case CTT_PARAMETER:
+			return a.ParameterSegment == b.ParameterSegment &&
+				a.ParameterIndex == b.ParameterIndex &&
+				a.SubtypeName == b.SubtypeName;
 		case CTT_ANY:
 			return a.Root == b.Root && a.UndeterminedId == b.UndeterminedId;
 		case CTT_RT:
@@ -372,12 +378,20 @@ private:
 			parent.TraitFunctions.emplace_back(std::move(func_info));
 		}
 
+		//Generic functions
+		for (auto& func : trait->GenericFunctions)
+		{
+			TraitCacheFunctionInfo func_info = {};
+			LoadTraitGenericFunctionInfo(parent, func.Index, func_info);
+			parent.TraitGenericFunctions.emplace_back(std::move(func_info));
+		}
+
 		parent.TraitMemberResolved = false;
 		parent.TraitCacheCreated = true;
 	}
 
 	//ret 1: all members successfully resolved. 0: cannot resolve (not determined). -1: constraint fails
-	int TryCalculateTraitSubMember(ConstraintCalculationCache& parent)
+	int TryResolveTraitSubMember(ConstraintCalculationCache& parent)
 	{
 		EnsureSubConstraintCached(parent);
 		assert(parent.TraitCacheCreated);
@@ -443,12 +457,11 @@ private:
 		std::vector<ConstraintCheckType> ud;
 		for (std::size_t i = 0; i < trait->Functions.size(); ++i)
 		{
-			//Search in public function list.
-			for (auto& func : tt->PublicFunctions)
+			for (auto func : TypeTemplateFunctionList(tt))
 			{
 				if (func.Name != trait->Functions[i].ElementName) continue;
 				TraitCacheFunctionOverloadInfo fi = {};
-				fi.Index = func.Id;
+				fi.Index = func.Index;
 				ud.clear();
 				if (!CheckTraitTargetFunctionOverload(parent, i, tt, ud, fi))
 				{
@@ -457,41 +470,6 @@ private:
 				parent.TraitFunctions[i].Overloads.emplace_back(std::move(fi));
 				parent.TraitFunctionUndetermined.insert(parent.TraitFunctionUndetermined.end(),
 					ud.begin(), ud.end());
-			}
-			//Search in type virtual function table.
-			for (auto& func : tt->Base.VirtualFunctions)
-			{
-				if (func.Name != trait->Functions[i].ElementName) continue;
-				TraitCacheFunctionOverloadInfo fi = {};
-				//Bind to the virtual version.
-				fi.Index = func.VirtualFunction;
-				ud.clear();
-				if (!CheckTraitTargetFunctionOverload(parent, i, tt, ud, fi))
-				{
-					continue;
-				}
-				parent.TraitFunctions[i].Overloads.emplace_back(std::move(fi));
-				parent.TraitFunctionUndetermined.insert(parent.TraitFunctionUndetermined.end(),
-					ud.begin(), ud.end());
-			}
-			//Search in interface virtual function table.
-			for (auto& interfaceInfo : tt->Interfaces)
-			{
-				for (auto& func : interfaceInfo.VirtualFunctions)
-				{
-					if (func.Name != trait->Functions[i].ElementName) continue;
-					TraitCacheFunctionOverloadInfo fi = {};
-					//Bind to the virtual version.
-					fi.Index = func.VirtualFunction;
-					ud.clear();
-					if (!CheckTraitTargetFunctionOverload(parent, i, tt, ud, fi))
-					{
-						continue;
-					}
-					parent.TraitFunctions[i].Overloads.emplace_back(std::move(fi));
-					parent.TraitFunctionUndetermined.insert(parent.TraitFunctionUndetermined.end(),
-						ud.begin(), ud.end());
-				}
 			}
 			if (parent.TraitFunctions[i].Overloads.size() == 0)
 			{
@@ -499,6 +477,8 @@ private:
 				return -1;
 			}
 		}
+
+		//TODO generic functions
 
 		parent.TraitMemberResolved = true;
 		return 1;
@@ -510,7 +490,7 @@ private:
 		auto target = parent.Target.DeterminedType;
 		auto trait = parent.Trait;
 		auto& f = trait->Functions[i];
-		if (!LoadTraitFunctionCacheInfo(parent, tt->Generic, target->Args.Assembly, fi, ud))
+		if (!LoadTraitFunctionOverloadInfo(parent, tt->Generic, target->Args.Assembly, fi, ud))
 		{
 			return false;
 		}
@@ -534,7 +514,7 @@ private:
 		return true;
 	}
 
-	bool LoadTraitFunctionCacheInfo(ConstraintCalculationCache& parent, GenericDeclaration& g,
+	bool LoadTraitFunctionOverloadInfo(ConstraintCalculationCache& parent, GenericDeclaration& g,
 		const std::string& src_assembly, TraitCacheFunctionOverloadInfo& result,
 		std::vector<ConstraintCheckType>& additionalUd)
 	{
@@ -550,7 +530,7 @@ private:
 		}
 
 		//First resolve any REF_CLONE so that we don't need to worry it any more.
-		//TODO detect circular REF_CLONE
+		//TODO detect circular REF_CLONE, move to reflist
 		while (g.Functions[id].Type == REF_CLONE)
 		{
 			id = g.Functions[id].Index;
@@ -591,7 +571,8 @@ private:
 		//function is the arg list in the RefList plus some additional REF_ANY.
 		//To calculate those in the RefList, we need the args to the type itself.
 
-		auto additional = GetFunctionAdditionalArgumentNumber(g, id);
+		//TODO fix the name: it's not additional but all arguments
+		auto additional = GetFunctionGenericArgumentNumber(g, id);
 
 		MultiList<ConstraintCheckType> typeArgs;
 		target->Args.Arguments.CopyList(typeArgs, [&parent](RuntimeType* ta)
@@ -601,6 +582,7 @@ private:
 		//Note that additional arguments are appended to type arguments.
 		for (std::size_t i = 0; i < target->Args.Arguments.GetSizeList().size(); ++i)
 		{
+			//TODO support variable size
 			if (additional[i] > target->Args.Arguments.GetSizeList()[i])
 			{
 				throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid function reference");
@@ -649,16 +631,122 @@ private:
 		return true;
 	}
 
+	void LoadTraitGenericFunctionInfo(ConstraintCalculationCache& parent, std::size_t id,
+		TraitCacheFunctionInfo& result)
+	{
+		auto trait = parent.Trait;
+		auto& g = trait->Generic;
+		if (id >= g.Functions.size())
+		{
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
+		}
+
+		//TODO detect circular REF_CLONE, move to reflist
+		while (g.Functions[id].Type == REF_CLONE)
+		{
+			id = g.Functions[id].Index;
+			if (id >= g.Functions.size())
+			{
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
+			}
+		}
+
+		//Find the function template.
+		LoadingArguments la;
+		switch (g.Functions[id].Type & REF_REFTYPES)
+		{
+		case REF_ASSEMBLY:
+			la.Assembly = parent.TraitAssembly;
+			la.Id = g.Functions[id].Index;
+			break;
+		case REF_IMPORT:
+		{
+			auto a = FindAssemblyThrow(parent.TraitAssembly);
+			if (g.Functions[id].Index >= a->ImportFunctions.size())
+			{
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
+			}
+			auto i = a->ImportFunctions[g.Functions[id].Index];
+			if (!FindExportFunction(i, la))
+			{
+				throw RuntimeLoaderException(ERR_L_LINK, "Import function not found");
+			}
+			break;
+		}
+		default:
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
+		}
+
+		auto genericArgs = GetFunctionGenericArgumentNumber(g, id);
+		auto traitArgNum = parent.Arguments.GetSizeList().size();
+		for (std::size_t i = 0; i < traitArgNum; ++i) //TODO check Arguments
+		{
+			//TODO support variable size
+			if (genericArgs[i] > parent.Arguments.GetSizeList()[i])
+			{
+				throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid function reference");
+			}
+		}
+		auto additional = std::vector<std::size_t>(genericArgs.begin() + traitArgNum, genericArgs.end());
+
+		//Use trait arguments for the first part and add additional types
+		MultiList<ConstraintCheckType> refListArgs = parent.Arguments;
+		for (std::size_t i = 0; i < additional.size(); ++i)
+		{
+			refListArgs.NewList();
+			for (std::size_t j = 0; j < additional[i]; ++j)
+			{
+				refListArgs.AppendLast(ConstraintCheckType::Parameter(parent.Root, i, j));
+			}
+		}
+
+		MultiList<ConstraintCheckType> funcArgs;
+		std::vector<TraitCacheFunctionConstrainExportInfo> traitExportTypes;
+		for (auto&& e : GetRefArgList(g.Functions, id, funcArgs))
+		{
+			assert(e.Entry.Type == REF_CLONETYPE);
+			funcArgs.AppendLast(ConstructConstraintRefListType(parent.Root,
+				g, parent.TraitAssembly, e.Entry.Index, refListArgs, nullptr, &traitExportTypes));
+		}
+		if (traitExportTypes.size() != 0)
+		{
+			//TODO should we support this? Need to be consistent with other places.
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Constraint exporting of trait not supported");
+		}
+
+		Function* ft = FindFunctionTemplate(la.Assembly, la.Id);
+		if (!ft->Generic.ParameterCount.CanMatch(funcArgs.GetSizeList()))
+		{
+			//Argument count mismatch.
+			throw RuntimeLoaderException(ERR_L_GENERIC, "Generic argument number mismatches");
+		}
+		result.TraitReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
+			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, nullptr);
+		for (auto& parameter : ft->Parameters)
+		{
+			result.TraitParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
+				la.Assembly, parameter.TypeId, funcArgs, nullptr, nullptr));
+		}
+
+		if (ft->Generic.Constraints.size() != 0)
+		{
+			//TODO should support constraint matching (add target & args to result.TraitConstraintEqualTypes)
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Generic function matching with constraint not supported");
+		}
+
+		result.AdditionalGenericNumber = std::move(additional);
+	}
+
 	//Scan the function reference. Make sure it's valid. Return the total number of args needed.
-	std::vector<std::size_t> GetFunctionAdditionalArgumentNumber(GenericDeclaration& g, std::size_t id)
+	std::vector<std::size_t> GetFunctionGenericArgumentNumber(GenericDeclaration& g, std::size_t id)
 	{
 		std::vector<std::size_t> ret;
-		GetFunctionAdditionalArgumentNumberInternal(g, id, ret);
+		GetFunctionGenericArgumentNumberInternal(g, id, ret);
 		return ret;
 	}
 
 	//TODO consider move to RefList
-	void GetFunctionAdditionalArgumentNumberInternal(GenericDeclaration& g, std::size_t id,
+	void GetFunctionGenericArgumentNumberInternal(GenericDeclaration& g, std::size_t id,
 		std::vector<std::size_t>& result)
 	{
 		if (id >= g.Functions.size())
@@ -670,7 +758,7 @@ private:
 		{
 		case REF_CLONE:
 			//TODO detect circular REF_CLONE
-			GetFunctionAdditionalArgumentNumberInternal(g, g.Functions[id].Index, result);
+			GetFunctionGenericArgumentNumberInternal(g, g.Functions[id].Index, result);
 			break;
 		case REF_ASSEMBLY:
 		case REF_IMPORT:
@@ -678,7 +766,7 @@ private:
 			MultiList<int> notUsed;
 			for (auto&& e : GetRefArgList(g.Functions, id, notUsed))
 			{
-				GetTypeAdditionalArgumentNumberInternal(g, e.Entry.Index, result);
+				GetTypeGenericArgumentNumberInternal(g, e.Entry.Index, result);
 			}
 			break;
 		}
@@ -688,7 +776,7 @@ private:
 	}
 
 	//TODO consider move to RefList
-	void GetTypeAdditionalArgumentNumberInternal(GenericDeclaration& g, std::size_t id,
+	void GetTypeGenericArgumentNumberInternal(GenericDeclaration& g, std::size_t id,
 		std::vector<std::size_t>& result)
 	{
 		if (id >= g.Types.size())
@@ -701,7 +789,7 @@ private:
 		{
 		case REF_CLONE:
 			//TODO detect circular REF_CLONE
-			GetTypeAdditionalArgumentNumberInternal(g, t.Index, result);
+			GetTypeGenericArgumentNumberInternal(g, t.Index, result);
 			break;
 		case REF_ASSEMBLY:
 		case REF_IMPORT:
@@ -709,17 +797,17 @@ private:
 			MultiList<int> notUsed;
 			for (auto&& e : GetRefArgList(g.Types, id, notUsed))
 			{
-				GetTypeAdditionalArgumentNumberInternal(g, e.Index, result);
+				GetTypeGenericArgumentNumberInternal(g, e.Index, result);
 			}
 			break;
 		}
 		case REF_SUBTYPE:
 		{
 			MultiList<int> notUsed;
-			GetTypeAdditionalArgumentNumberInternal(g, id + 1, result);
+			GetTypeGenericArgumentNumberInternal(g, id + 1, result);
 			for (auto&& e : GetRefArgList(g.Types, id + 1, notUsed))
 			{
-				GetTypeAdditionalArgumentNumberInternal(g, e.Index, result);
+				GetTypeGenericArgumentNumberInternal(g, e.Index, result);
 			}
 			break;
 		}
@@ -835,9 +923,10 @@ private:
 				}
 				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
 			}
-			else
+			else if (exportList != nullptr)
 			{
-				assert(exportList != nullptr);
+				//Calling with export list (when doing function overload matching), create CTT_ANY type.
+				//First find through cache to ensure one REF_CONSTRAINT use one CTT_ANY type.
 				for (auto& ct : *exportList)
 				{
 					if (ct.NameIndex == g.Types[i].Index)
@@ -848,6 +937,14 @@ private:
 				auto newType = ConstraintCheckType::Undetermined(root);
 				exportList->push_back({ i, newType });
 				return newType;
+			}
+			else
+			{
+				//Calling with neither. We are creating types for generic function matching in trait.
+				//Create CTT_PARAM with SIZE_MAX as segment index. Because all constraints are checked 
+				//later to be exactly matching, we only need to ensure the name is the same. Name is
+				//stored in SubtypeName.
+				return ConstraintCheckType::Parameter(root, SIZE_MAX, 0, g.NamesList[g.Types[i].Index]);
 			}
 		}
 		default:
@@ -1000,6 +1097,14 @@ private:
 	{
 		//We only need a quick check to eliminate most overloads. Don't simplify.
 		if (a.CType == CTT_FAIL || a.CType == CTT_FAIL) return false;
+		if (a.CType == CTT_PARAMETER || b.CType == CTT_PARAMETER)
+		{
+			//Note that CTT_ANY/CTT_SUBTYPE does not match CTT_PARAMETER.
+			if (a.CType != b.CType) return false;
+			return a.ParameterSegment == b.ParameterSegment &&
+				a.ParameterIndex == b.ParameterIndex &&
+				a.SubtypeName == b.SubtypeName;
+		}
 		if (a.CType == CTT_ANY || b.CType == CTT_ANY) return true;
 		if (a.CType == CTT_SUBTYPE || b.CType == CTT_SUBTYPE) return true;
 		if (a.CType == CTT_RT && b.CType == CTT_RT)
@@ -1063,6 +1168,11 @@ private:
 		SimplifyConstraintType(a);
 		SimplifyConstraintType(b);
 		if (a.CType == CTT_FAIL || b.CType == CTT_FAIL) return -1;
+		if (a.CType == CTT_PARAMETER || b.CType == CTT_PARAMETER)
+		{
+			if (!CheckTypePossiblyEqual(a, b)) return -1;
+			return 0;
+		}
 		if (a.CType == CTT_ANY || b.CType == CTT_ANY)
 		{
 			if (a.CType == CTT_RT)
@@ -1157,7 +1267,7 @@ private:
 		{
 			if (!cache.TraitMemberResolved)
 			{
-				return TryCalculateTraitSubMember(cache);
+				return TryResolveTraitSubMember(cache);
 			}
 
 			auto trait = cache.Trait;
@@ -1211,6 +1321,8 @@ private:
 				if (ret != 0) return ret;
 			}
 
+			//TODO also need to process GenericFunctions.
+
 			return 0;
 		}
 		default:
@@ -1241,9 +1353,9 @@ private:
 	bool TrySimplifyConstraintType(ConstraintCheckType& t, ConstraintCheckType& parent)
 	{
 		SimplifyConstraintType(t);
-		//Note that we only allow RT. EMPTY cannot be a valid argument.
 		if (t.CType != CTT_RT)
 		{
+			//Only return true for CTT_RT, not CTT_PARAMETER.
 			if (t.CType == CTT_FAIL)
 			{
 				parent.DeductFail();
@@ -1259,6 +1371,7 @@ private:
 		{
 		case CTT_RT:
 		case CTT_FAIL:
+		case CTT_PARAMETER:
 			//Elemental type. Can't simplify.
 			return;
 		case CTT_ANY:
@@ -1352,6 +1465,8 @@ private:
 
 	bool CheckSimplifiedConstraintType(ConstraintCheckType& t)
 	{
+		//Should not have CTT_PARAMETER here.
+		assert(t.CType != CTT_PARAMETER);
 		SimplifyConstraintType(t);
 		if (t.CType != CTT_RT)
 		{
@@ -1364,7 +1479,7 @@ private:
 	bool CheckTraitDetermined(ConstraintCalculationCache& cache)
 	{
 		EnsureSubConstraintCached(cache);
-		if (TryCalculateTraitSubMember(cache) != 1)
+		if (TryResolveTraitSubMember(cache) != 1)
 		{
 			//Resolving submember only requires Target to be determined,
 			//which should be success if it goes here.
@@ -1425,7 +1540,7 @@ private:
 				{
 					if (et.EntryType == CONSTRAINT_EXPORT_TYPE && et.Index == ct.NameIndex)
 					{
-						assert(ct.UndeterminedType.CType == CTT_ANY);
+						assert(IsTypeUndetermined(cache.Root, ct.UndeterminedType));
 						ct.UndeterminedType.Root->Determine(ct.UndeterminedType.UndeterminedId, et.Type);
 						break;
 					}

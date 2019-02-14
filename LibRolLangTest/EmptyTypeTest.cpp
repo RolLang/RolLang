@@ -224,7 +224,7 @@ namespace LibRolLangTest
 			}
 		}
 
-		TEST_METHOD(ConstrainArgument)
+		TEST_METHOD(ConstraintArgument)
 		{
 			Builder b;
 			{
