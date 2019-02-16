@@ -727,7 +727,14 @@ private:
 		}
 
 		auto genericArgs = GetFunctionGenericArgumentNumber(g, id);
+
+		//TODO support multilist
 		auto traitArgNum = parent.Arguments.GetSizeList().size();
+		assert(traitArgNum == 1);
+		if (parent.Arguments.GetTotalSize() == 0)
+		{
+			traitArgNum = 0;
+		}
 		for (std::size_t i = 0; i < traitArgNum; ++i) //TODO check Arguments
 		{
 			//TODO support variable size
@@ -736,6 +743,7 @@ private:
 				throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid function reference");
 			}
 		}
+
 		auto additional = std::vector<std::size_t>(genericArgs.begin() + traitArgNum, genericArgs.end());
 
 		//Use trait arguments for the first part and add additional types

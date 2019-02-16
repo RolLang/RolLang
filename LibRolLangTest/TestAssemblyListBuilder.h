@@ -275,11 +275,11 @@ namespace
 			return { TR_ARGUMENT, id, { { TR_ARGUMENT, 0, {} } } };
 		}
 
-		TypeReference AddAdditionalGenericParameter(std::size_t n)
+		TypeReference AddAdditionalGenericParameter(std::size_t n, std::size_t additionalSegIndex = 0)
 		{
 			auto& p = CurrentDeclaration().ParameterCount;
 			auto seg = p.Segments.size();
-			return { TR_ARGUMENT, n, { { TR_ARGUMENT, seg, {} } } };
+			return { TR_ARGUMENT, n, { { TR_ARGUMENT, seg + additionalSegIndex, {} } } };
 		}
 
 		void AddConstraint(TypeReference target, const std::vector<TypeReference>& args,
@@ -503,6 +503,13 @@ namespace
 				f.ParameterTypes.push_back(WriteTypeRef(_assembly.Traits[_currentTrait].Generic, pp));
 			}
 			_assembly.Traits[_currentTrait].Functions.emplace_back(std::move(f));
+		}
+
+		void AddTraitGenericFunction(const FunctionReference& func, const std::string& name,
+			const std::string& export_name)
+		{
+			auto id = WriteFunctionRef(_assembly.Traits[_currentTrait].Generic, func);
+			_assembly.Traits[_currentTrait].GenericFunctions.push_back({ name, id, export_name });
 		}
 
 		void EndTrait()

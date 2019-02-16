@@ -211,6 +211,7 @@ struct GenericDeclaration
 	GenericDefArgumentListSize ParameterCount;
 	std::vector<GenericConstraint> Constraints;
 
+	//Merge into one list (see comments in struct Function)
 	std::vector<DeclarationReference> Types;
 	std::vector<DeclarationReference> Functions;
 	std::vector<DeclarationReference> Fields;

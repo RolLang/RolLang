@@ -177,6 +177,7 @@
     <ClCompile Include="SubtypeTest.cpp" />
     <ClCompile Include="TraitFunctionConstraintTest.cpp" />
     <ClCompile Include="TraitFunctionTest.cpp" />
+    <ClCompile Include="TraitGenericFunctionTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\LibRolLang\LibRolLang.vcxproj">
