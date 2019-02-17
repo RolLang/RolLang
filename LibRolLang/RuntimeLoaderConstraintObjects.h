@@ -10,7 +10,8 @@ enum ConstraintCheckTypeType
 	CTT_GENERIC,
 	CTT_SUBTYPE,
 	CTT_RT,
-	CTT_PARAMETER, //Used only for generic function matching
+	//TODO separate the SIZE_MAX and SIZE_MAX - 1
+	CTT_PARAMETER, //Used only for generic function matching (segment id = SIZE_MAX and SIZE_MAX - 1 have special meaning)
 };
 
 struct ConstraintUndeterminedTypeInfo
@@ -123,6 +124,15 @@ public:
 		ConstraintCheckType ret(root, CTT_ANY);
 		ret.UndeterminedId = root->UndeterminedList->UndeterminedTypes.size();
 		root->UndeterminedList->UndeterminedTypes.push_back({});
+		return ret;
+	}
+
+	//Construct an undetermined type with given id, and don't record in the root.
+	//Used only in TraitFunctionType::ConstraintEqualTypes.
+	static ConstraintCheckType Undetermined(ConstraintCalculationCacheRoot* root, std::size_t id)
+	{
+		ConstraintCheckType ret(root, CTT_ANY);
+		ret.UndeterminedId = id;
 		return ret;
 	}
 

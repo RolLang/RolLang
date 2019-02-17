@@ -671,7 +671,7 @@ private:
 		{
 			assert(e.Entry.Type == REF_CLONETYPE);
 			funcArgs.AppendLast(ConstructConstraintRefListType(parent.Root,
-				g, type_assembly, e.Entry.Index, typeArgs, target, nullptr));
+				g, type_assembly, e.Entry.Index, typeArgs, target, nullptr, nullptr));
 		}
 
 		Function* ft = FindFunctionTemplate(la.Assembly, la.Id);
@@ -683,11 +683,11 @@ private:
 
 		//Construct ConstraintCheckType for ret and params.
 		result.Type.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
-			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, &result.ExportTypes);
+			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, nullptr, &result.ExportTypes);
 		for (auto& parameter : ft->Parameters)
 		{
 			result.Type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
-				la.Assembly, parameter.TypeId, funcArgs, nullptr, &result.ExportTypes));
+				la.Assembly, parameter.TypeId, funcArgs, nullptr, nullptr, &result.ExportTypes));
 		}
 
 		result.FunctionTemplate = ft;
@@ -774,7 +774,7 @@ private:
 		{
 			assert(e.Entry.Type == REF_CLONETYPE);
 			funcArgs.AppendLast(ConstructConstraintRefListType(parent.Root,
-				g, parent.TraitAssembly, e.Entry.Index, refListArgs, nullptr, &traitExportTypes));
+				g, parent.TraitAssembly, e.Entry.Index, refListArgs, nullptr, nullptr, &traitExportTypes));
 		}
 		if (traitExportTypes.size() != 0)
 		{
@@ -789,11 +789,11 @@ private:
 			throw RuntimeLoaderException(ERR_L_GENERIC, "Generic argument number mismatches");
 		}
 		type.ReturnType = ConstructConstraintRefListType(parent.Root, ft->Generic,
-			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, nullptr);
+			la.Assembly, ft->ReturnValue.TypeId, funcArgs, nullptr, nullptr, nullptr);
 		for (auto& parameter : ft->Parameters)
 		{
 			type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, ft->Generic,
-				la.Assembly, parameter.TypeId, funcArgs, nullptr, nullptr));
+				la.Assembly, parameter.TypeId, funcArgs, nullptr, nullptr, nullptr));
 		}
 
 		for (auto& c : ft->Generic.Constraints)
@@ -815,12 +815,13 @@ private:
 			g.NamesList = c.NamesList;
 			g.Types = c.TypeReferences;
 
-			type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, g,
-				la.Assembly, c.Target, funcArgs, nullptr, nullptr));
+			std::size_t udCount = 0;
+			type.ConstraintEqualTypes.emplace_back(ConstructConstraintRefListType(parent.Root, g,
+				la.Assembly, c.Target, funcArgs, nullptr, &udCount, nullptr));
 			for (std::size_t i = 0; i < c.Arguments.size(); ++i)
 			{
-				type.ParameterTypes.emplace_back(ConstructConstraintRefListType(parent.Root, g,
-					la.Assembly, c.Arguments[i], funcArgs, nullptr, nullptr));
+				type.ConstraintEqualTypes.emplace_back(ConstructConstraintRefListType(parent.Root, g,
+					la.Assembly, c.Arguments[i], funcArgs, nullptr, &udCount, nullptr));
 			}
 		}
 
@@ -929,7 +930,7 @@ private:
 	}
 
 	ConstraintCheckType ConstructConstraintRefListType(ConstraintCalculationCacheRoot* root, GenericDeclaration& g,
-		const std::string& src, std::size_t i, MultiList<ConstraintCheckType>& arguments, RuntimeType* selfType,
+		const std::string& src, std::size_t i, MultiList<ConstraintCheckType>& arguments, RuntimeType* selfType, std::size_t* udCount,
 		std::vector<TraitCacheFunctionConstrainExportInfo>* exportList)
 	{
 		if (i >= g.Types.size())
@@ -962,7 +963,7 @@ private:
 			for (auto&& e : GetRefArgList(g.Types, i, ret.Args))
 			{
 				ret.Args.AppendLast(ConstructConstraintRefListType(ret.Root,
-					g, src, e.Index, arguments, selfType, exportList));
+					g, src, e.Index, arguments, selfType, udCount, exportList));
 			}
 			return ret;
 		}
@@ -983,7 +984,7 @@ private:
 			for (auto&& e : GetRefArgList(g.Types, i, ret.Args))
 			{
 				ret.Args.AppendLast(ConstructConstraintRefListType(ret.Root,
-					g, src, e.Index, arguments, selfType, exportList));
+					g, src, e.Index, arguments, selfType, udCount, exportList));
 			}
 			return ret;
 		}
@@ -991,11 +992,11 @@ private:
 		{
 			auto ret = ConstraintCheckType::Subtype(root, g.NamesList[g.Types[i].Index]);
 			ret.ParentType.emplace_back(ConstructConstraintRefListType(ret.Root, g, src, i + 1,
-				arguments, selfType, exportList));
+				arguments, selfType, udCount, exportList));
 			for (auto&& e : GetRefArgList(g.Types, i + 1, ret.Args))
 			{
 				ret.Args.AppendLast(ConstructConstraintRefListType(ret.Root,
-					g, src, e.Index, arguments, selfType, exportList));
+					g, src, e.Index, arguments, selfType, udCount, exportList));
 			}
 			return ret;
 		}
@@ -1037,6 +1038,12 @@ private:
 				return ConstraintCheckType::Parameter(root, SIZE_MAX, 0, g.NamesList[g.Types[i].Index]);
 			}
 		}
+		case REF_ANY:
+			if (udCount == nullptr)
+			{
+				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_ANY");
+			}
+			return ConstraintCheckType::Parameter(root, SIZE_MAX - 1, (*udCount)++);
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}

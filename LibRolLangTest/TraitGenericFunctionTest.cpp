@@ -279,7 +279,50 @@ namespace LibRolLangTest
 
 		TEST_METHOD(GenericFunctionWithConstraint)
 		{
-			//test assembly trait and imported trait
+			Builder b;
+			{
+				b.BeginAssembly("Test");
+				b.BeginTrait("Test.TestTrait");
+				b.Link(true, false);
+				b.AddTraitField(b.AddGenericParameter(), "F", "F");
+				b.EndTrait();
+				b.EndAssembly();
+
+				b.BeginAssembly("Core");
+				auto tr1 = b.ImportTrait("Test", "Test.TestTrait");
+
+				auto tr2 = b.BeginTrait("Core.TestTrait");
+				b.AddTraitField(b.AddGenericParameter(), "F", "F");
+				b.EndTrait();
+
+				auto vt = b.BeginType(TSM_VALUE, "Core.ValueType");
+				b.EndType();
+
+				auto f1a = b.BeginFunction("Core.F1A");
+				b.AddConstraint(b.AddGenericParameter(), { b.AnyType() }, CONSTRAINT_TRAIT_ASSEMBLY, tr1.Id);
+				b.Signature({}, {});
+				b.EndFunction();
+				auto f1b = b.BeginFunction("Core.F1B");
+				b.AddConstraint(b.AddGenericParameter(), { b.AnyType() }, CONSTRAINT_TRAIT_ASSEMBLY, tr2.Id);
+				b.Signature({}, {});
+				b.EndFunction();
+				auto ttr1 = b.BeginTrait("Core.TargetTrait1");
+				b.AddTraitGenericFunction(b.MakeFunction(f1a, { b.AddAdditionalGenericParameter(0) }), "Func", "Func");
+				b.EndTrait();
+				auto tt1 = b.BeginType(TSM_VALUE, "Core.TargetType1");
+				b.AddMemberFunction("Func", b.MakeFunction(f1b, { b.AddAdditionalGenericParameter(0) }));
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType1");
+				b.Link(true, false);
+				b.AddConstraint(tt1, {}, CONSTRAINT_TRAIT_ASSEMBLY, ttr1.Id);
+				b.EndType();
+
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_SUCCESS);
+			}
 		}
 	};
 }
