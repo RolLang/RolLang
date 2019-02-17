@@ -230,9 +230,51 @@ namespace LibRolLangTest
 
 		TEST_METHOD(TraitTypeDeduction)
 		{
-			//class A { X Func<T>(); Y Field; }
-			//trait Tr<T1> { T1 Func<T>(); T1.Sub Field; }
-			//A : Tr<any>
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto vt = b.BeginType(TSM_VALUE, "Core.ValueType");
+				b.Link(true, false);
+				b.EndType();
+				auto f = b.BeginFunction("Core.TestFunction");
+				auto fg = b.AddGenericParameter();
+				b.Signature(vt, {});
+				b.EndFunction();
+
+				auto tt = b.BeginType(TSM_VALUE, "Core.TargetType");
+				b.AddMemberFunction("Func", b.MakeFunction(f, { b.AddAdditionalGenericParameter(0) }));
+				b.EndType();
+
+				auto trf = b.BeginFunction("Core.TraitFunction");
+				auto trf1 = b.AddGenericParameter();
+				auto trf2 = b.AddGenericParameter();
+				b.Signature(trf1, {});
+				b.EndFunction();
+
+				auto tr = b.BeginTrait("Core.TestTrait");
+				auto trg = b.AddGenericParameter();
+				auto trfg = b.AddAdditionalGenericParameter(0);
+				b.AddTraitGenericFunction(b.MakeFunction(trf, { trg, trfg }), "Func", "Func");
+				b.AddTraitType(trg, "T1");
+				b.EndTrait();
+
+				b.BeginType(TSM_VALUE, "Core.TestType");
+				b.Link(true, false);
+				b.AddConstraint(tt, { b.AnyType() }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id, "Tr");
+				auto ft = b.ConstraintImportType("Tr/T1");
+				b.AddField(ft, "F");
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				auto t = LoadType(&l, "Core", "Core.TestType", ERR_L_SUCCESS);
+				auto vt = LoadType(&l, "Core", "Core.ValueType", ERR_L_SUCCESS);
+				Assert::IsTrue(t->Fields[0].Type == vt);
+			}
+			//class A { X Func<T>(); }
+			//trait Tr<T1> { T1 Func<T>(); export T1 as T1; }
+			//class B requires A : Tr<any> as Tr { Tr.T1 F; }
 		}
 
 		TEST_METHOD(GenericFunctionWithConstraint)
