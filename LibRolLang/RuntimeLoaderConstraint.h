@@ -379,10 +379,18 @@ private:
 		}
 
 		//Generic functions
+		//TODO temporary support for fixed segment for parent.Arguments
+		const MultiList<ConstraintCheckType>* parentArguments = &parent.Arguments;
+		MultiList<ConstraintCheckType> emptyArgumentList;
+		if (parent.Arguments.GetTotalSize() == 0)
+		{
+			parentArguments = &emptyArgumentList;
+		}
 		for (auto& func : trait->GenericFunctions)
 		{
 			TraitCacheFunctionInfo func_info = {};
-			LoadTraitGenericFunctionInfo(parent, trait->Generic, func.Index, func_info.Type, func_info.AdditionalGenericNumber);
+			LoadTraitGenericFunctionInfo(parent, trait->Generic, func.Index, *parentArguments,
+				func_info.Type, func_info.AdditionalGenericNumber);
 			parent.TraitGenericFunctions.emplace_back(std::move(func_info));
 		}
 
@@ -478,6 +486,14 @@ private:
 			}
 		}
 
+		//Generic function matching needs the argument list (as ConstraintCheckType)
+		MultiList<ConstraintCheckType> targetLoadingArgs;
+		{
+			auto root = parent.Root;
+			target->Args.Arguments.CopyList(targetLoadingArgs,
+				[root](RuntimeType* rt) { return ConstraintCheckType::Determined(root, rt); });
+		}
+
 		for (std::size_t i = 0; i < trait->GenericFunctions.size(); ++i)
 		{
 			//Virtual function lists can have generic functions
@@ -486,7 +502,7 @@ private:
 				if (func.Name != trait->GenericFunctions[i].ElementName) continue;
 				TraitCacheFunctionOverloadInfo fi = {};
 				fi.Index = func.Id;
-				if (!CheckTraitTargetGenericFunctionOverload(parent, i, tt, fi))
+				if (!CheckTraitTargetGenericFunctionOverload(parent, i, tt, targetLoadingArgs, fi))
 				{
 					continue;
 				}
@@ -533,11 +549,11 @@ private:
 	}
 
 	bool CheckTraitTargetGenericFunctionOverload(ConstraintCalculationCache& parent, std::size_t i, Type* tt,
-		TraitCacheFunctionOverloadInfo& fi)
+		const MultiList<ConstraintCheckType>& args, TraitCacheFunctionOverloadInfo& fi)
 	{
 		auto& gf = parent.TraitGenericFunctions[i];
 		std::vector<std::size_t> additional;
-		LoadTraitGenericFunctionInfo(parent, tt->Generic, fi.Index, fi.Type, additional);
+		LoadTraitGenericFunctionInfo(parent, tt->Generic, fi.Index, args, fi.Type, additional);
 
 		if (additional != gf.AdditionalGenericNumber) return false;
 		if (!CheckTypePossiblyEqual(gf.Type.ReturnType, fi.Type.ReturnType)) return false;
@@ -683,7 +699,7 @@ private:
 
 	//TODO additionalNumber support variable size
 	void LoadTraitGenericFunctionInfo(ConstraintCalculationCache& parent, GenericDeclaration& g, std::size_t id,
-		TraitFunctionType& type, std::vector<std::size_t>& additionalNumber)
+		const MultiList<ConstraintCheckType>& args, TraitFunctionType& type, std::vector<std::size_t>& additionalNumber)
 	{
 		if (id >= g.Functions.size())
 		{
@@ -729,16 +745,11 @@ private:
 		auto genericArgs = GetFunctionGenericArgumentNumber(g, id);
 
 		//TODO support multilist
-		auto traitArgNum = parent.Arguments.GetSizeList().size();
-		assert(traitArgNum == 1);
-		if (parent.Arguments.GetTotalSize() == 0)
-		{
-			traitArgNum = 0;
-		}
+		auto traitArgNum = args.GetSizeList().size();
 		for (std::size_t i = 0; i < traitArgNum; ++i) //TODO check Arguments
 		{
 			//TODO support variable size
-			if (genericArgs[i] > parent.Arguments.GetSizeList()[i])
+			if (genericArgs[i] > args.GetSizeList()[i])
 			{
 				throw RuntimeLoaderException(ERR_L_GENERIC, "Invalid function reference");
 			}
@@ -747,7 +758,7 @@ private:
 		auto additional = std::vector<std::size_t>(genericArgs.begin() + traitArgNum, genericArgs.end());
 
 		//Use trait arguments for the first part and add additional types
-		MultiList<ConstraintCheckType> refListArgs = parent.Arguments;
+		MultiList<ConstraintCheckType> refListArgs = args;
 		for (std::size_t i = 0; i < additional.size(); ++i)
 		{
 			refListArgs.NewList();
@@ -1655,14 +1666,14 @@ private:
 		{
 			auto& overload = tf.Overloads[tf.CurrentOverload];
 
-			if (!CheckDeterminedTypesEqual(tf.Type.ReturnType, overload.Type.ReturnType))
+			if (!CheckDeterminedTypesWithParameterEqual(tf.Type.ReturnType, overload.Type.ReturnType))
 			{
 				return false;
 			}
 			assert(tf.Type.ParameterTypes.size() == overload.Type.ParameterTypes.size());
 			for (std::size_t i = 0; i < tf.Type.ParameterTypes.size(); ++i)
 			{
-				if (!CheckDeterminedTypesEqual(tf.Type.ParameterTypes[i], overload.Type.ParameterTypes[i]))
+				if (!CheckDeterminedTypesWithParameterEqual(tf.Type.ParameterTypes[i], overload.Type.ParameterTypes[i]))
 				{
 					return false;
 				}
@@ -1670,7 +1681,7 @@ private:
 			assert(tf.Type.ConstraintEqualTypes.size() == overload.Type.ConstraintEqualTypes.size());
 			for (std::size_t i = 0; i < tf.Type.ConstraintEqualTypes.size(); ++i)
 			{
-				if (!CheckDeterminedTypesEqual(tf.Type.ConstraintEqualTypes[i], overload.Type.ConstraintEqualTypes[i]))
+				if (!CheckDeterminedTypesWithParameterEqual(tf.Type.ConstraintEqualTypes[i], overload.Type.ConstraintEqualTypes[i]))
 				{
 					return false;
 				}
@@ -1696,6 +1707,66 @@ private:
 		if (!CheckSimplifiedConstraintType(a)) return false;
 		if (!CheckSimplifiedConstraintType(b)) return false;
 		return a.DeterminedType == b.DeterminedType;
+	}
+
+	bool CheckDeterminedTypesWithParameterEqual(ConstraintCheckType& a, ConstraintCheckType& b)
+	{
+		SimplifyConstraintType(a);
+		SimplifyConstraintType(b);
+		return CheckDeterminedTypesWithParameterEqualRecursive(a, b);
+	}
+
+	bool CheckDeterminedTypesWithParameterEqualRecursive(ConstraintCheckType& a, ConstraintCheckType& b)
+	{
+		assert(a.CType != CTT_FAIL);
+		assert(a.CType != CTT_ANY);
+		assert(b.CType != CTT_FAIL);
+		assert(b.CType != CTT_ANY);
+		if (a.CType != b.CType) return false;
+		switch (a.CType)
+		{
+		case CTT_RT:
+			return a.DeterminedType == b.DeterminedType;
+		case CTT_GENERIC:
+		{
+			if (a.TypeTemplateAssembly != b.TypeTemplateAssembly ||
+				a.TypeTemplateIndex != b.TypeTemplateIndex)
+			{
+				return false;
+			}
+			break;
+		}
+		case CTT_PARAMETER:
+			return a.ParameterSegment == b.ParameterSegment &&
+				a.ParameterIndex == b.ParameterIndex &&
+				a.SubtypeName == b.SubtypeName;
+		case CTT_SUBTYPE:
+			if (a.SubtypeName != b.SubtypeName)
+			{
+				return false;
+			}
+			if (!AreConstraintTypesEqual(a.ParentType[0], b.ParentType[0]))
+			{
+				return false;
+			}
+			break;
+		default:
+			assert(0);
+			return false;
+		}
+
+		//TODO consider merge with AreConstraintTypesEqual
+		auto& sa = a.Args.GetSizeList();
+		auto& sb = b.Args.GetSizeList();
+		if (sa != sb) return false;
+		for (std::size_t i = 0; i < sa.size(); ++i)
+		{
+			for (std::size_t j = 0; j < sa[i]; ++j)
+			{
+				if (!CheckDeterminedTypesWithParameterEqualRecursive(a.Args.GetRef(i, j), b.Args.GetRef(i, j))) return false;
+			}
+		}
+		return true;
 	}
 
 	bool CheckLoadingTypeBase(RuntimeType* typeChecked, RuntimeType* typeBase)

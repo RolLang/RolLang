@@ -160,8 +160,72 @@ namespace LibRolLangTest
 
 		TEST_METHOD(GenericTypeArgument)
 		{
-			//class A<T1> { T1.Sub F<T>(); }
-			//trait Tr<T1> { T1.Sub F<T>(); }
+			Builder b;
+			{
+				b.BeginAssembly("Core");
+				auto vt1 = b.BeginType(TSM_VALUE, "Core.ValueType1");
+				b.EndType();
+				auto vt2 = b.BeginType(TSM_VALUE, "Core.ValueType2");
+				b.EndType();
+				auto pt1 = b.BeginType(TSM_VALUE, "Core.ParentType1");
+				b.AddSubType("S", vt1);
+				b.EndType();
+				auto pt2 = b.BeginType(TSM_VALUE, "Core.ParentType2");
+				b.AddSubType("S", vt1);
+				b.EndType();
+
+				auto f1 = b.BeginFunction("Core.Func1");
+				auto f1g1 = b.AddGenericParameter();
+				auto f1g2 = b.AddGenericParameter();
+				b.Signature(b.MakeSubtype(f1g1, "S", {}), { f1g2 });
+				b.EndFunction();
+				auto tt1 = b.BeginType(TSM_VALUE, "Core.TargetType1");
+				auto tt1g1 = b.AddGenericParameter();
+				auto tt1fg1 = b.AddAdditionalGenericParameter(0);
+				b.AddMemberFunction("F", b.MakeFunction(f1, { tt1g1, tt1fg1 }));
+				b.EndType();
+
+				auto f2 = b.BeginFunction("Core.Func2");
+				auto f2g1 = b.AddGenericParameter();
+				auto f2g2 = b.AddGenericParameter();
+				b.Signature(f2g1, { f1g2 });
+				b.EndFunction();
+				auto tt2 = b.BeginType(TSM_VALUE, "Core.TargetType2");
+				auto tt2g1 = b.AddGenericParameter();
+				auto tt2fg1 = b.AddAdditionalGenericParameter(0);
+				b.AddMemberFunction("F", b.MakeFunction(f2, { b.MakeSubtype(tt2g1, "S", {}), tt2fg1 }));
+				b.EndType();
+
+				auto f3 = b.BeginFunction("Core.Func3");
+				auto f3g1 = b.AddGenericParameter();
+				auto f3g2 = b.AddGenericParameter();
+				auto f3g3 = b.AddGenericParameter();
+				b.Signature(b.MakeSubtype(f3g2, "S", {}), { f3g3 });
+				b.EndFunction();
+				auto tr = b.BeginTrait("Core.TestTrait");
+				auto trg1 = b.AddGenericParameter();
+				auto trg2 = b.AddGenericParameter();
+				auto trfg1 = b.AddAdditionalGenericParameter(0);
+				b.AddTraitGenericFunction(b.MakeFunction(f3, { trg1, trg2, trfg1 }), "F", "F");
+				b.EndTrait();
+
+				b.BeginType(TSM_VALUE, "Core.TestType1");
+				b.AddConstraint(b.MakeType(tt1, { pt1 }), { vt2, pt2 }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
+				b.Link(true, false);
+				b.EndType();
+				b.BeginType(TSM_VALUE, "Core.TestType2");
+				b.AddConstraint(b.MakeType(tt2, { pt1 }), { vt2, pt2 }, CONSTRAINT_TRAIT_ASSEMBLY, tr.Id);
+				b.Link(true, false);
+				b.EndType();
+				b.EndAssembly();
+			}
+			RuntimeLoader l(b.Build());
+			{
+				LoadType(&l, "Core", "Core.TestType1", ERR_L_SUCCESS);
+				LoadType(&l, "Core", "Core.TestType2", ERR_L_SUCCESS);
+			}
+			//class A<T1> { T1.S F<T>(T); }
+			//trait Tr<T1, T2> { T2.S F<T>(T); }
 		}
 
 		TEST_METHOD(TraitTypeDeduction)
