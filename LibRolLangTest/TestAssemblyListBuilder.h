@@ -640,46 +640,46 @@ namespace
 				g.Types.push_back({ ForceLoad(REF_EMPTY, forceLoad), 0 });
 				return ret;
 			case TR_ARGUMENT:
-				g.Types.push_back({ ForceLoad(REF_ARGUMENT, forceLoad), t.Id });
+				g.Types.push_back({ ForceLoad(REF_TYPE_ARGUMENT, forceLoad), t.Id });
 				assert(t.Arguments.size() == 1 && t.Arguments[0].Type == TR_ARGUMENT);
 				g.Types.push_back({ REF_ARGUMENTSEG, t.Arguments[0].Id });
 				return ret;
 			case TR_TEMP:
 			case TR_INST:
-				g.Types.push_back({ ForceLoad(REF_ASSEMBLY, forceLoad), t.Id });
+				g.Types.push_back({ ForceLoad(REF_TYPE_INTERNAL, forceLoad), t.Id });
 				break;
 			case TR_TEMPI:
 			case TR_INSTI:
-				g.Types.push_back({ ForceLoad(REF_IMPORT, forceLoad), t.Id });
+				g.Types.push_back({ ForceLoad(REF_TYPE_EXTERNAL, forceLoad), t.Id });
 				break;
 			case TR_SELF:
-				g.Types.push_back({ ForceLoad(REF_SELF, forceLoad), 0 });
+				g.Types.push_back({ ForceLoad(REF_TYPE_SELF, forceLoad), 0 });
 				return ret;
 			case TR_SUBTYPE:
 			{
 				if (t.Id != 0) return SIZE_MAX;
 				auto nameid = g.NamesList.size();
 				g.NamesList.push_back(t.SubtypeName);
-				g.Types.push_back({ ForceLoad(REF_SUBTYPE, forceLoad), nameid });
+				g.Types.push_back({ ForceLoad(REF_TYPE_SUBTYPE, forceLoad), nameid });
 				g.Types.push_back({ REF_CLONE, parentId });
 				break;
 			}
 			case TR_ANY:
 			{
-				g.Types.push_back({ ForceLoad(REF_ANY, forceLoad), 0 });
+				g.Types.push_back({ ForceLoad(REF_TYPE_C_ANY, forceLoad), 0 });
 				return ret;
 			}
 			case TR_TRY:
 			{
 				if (args.size() != 1) return SIZE_MAX;
-				g.Types.push_back({ ForceLoad(REF_TRY, forceLoad), args[0] });
+				g.Types.push_back({ ForceLoad(REF_TYPE_C_TRY, forceLoad), args[0] });
 				return ret;
 			}
 			case TR_CONSTRAINT:
 			{
 				auto nameid = g.NamesList.size();
 				g.NamesList.push_back(t.SubtypeName);
-				g.Types.push_back({ ForceLoad(REF_CONSTRAINT, forceLoad), nameid });
+				g.Types.push_back({ ForceLoad(REF_TYPE_CONSTRAINT, forceLoad), nameid });
 				return ret;
 			}
 			default:
@@ -717,11 +717,11 @@ namespace
 				return ret;
 			case FR_TEMP:
 			case FR_INST:
-				g.Functions.push_back({ ForceLoad(REF_ASSEMBLY, forceLoad), f.Id });
+				g.Functions.push_back({ ForceLoad(REF_FUNC_INTERNAL, forceLoad), f.Id });
 				break;
 			case FR_TEMPI:
 			case FR_INSTI:
-				g.Functions.push_back({ ForceLoad(REF_IMPORT, forceLoad), f.Id });
+				g.Functions.push_back({ ForceLoad(REF_FUNC_EXTERNAL, forceLoad), f.Id });
 				break;
 			default:
 				return SIZE_MAX;

@@ -805,11 +805,11 @@ private:
 		}
 		switch (g.Fields[index].Type)
 		{
-		case REF_FIELDID:
+		case REF_FIELD_INDEX:
 			return g.Fields[index].Index;
-		case REF_IMPORT:
+		case REF_FIELD_EXTERNAL:
 			return LoadImportConstant(assembly, g.Fields[index].Index);
-		case REF_CONSTRAINT:
+		case REF_FIELD_CONSTRAINT:
 		{
 			ConstraintExportList* list = &f->ConstraintExportList;
 			for (auto& e : *list)

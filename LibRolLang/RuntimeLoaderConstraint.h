@@ -610,11 +610,11 @@ private:
 		LoadingArguments la;
 		switch (g.Functions[id].Type & REF_REFTYPES)
 		{
-		case REF_ASSEMBLY:
+		case REF_FUNC_INTERNAL:
 			la.Assembly = src_assembly;
 			la.Id = g.Functions[id].Index;
 			break;
-		case REF_IMPORT:
+		case REF_FUNC_EXTERNAL:
 		{
 			auto a = FindAssemblyThrow(src_assembly);
 			if (g.Functions[id].Index >= a->ImportFunctions.size())
@@ -628,8 +628,8 @@ private:
 			}
 			break;
 		}
-		case REF_CONSTRAINT:
-		case REF_FUNC_CONSTRAINT_GENERIC:
+		case REF_FUNC_CONSTRAINT:
+		case REF_FUNC_G_CONSTRAINT:
 			//TODO support constraint function here
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
@@ -723,11 +723,11 @@ private:
 		LoadingArguments la;
 		switch (g.Functions[id].Type & REF_REFTYPES)
 		{
-		case REF_ASSEMBLY:
+		case REF_FUNC_INTERNAL:
 			la.Assembly = parent.TraitAssembly;
 			la.Id = g.Functions[id].Index;
 			break;
-		case REF_IMPORT:
+		case REF_FUNC_EXTERNAL:
 		{
 			auto a = FindAssemblyThrow(parent.TraitAssembly);
 			if (g.Functions[id].Index >= a->ImportFunctions.size())
@@ -741,8 +741,8 @@ private:
 			}
 			break;
 		}
-		case REF_CONSTRAINT:
-		case REF_FUNC_CONSTRAINT_GENERIC:
+		case REF_FUNC_CONSTRAINT:
+		case REF_FUNC_G_CONSTRAINT:
 			//TODO support constraint function here
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
@@ -857,9 +857,9 @@ private:
 			//TODO detect circular REF_CLONE
 			GetFunctionGenericArgumentNumberInternal(g, g.Functions[id].Index, result);
 			break;
-		case REF_ASSEMBLY:
-		case REF_IMPORT:
-		case REF_FUNC_CONSTRAINT_GENERIC:
+		case REF_FUNC_INTERNAL:
+		case REF_FUNC_EXTERNAL:
+		case REF_FUNC_G_CONSTRAINT:
 		{
 			MultiList<int> notUsed;
 			for (auto&& e : GetRefArgList(g.Functions, id, notUsed))
@@ -868,7 +868,7 @@ private:
 			}
 			break;
 		}
-		case REF_CONSTRAINT:
+		case REF_FUNC_CONSTRAINT:
 			break;
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
@@ -891,8 +891,8 @@ private:
 			//TODO detect circular REF_CLONE
 			GetTypeGenericArgumentNumberInternal(g, t.Index, result);
 			break;
-		case REF_ASSEMBLY:
-		case REF_IMPORT:
+		case REF_TYPE_INTERNAL:
+		case REF_TYPE_EXTERNAL:
 		{
 			MultiList<int> notUsed;
 			for (auto&& e : GetRefArgList(g.Types, id, notUsed))
@@ -901,7 +901,7 @@ private:
 			}
 			break;
 		}
-		case REF_SUBTYPE:
+		case REF_TYPE_SUBTYPE:
 		{
 			MultiList<int> notUsed;
 			GetTypeGenericArgumentNumberInternal(g, id + 1, result);
@@ -911,7 +911,7 @@ private:
 			}
 			break;
 		}
-		case REF_ARGUMENT:
+		case REF_TYPE_ARGUMENT:
 		{
 			if (id + 1 >= g.Types.size() || g.Types[id + 1].Type != REF_ARGUMENTSEG)
 			{
@@ -929,8 +929,8 @@ private:
 			}
 			break;
 		}
-		case REF_SELF:
-		case REF_CONSTRAINT:
+		case REF_TYPE_SELF:
+		case REF_TYPE_CONSTRAINT:
 		case REF_EMPTY:
 			break;
 		default:
@@ -959,15 +959,15 @@ private:
 		{
 		case REF_EMPTY:
 			return ConstraintCheckType::Empty(root);
-		case REF_ARGUMENT:
+		case REF_TYPE_ARGUMENT:
 			return GetRefArgument(g.Types, i, arguments);
-		case REF_SELF:
+		case REF_TYPE_SELF:
 			if (selfType != nullptr)
 			{
 				return ConstraintCheckType::Determined(root, selfType);
 			}
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
-		case REF_ASSEMBLY:
+		case REF_TYPE_INTERNAL:
 		{
 			auto ret = ConstraintCheckType::Generic(root, src, g.Types[i].Index);
 			for (auto&& e : GetRefArgList(g.Types, i, ret.Args))
@@ -977,7 +977,7 @@ private:
 			}
 			return ret;
 		}
-		case REF_IMPORT:
+		case REF_TYPE_EXTERNAL:
 		{
 			LoadingArguments la;
 			auto a = FindAssemblyThrow(src);
@@ -998,7 +998,7 @@ private:
 			}
 			return ret;
 		}
-		case REF_SUBTYPE:
+		case REF_TYPE_SUBTYPE:
 		{
 			auto ret = ConstraintCheckType::Subtype(root, g.NamesList[g.Types[i].Index]);
 			ret.ParentType.emplace_back(ConstructConstraintRefListType(ret.Root, g, src, i + 1,
@@ -1010,7 +1010,7 @@ private:
 			}
 			return ret;
 		}
-		case REF_CONSTRAINT:
+		case REF_TYPE_CONSTRAINT:
 		{
 			if (selfType != nullptr)
 			{
@@ -1048,7 +1048,7 @@ private:
 				return ConstraintCheckType::Parameter(root, SIZE_MAX, 0, g.NamesList[g.Types[i].Index]);
 			}
 		}
-		case REF_ANY:
+		case REF_TYPE_C_ANY:
 			if (udCount == nullptr)
 			{
 				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_ANY");
@@ -1071,11 +1071,11 @@ private:
 		case REF_CLONE:
 			//TODO detect circular REF_CLONE
 			return ConstructConstraintTraitType(cache, t.Index);
-		case REF_ARGUMENT:
+		case REF_TYPE_ARGUMENT:
 			return GetRefArgument(list, i, cache.Arguments);
-		case REF_SELF:
+		case REF_TYPE_SELF:
 			return cache.Target;
-		case REF_ASSEMBLY:
+		case REF_TYPE_INTERNAL:
 		{
 			auto ret = ConstraintCheckType::Generic(cache.Root, cache.TraitAssembly, t.Index);
 			for (auto&& e : GetRefArgList(list, i, ret.Args))
@@ -1084,7 +1084,7 @@ private:
 			}
 			return ret;
 		}
-		case REF_IMPORT:
+		case REF_TYPE_EXTERNAL:
 		{
 			auto assembly = FindAssemblyThrow(cache.TraitAssembly);
 			if (t.Index > assembly->ImportTypes.size())
@@ -1103,7 +1103,7 @@ private:
 			}
 			return ret;
 		}
-		case REF_SUBTYPE:
+		case REF_TYPE_SUBTYPE:
 		{
 			if (t.Index > trait->Generic.NamesList.size())
 			{
@@ -1120,9 +1120,9 @@ private:
 		case REF_EMPTY:
 			return ConstraintCheckType::Empty(cache.Root);
 		case REF_LISTEND:
-		case REF_ANY:
-		case REF_TRY:
-		case REF_CONSTRAINT:
+		case REF_TYPE_C_ANY:
+		case REF_TYPE_C_TRY:
+		case REF_TYPE_CONSTRAINT: //TODO check
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
@@ -1135,22 +1135,22 @@ private:
 		auto& t = list[i];
 		switch (t.Type & REF_REFTYPES)
 		{
-		case REF_ANY:
+		case REF_TYPE_C_ANY:
 			return ConstraintCheckType::Undetermined(cache.Root);
-		case REF_TRY:
+		case REF_TYPE_C_TRY:
 			return ConstraintCheckType::Try(ConstructConstraintArgumentType(cache, constraint, t.Index));
 		case REF_CLONE:
 			//TODO detect circular REF_CLONE
 			return ConstructConstraintArgumentType(cache, constraint, t.Index);
-		case REF_ARGUMENT:
+		case REF_TYPE_ARGUMENT:
 			return GetRefArgument(list, i, cache.CheckArguments);
-		case REF_SELF:
+		case REF_TYPE_SELF:
 			if (cache.CheckTarget.CType == CTT_FAIL)
 			{
 				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid use of REF_SELF");
 			}
 			return cache.CheckTarget;
-		case REF_ASSEMBLY:
+		case REF_TYPE_INTERNAL:
 		{
 			auto ret = ConstraintCheckType::Generic(cache.Root, cache.SrcAssembly, t.Index);
 			for (auto&& e : GetRefArgList(list, i, ret.Args))
@@ -1159,7 +1159,7 @@ private:
 			}
 			return ret;
 		}
-		case REF_IMPORT:
+		case REF_TYPE_EXTERNAL:
 		{
 			auto assembly = FindAssemblyThrow(cache.SrcAssembly);
 			if (t.Index > assembly->ImportTypes.size())
@@ -1178,7 +1178,7 @@ private:
 			}
 			return ret;
 		}
-		case REF_SUBTYPE:
+		case REF_TYPE_SUBTYPE:
 		{
 			if (t.Index > constraint.NamesList.size())
 			{
@@ -1194,7 +1194,7 @@ private:
 		}
 		case REF_EMPTY:
 			return ConstraintCheckType::Empty(cache.Root);
-		case REF_CONSTRAINT:
+		case REF_TYPE_CONSTRAINT: //TODO check
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
@@ -1891,7 +1891,7 @@ private:
 		//Export types
 		for (std::size_t i = 0; i < g->Types.size(); ++i)
 		{
-			if ((g->Types[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
+			if ((g->Types[i].Type & REF_REFTYPES) != REF_TYPE_CONSTRAINT) continue;
 			auto& name = g->NamesList[g->Types[i].Index];
 			if (name.compare(0, prefix.length(), prefix) == 0)
 			{
@@ -1910,7 +1910,7 @@ private:
 		//Export functions
 		for (std::size_t i = 0; i < g->Functions.size(); ++i)
 		{
-			if ((g->Functions[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
+			if ((g->Functions[i].Type & REF_REFTYPES) != REF_FUNC_CONSTRAINT) continue;
 			auto& name = g->NamesList[g->Functions[i].Index];
 			if (name.compare(0, prefix.length(), prefix) == 0)
 			{
@@ -1929,7 +1929,7 @@ private:
 		//Export generic functions
 		for (std::size_t i = 0; i < g->Functions.size(); ++i)
 		{
-			if ((g->Functions[i].Type & REF_REFTYPES) != REF_FUNC_CONSTRAINT_GENERIC) continue;
+			if ((g->Functions[i].Type & REF_REFTYPES) != REF_FUNC_G_CONSTRAINT) continue;
 			auto& name = g->NamesList[g->Functions[i].Index];
 			if (name.compare(0, prefix.length(), prefix) == 0)
 			{
@@ -1949,7 +1949,7 @@ private:
 		//Export field
 		for (std::size_t i = 0; i < g->Fields.size(); ++i)
 		{
-			if ((g->Fields[i].Type & REF_REFTYPES) != REF_CONSTRAINT) continue;
+			if ((g->Fields[i].Type & REF_REFTYPES) != REF_FIELD_CONSTRAINT) continue;
 			auto& name = g->NamesList[g->Fields[i].Index];
 			if (name.compare(0, prefix.length(), prefix) == 0)
 			{

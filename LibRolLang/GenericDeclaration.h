@@ -12,26 +12,33 @@ enum ReferenceType_ : unsigned char
 	REF_SEGMENT, //start of a segment in the argument list
 	REF_ARGUMENTSEG, //index = segment index. must follow REF_ARGUMENT
 
+	//Clone
 	REF_CLONE, //refer to another entry in the list. index = index in the same list
-	REF_ASSEMBLY, //index = assembly type/function array index
-	REF_IMPORT, //index = import #
-	REF_CONSTRAINT, //import from constraint. index = index in name list
-	REF_FUNC_CONSTRAINT_GENERIC, //generic function from trait
 
-	REF_ARGUMENT, //index = generic parameter list index. must be followed by a REF_ARGUMENTSEG
-	REF_SELF, //for type, the type itself. for trait, the target type
-	REF_SUBTYPE, //sub type of the given type. index = index in name list
-	//Note: REF_SUBTYPE can be used to implement reference to static type. (name = '.static')
+	//Type
+	REF_TYPE_INTERNAL,
+	REF_TYPE_EXTERNAL,
+	REF_TYPE_CONSTRAINT,
+	REF_TYPE_ARGUMENT,
+	REF_TYPE_SELF,
+	REF_TYPE_SUBTYPE,
+	
+	//Type (constraint list only)
+	REF_TYPE_C_TRY,
+	REF_TYPE_C_ANY,
+
+	//Field
+	REF_FIELD_INDEX,
+	REF_FIELD_EXTERNAL,
+	REF_FIELD_CONSTRAINT,
+
+	//Function
+	REF_FUNC_INTERNAL,
+	REF_FUNC_EXTERNAL,
+	REF_FUNC_CONSTRAINT,
+	REF_FUNC_G_CONSTRAINT,
+
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
-
-	//For field reference only
-	REF_FIELDID, //index = field id
-	//TODO member field by name
-
-	//Following 2 are only for constraint type list only
-	REF_TRY, //same as CLONE except for that it allow the refered calculation to fail (not an error)
-	REF_ANY, //undetermined generic type in trait constraints (can only be used as argument)
-
 	REF_DEBUGNAME_SIZE, //only to check debugNames array
 	REF_REFTYPES = 127,
 	REF_FORCELOAD = 128,
@@ -49,10 +56,27 @@ struct ReferenceType
 		{
 			"EMPTY",
 			"END", "SEGMENT", "ARGSEG",
-			"CLONE", "ASSEMBLY", "IMPORT", "CONSTRAINT", "CONSTRAINT_GENERIC",
-			"ARG", "SELF", "SUBTYPE", "CLONETYPE",
-			"FIELDID",
-			"TRY", "ANY",
+			"CLONE",
+
+			"TYPE INTERNAL",
+			"TYPE EXTERNAL",
+			"TYPE CONSTRAINT",
+			"TYPE ARGUMENT",
+			"TYPE SELF",
+			"TYPE SUBTYPE",
+			"TYPE TRY",
+			"TYPE ANY",
+
+			"FIELD INDEX",
+			"FIELD EXTERNAL",
+			"FIELD CONSTRAINT",
+
+			"FUNC INTERNAL",
+			"FUNC EXTERNAL",
+			"FUNC CONSTRAINT",
+			"FUNC G CONSTRAINT",
+
+			"CLONETYPE",
 		};
 		static_assert(sizeof(debugNames) / sizeof(const char*) == REF_DEBUGNAME_SIZE,
 			"Incorrect debugNames array size");

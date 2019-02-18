@@ -104,7 +104,7 @@ public:
 	static const T& GetRefArgument(const std::vector<DeclarationReference>& list, std::size_t head,
 		const MultiList<T>& target)
 	{
-		assert((list[head].Type & REF_REFTYPES) == REF_ARGUMENT);
+		assert((list[head].Type & REF_REFTYPES) == REF_TYPE_ARGUMENT);
 		if (head + 1 >= list.size() || list[head + 1].Type != REF_ARGUMENTSEG)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
@@ -120,7 +120,7 @@ public:
 	static const T& GetRefArgument(const std::vector<DeclarationReference>& list, std::size_t head,
 		const MultiList<T>& target, const MultiList<T>* targetAdditional)
 	{
-		assert((list[head].Type & REF_REFTYPES) == REF_ARGUMENT);
+		assert((list[head].Type & REF_REFTYPES) == REF_TYPE_ARGUMENT);
 		if (head + 1 >= list.size() || list[head + 1].Type != REF_ARGUMENTSEG)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
@@ -140,7 +140,7 @@ public:
 	static const void GetRefArgument(const std::vector<DeclarationReference>& list, std::size_t head,
 		std::size_t& ret_segment, std::size_t& ret_index)
 	{
-		assert((list[head].Type & REF_REFTYPES) == REF_ARGUMENT);
+		assert((list[head].Type & REF_REFTYPES) == REF_TYPE_ARGUMENT);
 		if (head + 1 >= list.size() || list[head + 1].Type != REF_ARGUMENTSEG)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid RefList entry");
@@ -172,7 +172,7 @@ public:
 			typeId = type.Index;
 			type = lg.Declaration.Types[type.Index];
 			goto loadClone;
-		case REF_ASSEMBLY:
+		case REF_TYPE_INTERNAL:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = type.Index;
 			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId, la.Arguments))
@@ -180,7 +180,7 @@ public:
 				la.Arguments.AppendLast(LoadRefType(lg, e.Index));
 			}
 			return true;
-		case REF_IMPORT:
+		case REF_TYPE_EXTERNAL:
 		{
 			auto a = FindAssemblyThrow(lg.Arguments.Assembly);
 			if (type.Index >= a->ImportTypes.size())
@@ -198,7 +198,7 @@ public:
 			}
 			return true;
 		}
-		case REF_ARGUMENT:
+		case REF_TYPE_ARGUMENT:
 		{
 			auto argType = GetRefArgument(lg.Declaration.Types, typeId,
 				lg.Arguments.Arguments, lg.AdditionalArguments);
@@ -210,7 +210,7 @@ public:
 			la = argType->Args;
 			return true;
 		}
-		case REF_SELF:
+		case REF_TYPE_SELF:
 			if (lg.SelfType == nullptr)
 			{
 				//Note that void cannot be self type. This always indicates an error.
@@ -218,7 +218,7 @@ public:
 			}
 			la = lg.SelfType->Args;
 			return true;
-		case REF_SUBTYPE:
+		case REF_TYPE_SUBTYPE:
 		{
 			if (type.Index >= lg.Declaration.NamesList.size())
 			{
@@ -241,7 +241,7 @@ public:
 			}
 			return true;
 		}
-		case REF_CONSTRAINT:
+		case REF_TYPE_CONSTRAINT:
 		{
 			ConstraintExportList* list;
 			if (lg.SelfType != nullptr)
@@ -268,8 +268,6 @@ public:
 			}
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
 		}
-		case REF_CLONETYPE:
-		case REF_LISTEND:
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
@@ -296,7 +294,7 @@ public:
 			funcId = func.Index;
 			func = lg.Declaration.Functions[func.Index];
 			goto loadClone;
-		case REF_ASSEMBLY:
+		case REF_FUNC_INTERNAL:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = func.Index;
 			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId, la.Arguments))
@@ -308,7 +306,7 @@ public:
 				la.Arguments.AppendLast(LoadRefType(lg, e.Entry.Index));
 			}
 			return true;
-		case REF_IMPORT:
+		case REF_FUNC_EXTERNAL:
 		{
 			auto a = FindAssemblyThrow(lg.Arguments.Assembly);
 			if (func.Index >= a->ImportFunctions.size())
@@ -330,7 +328,7 @@ public:
 			}
 			return true;
 		}
-		case REF_CONSTRAINT:
+		case REF_FUNC_CONSTRAINT:
 		{
 			ConstraintExportList* list;
 			if (lg.SelfType != nullptr)
@@ -352,7 +350,7 @@ public:
 			}
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
 		}
-		case REF_FUNC_CONSTRAINT_GENERIC:
+		case REF_FUNC_G_CONSTRAINT:
 		{
 			//TODO add test for this
 			ConstraintExportList* list;
@@ -377,11 +375,6 @@ public:
 			}
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
 		}
-		case REF_CLONETYPE:
-		case REF_ARGUMENT:
-		case REF_SELF:
-		case REF_SUBTYPE:
-		case REF_LISTEND:
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
