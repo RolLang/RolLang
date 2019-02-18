@@ -121,19 +121,19 @@ public: //External API (for RuntimeLoader external API)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type can only be value type");
 		}
-		if (type.Finalizer >= type.Generic.RefList.size())
+		if (type.Finalizer >= type.Generic.RefList.References.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
-		if ((type.Generic.RefList[type.Finalizer].Type & REF_REFTYPES) != REF_EMPTY)
+		if ((type.Generic.RefList.References[type.Finalizer].Type & REF_REFTYPES) != REF_EMPTY)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type cannot have finalizer");
 		}
-		if (type.Initializer >= type.Generic.RefList.size())
+		if (type.Initializer >= type.Generic.RefList.References.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
-		if ((type.Generic.RefList[type.Initializer].Type & REF_REFTYPES) != REF_EMPTY)
+		if ((type.Generic.RefList.References[type.Initializer].Type & REF_REFTYPES) != REF_EMPTY)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type cannot have initializer");
 		}
@@ -525,13 +525,13 @@ private:
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args);
 
-		for (std::size_t i = 0; i < typeTemplate->Generic.RefList.size(); ++i)
+		for (std::size_t i = 0; i < typeTemplate->Generic.RefList.References.size(); ++i)
 		{
-			if (typeTemplate->Generic.RefList[i].Type & REF_FORCELOAD_TYPE)
+			if (typeTemplate->Generic.RefList.References[i].Type & REF_FORCELOAD_TYPE)
 			{
 				SetValueInList(type->References.Types, i, LoadRefType({ type.get(), typeTemplate->Generic }, i));
 			}
-			if (typeTemplate->Generic.RefList[i].Type & REF_FORCELOAD_FUNC)
+			if (typeTemplate->Generic.RefList.References[i].Type & REF_FORCELOAD_FUNC)
 			{
 				SetValueInList(type->References.Functions, i, LoadRefFunction({ type.get(), typeTemplate->Generic }, i));
 			}
@@ -583,19 +583,19 @@ private:
 		//TODO Optimize loading. Directly find the cloned func/type.
 		auto funcTemplate = FindFunctionTemplate(func->Args.Assembly, func->Args.Id);
 		auto assembly = FindAssemblyThrow(func->Args.Assembly);
-		for (std::size_t i = 0; i < funcTemplate->Generic.RefList.size(); ++i)
+		for (std::size_t i = 0; i < funcTemplate->Generic.RefList.References.size(); ++i)
 		{
-			if (funcTemplate->Generic.RefList[i].Type & REF_FORCELOAD_TYPE)
+			if (funcTemplate->Generic.RefList.References[i].Type & REF_FORCELOAD_TYPE)
 			{
 				SetValueInList(func->References.Types, i,
 					LoadRefType({ func.get(), funcTemplate->Generic }, i));
 			}
-			if (funcTemplate->Generic.RefList[i].Type & REF_FORCELOAD_FUNC)
+			if (funcTemplate->Generic.RefList.References[i].Type & REF_FORCELOAD_FUNC)
 			{
 				SetValueInList(func->References.Functions, i,
 					LoadRefFunction({ func.get(), funcTemplate->Generic }, i));
 			}
-			if (funcTemplate->Generic.RefList[i].Type & REF_FORCELOAD_FIELD)
+			if (funcTemplate->Generic.RefList.References[i].Type & REF_FORCELOAD_FIELD)
 			{
 				func->References.Fields.push_back(LoadFieldIndex(assembly, func.get(), funcTemplate->Generic, i));
 			}
@@ -790,20 +790,20 @@ private:
 
 	std::size_t LoadFieldIndex(Assembly* assembly, RuntimeFunction* f, GenericDeclaration& g, std::size_t index)
 	{
-		if (index >= g.RefList.size())
+		if (index >= g.RefList.References.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid field reference");
 		}
-		while (g.RefList[index].Type == REF_CLONE)
+		while (g.RefList.References[index].Type == REF_CLONE)
 		{
-			index = g.RefList[index].Index;
+			index = g.RefList.References[index].Index;
 		}
-		switch (g.RefList[index].Type)
+		switch (g.RefList.References[index].Type)
 		{
 		case REF_FIELD_INDEX:
-			return g.RefList[index].Index;
+			return g.RefList.References[index].Index;
 		case REF_FIELD_EXTERNAL:
-			return LoadImportConstant(assembly, g.RefList[index].Index);
+			return LoadImportConstant(assembly, g.RefList.References[index].Index);
 		case REF_FIELD_CONSTRAINT:
 		{
 			ConstraintExportList* list = &f->ConstraintExportList;

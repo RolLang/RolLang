@@ -40,8 +40,9 @@ enum ReferenceType_ : unsigned char
 
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
 
-	REF_DEBUGNAME_SIZE, //only to check debugNames array
+	REF_REFTYPES_SIZE, //only to check size
 	REF_REFTYPES = 31,
+
 	REF_FORCELOAD_TYPE = 32,
 	REF_FORCELOAD_FUNC = 64,
 	REF_FORCELOAD_FIELD = 128,
@@ -82,9 +83,9 @@ struct ReferenceType
 
 			"CLONETYPE",
 		};
-		static_assert(sizeof(debugNames) / sizeof(const char*) == REF_DEBUGNAME_SIZE,
+		static_assert(sizeof(debugNames) / sizeof(const char*) == REF_REFTYPES_SIZE,
 			"Incorrect debugNames array size");
-		static_assert(REF_DEBUGNAME_SIZE <= REF_REFTYPES,
+		static_assert(REF_REFTYPES_SIZE <= REF_REFTYPES,
 			"Incorrect REF enum size");
 
 		DebugString = debugNames[type & REF_REFTYPES];
@@ -102,6 +103,7 @@ struct ReferenceType
 	std::string DebugString;
 #endif
 };
+
 template <>
 struct Serializer<ReferenceType>
 {
@@ -138,13 +140,22 @@ FIELD_SERIALIZER_BEGIN(DeclarationReference)
 	SERIALIZE_FIELD(Index)
 FIELD_SERIALIZER_END()
 
+struct ReferenceList
+{
+	std::vector<DeclarationReference> References;
+	std::vector<std::string> Names;
+};
+FIELD_SERIALIZER_BEGIN(ReferenceList)
+	SERIALIZE_FIELD(References)
+	SERIALIZE_FIELD(Names)
+FIELD_SERIALIZER_END()
+
 struct GenericConstraint
 {
 	ConstraintType Type;
 	std::size_t Index;
 
-	std::vector<DeclarationReference> TypeReferences;
-	std::vector<std::string> NamesList;
+	ReferenceList RefList;
 	std::size_t Target;
 	std::vector<std::size_t> Arguments; //TODO support for segment
 
@@ -153,8 +164,7 @@ struct GenericConstraint
 FIELD_SERIALIZER_BEGIN(GenericConstraint)
 	SERIALIZE_FIELD(Type)
 	SERIALIZE_FIELD(Index)
-	SERIALIZE_FIELD(TypeReferences)
-	SERIALIZE_FIELD(NamesList)
+	SERIALIZE_FIELD(RefList)
 	SERIALIZE_FIELD(Target)
 	SERIALIZE_FIELD(Arguments)
 	SERIALIZE_FIELD(ExportName)
@@ -241,15 +251,12 @@ struct GenericDeclaration
 	GenericDefArgumentListSize ParameterCount;
 	std::vector<GenericConstraint> Constraints;
 
-	//Merge into one list (see comments in struct Function)
-	std::vector<DeclarationReference> RefList;
-	std::vector<std::string> NamesList;
+	ReferenceList RefList;
 };
 FIELD_SERIALIZER_BEGIN(GenericDeclaration)
 	SERIALIZE_FIELD(ParameterCount)
 	SERIALIZE_FIELD(Constraints)
 	SERIALIZE_FIELD(RefList)
-	SERIALIZE_FIELD(NamesList)
 FIELD_SERIALIZER_END()
 
 }

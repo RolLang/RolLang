@@ -133,9 +133,8 @@ struct Function
 
 	//TODO function body (implementation) should be in a different list in assembly
 	//This ensures that when we want to specify a signature, we never get a body with it.
-	//TODO Next step is to use different REF_ values for signature/implementation, and
-	//merge type together into one list. This allows us to use same structure in GenericDecl
-	//and in constraint.
+	//TODO Next step is to use different REF_ values for signature/implementation.
+	//This allows us to use same structure in GenericDecl and in constraint.
 	std::vector<FunctionLocal> Locals;
 	std::vector<unsigned char> Instruction;
 	std::vector<unsigned char> ConstantData;
