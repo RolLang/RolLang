@@ -172,7 +172,7 @@ protected:
 		if (f == nullptr) return false;
 		if (f->Instruction.size() || f->ConstantTable.size() || f->ConstantData.size()) return false;
 		if (!f->Generic.ParameterCount.IsEmpty()) return false;
-		if (f->Generic.Functions.size()) return false;
+		//TODO check reflist? (function & field)
 		return true;
 	}
 

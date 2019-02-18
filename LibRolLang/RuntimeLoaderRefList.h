@@ -152,11 +152,11 @@ public:
 public:
 	bool FindRefTypeImpl(const LoadingRefArguments& lg, std::size_t typeId, LoadingArguments& la)
 	{
-		if (typeId >= lg.Declaration.Types.size())
+		if (typeId >= lg.Declaration.RefList.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 		}
-		auto type = lg.Declaration.Types[typeId];
+		auto type = lg.Declaration.RefList[typeId];
 	loadClone:
 		switch (type.Type & REF_REFTYPES)
 		{
@@ -165,17 +165,17 @@ public:
 			return true;
 		case REF_CLONE:
 			//TODO detect circular REF_CLONE
-			if (type.Index >= lg.Declaration.Types.size())
+			if (type.Index >= lg.Declaration.RefList.size())
 			{
 				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid type reference");
 			}
 			typeId = type.Index;
-			type = lg.Declaration.Types[type.Index];
+			type = lg.Declaration.RefList[type.Index];
 			goto loadClone;
 		case REF_TYPE_INTERNAL:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = type.Index;
-			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId, la.Arguments))
+			for (auto&& e : GetRefArgList(lg.Declaration.RefList, typeId, la.Arguments))
 			{
 				la.Arguments.AppendLast(LoadRefType(lg, e.Index));
 			}
@@ -192,7 +192,7 @@ public:
 			{
 				throw RuntimeLoaderException(ERR_L_LINK, "Import type not found");
 			}
-			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId, la.Arguments))
+			for (auto&& e : GetRefArgList(lg.Declaration.RefList, typeId, la.Arguments))
 			{
 				la.Arguments.AppendLast(LoadRefType(lg, e.Index));
 			}
@@ -200,7 +200,7 @@ public:
 		}
 		case REF_TYPE_ARGUMENT:
 		{
-			auto argType = GetRefArgument(lg.Declaration.Types, typeId,
+			auto argType = GetRefArgument(lg.Declaration.RefList, typeId,
 				lg.Arguments.Arguments, lg.AdditionalArguments);
 			if (argType == nullptr)
 			{
@@ -230,7 +230,7 @@ public:
 			{
 				return false;
 			}
-			for (auto&& e : GetRefArgList(lg.Declaration.Types, typeId + 1, la.Arguments))
+			for (auto&& e : GetRefArgList(lg.Declaration.RefList, typeId + 1, la.Arguments))
 			{
 				la.Arguments.AppendLast(LoadRefType(lg, e.Index));
 			}
@@ -275,11 +275,11 @@ public:
 
 	bool FindRefFunctionImpl(const LoadingRefArguments& lg, std::size_t funcId, LoadingArguments& la)
 	{
-		if (funcId >= lg.Declaration.Functions.size())
+		if (funcId >= lg.Declaration.RefList.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
-		auto func = lg.Declaration.Functions[funcId];
+		auto func = lg.Declaration.RefList[funcId];
 	loadClone:
 		switch (func.Type & REF_REFTYPES)
 		{
@@ -287,17 +287,17 @@ public:
 			la = LoadingArguments::Empty();
 			return true;
 		case REF_CLONE:
-			if (func.Index >= lg.Declaration.Functions.size())
+			if (func.Index >= lg.Declaration.RefList.size())
 			{
 				throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 			}
 			funcId = func.Index;
-			func = lg.Declaration.Functions[func.Index];
+			func = lg.Declaration.RefList[func.Index];
 			goto loadClone;
 		case REF_FUNC_INTERNAL:
 			la.Assembly = lg.Arguments.Assembly;
 			la.Id = func.Index;
-			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId, la.Arguments))
+			for (auto&& e : GetRefArgList(lg.Declaration.RefList, funcId, la.Arguments))
 			{
 				if (e.Entry.Type != REF_CLONETYPE)
 				{
@@ -318,7 +318,7 @@ public:
 			{
 				throw RuntimeLoaderException(ERR_L_LINK, "Import function not found");
 			}
-			for (auto&& e : GetRefArgList(lg.Declaration.Functions, funcId, la.Arguments))
+			for (auto&& e : GetRefArgList(lg.Declaration.RefList, funcId, la.Arguments))
 			{
 				if (e.Entry.Type != REF_CLONETYPE)
 				{

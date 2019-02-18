@@ -121,19 +121,19 @@ public: //External API (for RuntimeLoader external API)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type can only be value type");
 		}
-		if (type.Finalizer >= type.Generic.Functions.size())
+		if (type.Finalizer >= type.Generic.RefList.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
-		if ((type.Generic.Functions[type.Finalizer].Type & REF_REFTYPES) != REF_EMPTY)
+		if ((type.Generic.RefList[type.Finalizer].Type & REF_REFTYPES) != REF_EMPTY)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type cannot have finalizer");
 		}
-		if (type.Initializer >= type.Generic.Functions.size())
+		if (type.Initializer >= type.Generic.RefList.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
-		if ((type.Generic.Functions[type.Initializer].Type & REF_REFTYPES) != REF_EMPTY)
+		if ((type.Generic.RefList[type.Initializer].Type & REF_REFTYPES) != REF_EMPTY)
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Internal type cannot have initializer");
 		}
@@ -254,10 +254,11 @@ public: //Internal API (for other modules)
 			}
 		}
 
-		if (typeTemplate->Generic.Fields.size() != 0)
-		{
-			throw RuntimeLoaderException(ERR_L_PROGRAM, "Type template cannot contain field reference");
-		}
+		//if (typeTemplate->Generic.RefList.size() != 0)
+		//{
+		//	throw RuntimeLoaderException(ERR_L_PROGRAM, "Type template cannot contain field reference");
+		//}
+		//TODO check field ref
 
 		auto t = std::make_unique<RuntimeType>();
 		t->Parent = _loader;
@@ -524,16 +525,13 @@ private:
 	{
 		auto typeTemplate = FindTypeTemplate(type->Args);
 
-		for (std::size_t i = 0; i < typeTemplate->Generic.Types.size(); ++i)
+		for (std::size_t i = 0; i < typeTemplate->Generic.RefList.size(); ++i)
 		{
-			if (typeTemplate->Generic.Types[i].Type & REF_FORCELOAD)
+			if (typeTemplate->Generic.RefList[i].Type & REF_FORCELOAD_TYPE)
 			{
 				SetValueInList(type->References.Types, i, LoadRefType({ type.get(), typeTemplate->Generic }, i));
 			}
-		}
-		for (std::size_t i = 0; i < typeTemplate->Generic.Functions.size(); ++i)
-		{
-			if (typeTemplate->Generic.Functions[i].Type & REF_FORCELOAD)
+			if (typeTemplate->Generic.RefList[i].Type & REF_FORCELOAD_FUNC)
 			{
 				SetValueInList(type->References.Functions, i, LoadRefFunction({ type.get(), typeTemplate->Generic }, i));
 			}
@@ -584,26 +582,23 @@ private:
 	{
 		//TODO Optimize loading. Directly find the cloned func/type.
 		auto funcTemplate = FindFunctionTemplate(func->Args.Assembly, func->Args.Id);
-		for (std::size_t i = 0; i < funcTemplate->Generic.Types.size(); ++i)
+		auto assembly = FindAssemblyThrow(func->Args.Assembly);
+		for (std::size_t i = 0; i < funcTemplate->Generic.RefList.size(); ++i)
 		{
-			if (funcTemplate->Generic.Types[i].Type & REF_FORCELOAD)
+			if (funcTemplate->Generic.RefList[i].Type & REF_FORCELOAD_TYPE)
 			{
 				SetValueInList(func->References.Types, i,
 					LoadRefType({ func.get(), funcTemplate->Generic }, i));
 			}
-		}
-		for (std::size_t i = 0; i < funcTemplate->Generic.Functions.size(); ++i)
-		{
-			if (funcTemplate->Generic.Functions[i].Type & REF_FORCELOAD)
+			if (funcTemplate->Generic.RefList[i].Type & REF_FORCELOAD_FUNC)
 			{
 				SetValueInList(func->References.Functions, i,
 					LoadRefFunction({ func.get(), funcTemplate->Generic }, i));
 			}
-		}
-		auto assembly = FindAssemblyThrow(func->Args.Assembly);
-		for (std::size_t i = 0; i < funcTemplate->Generic.Fields.size(); ++i)
-		{
-			func->References.Fields.push_back(LoadFieldIndex(assembly, func.get(), funcTemplate->Generic, i));
+			if (funcTemplate->Generic.RefList[i].Type & REF_FORCELOAD_FIELD)
+			{
+				func->References.Fields.push_back(LoadFieldIndex(assembly, func.get(), funcTemplate->Generic, i));
+			}
 		}
 		func->ReturnValue = func->References.Types[funcTemplate->ReturnValue.TypeId];
 		for (std::size_t i = 0; i < funcTemplate->Parameters.size(); ++i)
@@ -795,20 +790,20 @@ private:
 
 	std::size_t LoadFieldIndex(Assembly* assembly, RuntimeFunction* f, GenericDeclaration& g, std::size_t index)
 	{
-		if (index >= g.Fields.size())
+		if (index >= g.RefList.size())
 		{
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid field reference");
 		}
-		while (g.Fields[index].Type == REF_CLONE)
+		while (g.RefList[index].Type == REF_CLONE)
 		{
-			index = g.Fields[index].Index;
+			index = g.RefList[index].Index;
 		}
-		switch (g.Fields[index].Type)
+		switch (g.RefList[index].Type)
 		{
 		case REF_FIELD_INDEX:
-			return g.Fields[index].Index;
+			return g.RefList[index].Index;
 		case REF_FIELD_EXTERNAL:
-			return LoadImportConstant(assembly, g.Fields[index].Index);
+			return LoadImportConstant(assembly, g.RefList[index].Index);
 		case REF_FIELD_CONSTRAINT:
 		{
 			ConstraintExportList* list = &f->ConstraintExportList;

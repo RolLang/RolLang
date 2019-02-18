@@ -81,26 +81,28 @@ namespace LibRolLangTest
 			CheckFunctionTypes(f2, sizeof(void*), {});
 		}
 
-		static void SetupCyclicFunction(Builder& builder)
+		static int SetupCyclicFunction(Builder& builder)
 		{
 			auto f2 = builder.ForwardDeclareFunction();
 			auto f1 = builder.BeginFunction("Test.TestFunc1");
 			builder.Link(false, false);
 			builder.Signature({}, {});
-			builder.AddFunctionRef(f2);
+			auto ref1 = builder.AddFunctionRef(f2);
 			builder.EndFunction();
 
 			builder.BeginFunction("Test.TestFunc2", f2);
 			builder.Link(true, false);
 			builder.Signature({}, {});
-			builder.AddFunctionRef(f1);
+			auto ref2 = builder.AddFunctionRef(f1);
 			builder.EndFunction();
+
+			return ref2;
 		}
 
-		static void CheckCyclicFunction(RuntimeLoader* loader)
+		static void CheckCyclicFunction(RuntimeLoader* loader, int ref2)
 		{
 			auto f2 = LoadFunction(loader, "Test", "Test.TestFunc2", ERR_L_SUCCESS);
-			auto f1 = f2->References.Functions[0];
+			auto f1 = f2->References.Functions[ref2];
 			Assert::IsNotNull(f1);
 
 			CheckFunctionBasic(loader, f1);
@@ -152,12 +154,12 @@ namespace LibRolLangTest
 			Builder builder;
 
 			builder.BeginAssembly("Test");
-			SetupCyclicFunction(builder);
+			int ref2 = SetupCyclicFunction(builder);
 			builder.EndAssembly();
 
 			RuntimeLoader loader(builder.Build());
-			CheckCyclicFunction(&loader);
-			CheckCyclicFunction(&loader);
+			CheckCyclicFunction(&loader, ref2);
+			CheckCyclicFunction(&loader, ref2);
 		}
 	};
 }

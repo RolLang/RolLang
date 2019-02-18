@@ -39,9 +39,13 @@ enum ReferenceType_ : unsigned char
 	REF_FUNC_G_CONSTRAINT,
 
 	REF_CLONETYPE, //for function generic arguments, clone from the type list
+
 	REF_DEBUGNAME_SIZE, //only to check debugNames array
-	REF_REFTYPES = 127,
-	REF_FORCELOAD = 128,
+	REF_REFTYPES = 31,
+	REF_FORCELOAD_TYPE = 32,
+	REF_FORCELOAD_FUNC = 64,
+	REF_FORCELOAD_FIELD = 128,
+	REF_FORCELOAD_ANY = REF_FORCELOAD_TYPE | REF_FORCELOAD_FUNC | REF_FORCELOAD_FIELD,
 };
 
 struct ReferenceType
@@ -74,15 +78,17 @@ struct ReferenceType
 			"FUNC INTERNAL",
 			"FUNC EXTERNAL",
 			"FUNC CONSTRAINT",
-			"FUNC G CONSTRAINT",
+			"FUNCG CONSTRAINT",
 
 			"CLONETYPE",
 		};
 		static_assert(sizeof(debugNames) / sizeof(const char*) == REF_DEBUGNAME_SIZE,
 			"Incorrect debugNames array size");
+		static_assert(REF_DEBUGNAME_SIZE <= REF_REFTYPES,
+			"Incorrect REF enum size");
 
 		DebugString = debugNames[type & REF_REFTYPES];
-		if (type & REF_FORCELOAD)
+		if (type & REF_FORCELOAD_ANY)
 		{
 			DebugString += " *";
 		}
@@ -236,17 +242,13 @@ struct GenericDeclaration
 	std::vector<GenericConstraint> Constraints;
 
 	//Merge into one list (see comments in struct Function)
-	std::vector<DeclarationReference> Types;
-	std::vector<DeclarationReference> Functions;
-	std::vector<DeclarationReference> Fields;
+	std::vector<DeclarationReference> RefList;
 	std::vector<std::string> NamesList;
 };
 FIELD_SERIALIZER_BEGIN(GenericDeclaration)
 	SERIALIZE_FIELD(ParameterCount)
 	SERIALIZE_FIELD(Constraints)
-	SERIALIZE_FIELD(Types)
-	SERIALIZE_FIELD(Functions)
-	SERIALIZE_FIELD(Fields)
+	SERIALIZE_FIELD(RefList)
 	SERIALIZE_FIELD(NamesList)
 FIELD_SERIALIZER_END()
 

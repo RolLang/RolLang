@@ -607,7 +607,7 @@ namespace
 			std::vector<DeclarationReference>& Types;
 			std::vector<std::string>& NamesList;
 			ReferenceTypeWriteTarget(GenericDeclaration& g)
-				: Types(g.Types), NamesList(g.NamesList)
+				: Types(g.RefList), NamesList(g.NamesList)
 			{
 			}
 			ReferenceTypeWriteTarget(GenericConstraint& constraint)
@@ -637,49 +637,49 @@ namespace
 			switch (t.Type)
 			{
 			case TR_EMPTY:
-				g.Types.push_back({ ForceLoad(REF_EMPTY, forceLoad), 0 });
+				g.Types.push_back({ ForceLoadType(REF_EMPTY, forceLoad), 0 });
 				return ret;
 			case TR_ARGUMENT:
-				g.Types.push_back({ ForceLoad(REF_TYPE_ARGUMENT, forceLoad), t.Id });
+				g.Types.push_back({ ForceLoadType(REF_TYPE_ARGUMENT, forceLoad), t.Id });
 				assert(t.Arguments.size() == 1 && t.Arguments[0].Type == TR_ARGUMENT);
 				g.Types.push_back({ REF_ARGUMENTSEG, t.Arguments[0].Id });
 				return ret;
 			case TR_TEMP:
 			case TR_INST:
-				g.Types.push_back({ ForceLoad(REF_TYPE_INTERNAL, forceLoad), t.Id });
+				g.Types.push_back({ ForceLoadType(REF_TYPE_INTERNAL, forceLoad), t.Id });
 				break;
 			case TR_TEMPI:
 			case TR_INSTI:
-				g.Types.push_back({ ForceLoad(REF_TYPE_EXTERNAL, forceLoad), t.Id });
+				g.Types.push_back({ ForceLoadType(REF_TYPE_EXTERNAL, forceLoad), t.Id });
 				break;
 			case TR_SELF:
-				g.Types.push_back({ ForceLoad(REF_TYPE_SELF, forceLoad), 0 });
+				g.Types.push_back({ ForceLoadType(REF_TYPE_SELF, forceLoad), 0 });
 				return ret;
 			case TR_SUBTYPE:
 			{
 				if (t.Id != 0) return SIZE_MAX;
 				auto nameid = g.NamesList.size();
 				g.NamesList.push_back(t.SubtypeName);
-				g.Types.push_back({ ForceLoad(REF_TYPE_SUBTYPE, forceLoad), nameid });
+				g.Types.push_back({ ForceLoadType(REF_TYPE_SUBTYPE, forceLoad), nameid });
 				g.Types.push_back({ REF_CLONE, parentId });
 				break;
 			}
 			case TR_ANY:
 			{
-				g.Types.push_back({ ForceLoad(REF_TYPE_C_ANY, forceLoad), 0 });
+				g.Types.push_back({ ForceLoadType(REF_TYPE_C_ANY, forceLoad), 0 });
 				return ret;
 			}
 			case TR_TRY:
 			{
 				if (args.size() != 1) return SIZE_MAX;
-				g.Types.push_back({ ForceLoad(REF_TYPE_C_TRY, forceLoad), args[0] });
+				g.Types.push_back({ ForceLoadType(REF_TYPE_C_TRY, forceLoad), args[0] });
 				return ret;
 			}
 			case TR_CONSTRAINT:
 			{
 				auto nameid = g.NamesList.size();
 				g.NamesList.push_back(t.SubtypeName);
-				g.Types.push_back({ ForceLoad(REF_TYPE_CONSTRAINT, forceLoad), nameid });
+				g.Types.push_back({ ForceLoadType(REF_TYPE_CONSTRAINT, forceLoad), nameid });
 				return ret;
 			}
 			default:
@@ -709,38 +709,55 @@ namespace
 
 		std::size_t WriteFunctionRef(GenericDeclaration& g, const FunctionReference& f, bool forceLoad = true)
 		{
-			std::size_t ret = g.Functions.size();
+			std::vector<std::size_t> argIndex;
+			for (std::size_t i = 0; i < f.Arguments.size(); ++i)
+			{
+				argIndex.push_back(WriteTypeRef(g, f.Arguments[i], false));
+			}
+
+			std::size_t ret = g.RefList.size();
+
 			switch (f.Type)
 			{
 			case FR_EMPTY:
-				g.Functions.push_back({ ForceLoad(REF_EMPTY, forceLoad), 0 });
+				g.RefList.push_back({ ForceLoadFunc(REF_EMPTY, forceLoad), 0 });
 				return ret;
 			case FR_TEMP:
 			case FR_INST:
-				g.Functions.push_back({ ForceLoad(REF_FUNC_INTERNAL, forceLoad), f.Id });
+				g.RefList.push_back({ ForceLoadFunc(REF_FUNC_INTERNAL, forceLoad), f.Id });
 				break;
 			case FR_TEMPI:
 			case FR_INSTI:
-				g.Functions.push_back({ ForceLoad(REF_FUNC_EXTERNAL, forceLoad), f.Id });
+				g.RefList.push_back({ ForceLoadFunc(REF_FUNC_EXTERNAL, forceLoad), f.Id });
 				break;
 			default:
 				return SIZE_MAX;
 			}
 			if (f.Arguments.size() != 0 || f.Type == FR_INST || f.Type == FR_INSTI)
 			{
-				g.Functions.push_back({ REF_SEGMENT, 0 });
+				g.RefList.push_back({ REF_SEGMENT, 0 });
 			}
 			for (std::size_t i = 0; i < f.Arguments.size(); ++i)
 			{
-				g.Functions.push_back({ REF_CLONETYPE, WriteTypeRef(g, f.Arguments[i], false) });
+				g.RefList.push_back({ REF_CLONETYPE, argIndex[i] });
 			}
-			g.Functions.push_back({ REF_LISTEND, 0 });
+			g.RefList.push_back({ REF_LISTEND, 0 });
 			return ret;
 		}
 
-		ReferenceType ForceLoad(ReferenceType v, bool f)
+		ReferenceType ForceLoadType(ReferenceType v, bool f)
 		{
-			return f ? (ReferenceType)(v | REF_FORCELOAD) : v;
+			return f ? (ReferenceType)(v | REF_FORCELOAD_TYPE) : v;
+		}
+
+		ReferenceType ForceLoadFunc(ReferenceType v, bool f)
+		{
+			return f ? (ReferenceType)(v | REF_FORCELOAD_FUNC) : v;
+		}
+
+		ReferenceType ForceLoadField(ReferenceType v, bool f)
+		{
+			return f ? (ReferenceType)(v | REF_FORCELOAD_FIELD) : v;
 		}
 
 	private:
