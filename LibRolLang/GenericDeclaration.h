@@ -16,7 +16,7 @@ enum ReferenceType_ : unsigned char
 	REF_ASSEMBLY, //index = assembly type/function array index
 	REF_IMPORT, //index = import #
 	REF_CONSTRAINT, //import from constraint. index = index in name list
-	//TODO REF_CONSTRAINTGENERIC for generic function from trait?
+	REF_FUNC_CONSTRAINT_GENERIC, //generic function from trait
 
 	REF_ARGUMENT, //index = generic parameter list index. must be followed by a REF_ARGUMENTSEG
 	REF_SELF, //for type, the type itself. for trait, the target type
@@ -49,7 +49,7 @@ struct ReferenceType
 		{
 			"EMPTY",
 			"END", "SEGMENT", "ARGSEG",
-			"CLONE", "ASSEMBLY", "IMPORT", "CONSTRAINT",
+			"CLONE", "ASSEMBLY", "IMPORT", "CONSTRAINT", "CONSTRAINT_GENERIC",
 			"ARG", "SELF", "SUBTYPE", "CLONETYPE",
 			"FIELDID",
 			"TRY", "ANY",

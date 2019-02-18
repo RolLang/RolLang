@@ -80,14 +80,15 @@ struct ConstraintCheckType
 {
 	ConstraintCalculationCacheRoot* Root;
 	ConstraintCheckTypeType CType;
+	bool TryArgumentConstraint;
 
+	//TODO Merge fields, improve comparison
 	RuntimeType* DeterminedType;
 	std::string TypeTemplateAssembly;
 	std::size_t TypeTemplateIndex;
 	std::string SubtypeName;
 	MultiList<ConstraintCheckType> Args;
 	std::size_t UndeterminedId;
-	bool TryArgumentConstraint;
 	std::vector<ConstraintCheckType> ParentType; //TODO any better idea?
 	std::size_t ParameterSegment, ParameterIndex;
 

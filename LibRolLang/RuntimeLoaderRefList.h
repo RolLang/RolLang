@@ -352,6 +352,31 @@ public:
 			}
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
 		}
+		case REF_FUNC_CONSTRAINT_GENERIC:
+		{
+			//TODO add test for this
+			ConstraintExportList* list;
+			if (lg.SelfType != nullptr)
+			{
+				list = &lg.SelfType->ConstraintExportList;
+			}
+			else
+			{
+				assert(lg.SelfFunction);
+				list = &lg.SelfFunction->ConstraintExportList;
+			}
+			for (auto& e : *list)
+			{
+				if (e.EntryType == CONSTRAINT_EXPORT_GENERICFUNCTION && e.Index == funcId)
+				{
+					auto target = e.GenericFunction.Target;
+					auto funcId = e.GenericFunction.FunctionId;
+					LoadingRefArguments lg2(target, FindTypeTemplate(target->Args)->Generic, *lg.AdditionalArguments);
+					return FindRefFunctionImpl(lg2, funcId, la);
+				}
+			}
+			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid REF_CONSTRAINT reference");
+		}
 		case REF_CLONETYPE:
 		case REF_ARGUMENT:
 		case REF_SELF:

@@ -74,7 +74,7 @@ enum ConstraintExportListEntryType
 	CONSTRAINT_EXPORT_TYPE = 1,
 	CONSTRAINT_EXPORT_FUNCTION = 2,
 	CONSTRAINT_EXPORT_FIELD = 3,
-	//TODO generic function
+	CONSTRAINT_EXPORT_GENERICFUNCTION = 4,
 };
 
 struct ConstraintExportListEntry
@@ -86,6 +86,10 @@ struct ConstraintExportListEntry
 		RuntimeFunction* Function;
 		RuntimeType* Type;
 		std::size_t Field;
+		struct {
+			RuntimeType* Target;
+			std::size_t FunctionId;
+		} GenericFunction;
 	};
 };
 

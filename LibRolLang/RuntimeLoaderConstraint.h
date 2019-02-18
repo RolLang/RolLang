@@ -628,6 +628,9 @@ private:
 			}
 			break;
 		}
+		case REF_CONSTRAINT:
+		case REF_FUNC_CONSTRAINT_GENERIC:
+			//TODO support constraint function here
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
@@ -738,6 +741,9 @@ private:
 			}
 			break;
 		}
+		case REF_CONSTRAINT:
+		case REF_FUNC_CONSTRAINT_GENERIC:
+			//TODO support constraint function here
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
@@ -853,6 +859,7 @@ private:
 			break;
 		case REF_ASSEMBLY:
 		case REF_IMPORT:
+		case REF_FUNC_CONSTRAINT_GENERIC:
 		{
 			MultiList<int> notUsed;
 			for (auto&& e : GetRefArgList(g.Functions, id, notUsed))
@@ -861,6 +868,8 @@ private:
 			}
 			break;
 		}
+		case REF_CONSTRAINT:
+			break;
 		default:
 			throw RuntimeLoaderException(ERR_L_PROGRAM, "Invalid function reference");
 		}
@@ -929,6 +938,7 @@ private:
 		}
 	}
 
+	//TODO merge ConstructXXXType
 	ConstraintCheckType ConstructConstraintRefListType(ConstraintCalculationCacheRoot* root, GenericDeclaration& g,
 		const std::string& src, std::size_t i, MultiList<ConstraintCheckType>& arguments, RuntimeType* selfType, std::size_t* udCount,
 		std::vector<TraitCacheFunctionConstrainExportInfo>* exportList)
@@ -1570,6 +1580,7 @@ private:
 		}
 	}
 
+	//TODO merge with TrySimplifyConstraintType
 	bool CheckSimplifiedConstraintType(ConstraintCheckType& t)
 	{
 		//Should not have CTT_PARAMETER here.
@@ -1915,6 +1926,26 @@ private:
 			}
 		}
 
+		//Export generic functions
+		for (std::size_t i = 0; i < g->Functions.size(); ++i)
+		{
+			if ((g->Functions[i].Type & REF_REFTYPES) != REF_FUNC_CONSTRAINT_GENERIC) continue;
+			auto& name = g->NamesList[g->Functions[i].Index];
+			if (name.compare(0, prefix.length(), prefix) == 0)
+			{
+				auto funcId = FindConstraintExportGenericFunction(cache, name.substr(prefix.length()));
+				if (funcId != SIZE_MAX)
+				{
+					ConstraintExportListEntry entry;
+					entry.EntryType = CONSTRAINT_EXPORT_GENERICFUNCTION;
+					entry.Index = i;
+					assert(cache->Target.CType == CTT_RT && cache->Target.DeterminedType != nullptr);
+					entry.GenericFunction = { cache->Target.DeterminedType, funcId };
+					exportList->push_back(entry);
+				}
+			}
+		}
+
 		//Export field
 		for (std::size_t i = 0; i < g->Fields.size(); ++i)
 		{
@@ -2043,6 +2074,56 @@ private:
 			}
 			default:
 				return nullptr;
+			}
+		}
+	}
+
+	std::size_t FindConstraintExportGenericFunction(ConstraintCalculationCache* cache, const std::string& name)
+	{
+		if (name.length() == 0) return SIZE_MAX;
+		auto& constraintName = cache->Source->ExportName;
+		auto slash = name.find('/');
+		if (slash == 0) return SIZE_MAX;
+		if (slash == std::string::npos)
+		{
+			switch (cache->Source->Type)
+			{
+			case CONSTRAINT_TRAIT_ASSEMBLY:
+			case CONSTRAINT_TRAIT_IMPORT:
+				for (std::size_t i = 0; i < cache->Trait->GenericFunctions.size(); ++i)
+				{
+					auto& e = cache->Trait->GenericFunctions[i];
+					auto& tf = cache->TraitGenericFunctions[i];
+					if (name == e.ExportName)
+					{
+						return tf.Overloads[tf.CurrentOverload].Index;
+					}
+				}
+				return SIZE_MAX;
+			default:
+				return SIZE_MAX;
+			}
+		}
+		else
+		{
+			auto childName = name.substr(0, slash);
+			switch (cache->Source->Type)
+			{
+			case CONSTRAINT_TRAIT_ASSEMBLY:
+			case CONSTRAINT_TRAIT_IMPORT:
+			{
+				auto& constraintList = cache->Trait->Generic.Constraints;
+				assert(constraintList.size() == cache->Children.size());
+				for (std::size_t i = 0; i < cache->Children.size(); ++i)
+				{
+					if (constraintList[i].ExportName == childName)
+					{
+						return FindConstraintExportGenericFunction(cache->Children[i].get(), name.substr(slash + 1));
+					}
+				}
+			}
+			default:
+				return SIZE_MAX;
 			}
 		}
 	}
